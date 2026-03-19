@@ -55,12 +55,7 @@ watch(
         <p>Ask me to perform calculations or answer questions!</p>
       </div>
 
-      <div
-        v-for="msg in chatStore.messages"
-        :key="msg.id"
-        class="message"
-        :class="msg.role"
-      >
+      <div v-for="msg in chatStore.messages" :key="msg.id" class="message" :class="msg.role">
         <div class="message-header">
           {{ msg.role === 'user' ? 'You' : 'Agent' }}
         </div>
@@ -128,7 +123,10 @@ watch(
   height: 100vh;
   max-width: 800px;
   margin: 0 auto;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
 }
 
 .status-bar {

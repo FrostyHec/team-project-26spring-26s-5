@@ -40,7 +40,7 @@ echo ""
 # =============================================================================
 # Step 1: Lint & Format Check (no auto-fix)
 # =============================================================================
-print_header "Step 1/4: Lint & Format Check"
+print_header "Step 1/5: Lint & Format Check"
 
 LINT_FAILED=0
 for pkg in packages/core packages/cli packages/poc_frontend; do
@@ -57,6 +57,13 @@ for pkg in packages/core packages/cli packages/poc_frontend; do
     fi
 done
 
+echo "Checking Vue formatting..."
+cd "$PROJECT_ROOT/packages/gui"
+if ! pnpm prettier --check --experimental-cli src/; then
+    LINT_FAILED=1
+fi
+cd "$PROJECT_ROOT"
+
 if [ $LINT_FAILED -ne 0 ]; then
     print_error "Lint/format check failed"
     echo "Run 'task format' to auto-fix formatting issues"
@@ -67,7 +74,7 @@ print_success "Lint & format check passed"
 # =============================================================================
 # Step 2: Language Check
 # =============================================================================
-print_header "Step 2/4: Language Check"
+print_header "Step 2/5: Language Check"
 
 if python3 scripts/check_language.py --root "$PROJECT_ROOT"; then
     print_success "Language check passed"
@@ -79,7 +86,7 @@ fi
 # =============================================================================
 # Step 3: Run Python Tests
 # =============================================================================
-print_header "Step 3/4: Run Python Tests"
+print_header "Step 3/5: Run Python Tests"
 
 TEST_FAILED=0
 for pkg in packages/core packages/cli packages/poc_frontend; do
@@ -102,13 +109,27 @@ print_success "Python tests passed"
 # =============================================================================
 # Step 4: Run Vue Frontend Tests
 # =============================================================================
-print_header "Step 4/4: Run Vue Tests"
+print_header "Step 4/5: Run Vue Tests"
 
 cd "$PROJECT_ROOT/packages/gui"
 if pnpm vitest run; then
     print_success "Vue tests passed"
 else
     print_error "Vue tests failed"
+    exit 1
+fi
+cd "$PROJECT_ROOT"
+
+# =============================================================================
+# Step 5: Vue Type Check & Build
+# =============================================================================
+print_header "Step 5/5: Vue Type Check & Build"
+
+cd "$PROJECT_ROOT/packages/gui"
+if pnpm run type-check && pnpm build; then
+    print_success "Vue type check and build passed"
+else
+    print_error "Vue type check or build failed"
     exit 1
 fi
 cd "$PROJECT_ROOT"

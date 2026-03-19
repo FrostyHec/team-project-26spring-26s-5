@@ -91,11 +91,12 @@ tasks:
 
   # ===== Linting & Formatting =====
   lint:
-    desc: "Run linters on all Python packages"
+    desc: "Run linters on all packages"
     cmds:
       - task: lint:core
       - task: lint:cli
       - task: lint:poc
+      - task: lint:gui
 
   lint:core:
     desc: "Lint core package"
@@ -118,12 +119,19 @@ tasks:
       - uv run ruff check src/ tests/
       - uv run ruff format --check src/ tests/
 
+  lint:gui:
+    desc: "Lint Vue frontend"
+    dir: "{{.GUI_DIR}}"
+    cmds:
+      - pnpm prettier --check --experimental-cli src/
+
   format:
-    desc: "Auto-format all Python code"
+    desc: "Auto-format all code"
     cmds:
       - task: format:core
       - task: format:cli
       - task: format:poc
+      - task: format:gui
 
   format:core:
     dir: "{{.CORE_DIR}}"
@@ -142,6 +150,12 @@ tasks:
     cmds:
       - uv run ruff format src/ tests/
       - uv run ruff check --fix src/ tests/
+
+  format:gui:
+    desc: "Auto-format Vue frontend"
+    dir: "{{.GUI_DIR}}"
+    cmds:
+      - pnpm format
 
   # ===== CI =====
   ci:

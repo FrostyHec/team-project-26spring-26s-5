@@ -41,9 +41,9 @@ echo "Project directory: $PROJECT_ROOT"
 export PATH="$HOME/.local/bin:$PATH"
 
 # =============================================================================
-# Step 1: Format Python code
+# Step 1: Format code (Python + Vue)
 # =============================================================================
-print_header "Step 1/5: Code Formatting (ruff)"
+print_header "Step 1/6: Code Formatting (ruff + prettier)"
 
 for pkg in packages/core packages/cli packages/poc_frontend; do
     if [ -d "$pkg/src" ]; then
@@ -54,12 +54,18 @@ for pkg in packages/core packages/cli packages/poc_frontend; do
         cd "$PROJECT_ROOT"
     fi
 done
+
+echo "Formatting packages/gui..."
+cd "$PROJECT_ROOT/packages/gui"
+pnpm format 2>/dev/null || true
+cd "$PROJECT_ROOT"
+
 print_success "Code formatting complete"
 
 # =============================================================================
-# Step 2: Lint Check
+# Step 2: Lint Check (Python + Vue)
 # =============================================================================
-print_header "Step 2/5: Lint Check (ruff)"
+print_header "Step 2/6: Lint Check (ruff + eslint)"
 
 LINT_FAILED=0
 for pkg in packages/core packages/cli packages/poc_frontend; do
@@ -73,6 +79,13 @@ for pkg in packages/core packages/cli packages/poc_frontend; do
     fi
 done
 
+echo "Checking Vue formatting..."
+cd "$PROJECT_ROOT/packages/gui"
+if ! pnpm prettier --check --experimental-cli src/; then
+    LINT_FAILED=1
+fi
+cd "$PROJECT_ROOT"
+
 if [ $LINT_FAILED -ne 0 ]; then
     print_error "Lint check failed"
     exit 1
@@ -82,7 +95,7 @@ print_success "Lint check passed"
 # =============================================================================
 # Step 3: Language Check
 # =============================================================================
-print_header "Step 3/5: Language Check"
+print_header "Step 3/6: Language Check"
 
 echo "Checking for Chinese characters in source code..."
 if python3 scripts/check_language.py --root "$PROJECT_ROOT"; then
@@ -95,7 +108,7 @@ fi
 # =============================================================================
 # Step 4: Run Tests (pytest + vitest)
 # =============================================================================
-print_header "Step 4/5: Run Python Tests (pytest)"
+print_header "Step 4/6: Run Python Tests (pytest)"
 
 TEST_FAILED=0
 for pkg in packages/core packages/cli packages/poc_frontend; do
@@ -118,13 +131,27 @@ print_success "Python tests passed"
 # =============================================================================
 # Step 5: Run Vue Frontend Tests (vitest)
 # =============================================================================
-print_header "Step 5/5: Run Vue Tests (vitest)"
+print_header "Step 5/6: Run Vue Tests (vitest)"
 
 cd "$PROJECT_ROOT/packages/gui"
 if pnpm vitest run; then
     print_success "Vue tests passed"
 else
     print_error "Vue tests failed"
+    exit 1
+fi
+cd "$PROJECT_ROOT"
+
+# =============================================================================
+# Step 6: Vue Type Check & Build
+# =============================================================================
+print_header "Step 6/6: Vue Type Check & Build"
+
+cd "$PROJECT_ROOT/packages/gui"
+if pnpm run type-check && pnpm build; then
+    print_success "Vue type check and build passed"
+else
+    print_error "Vue type check or build failed"
     exit 1
 fi
 cd "$PROJECT_ROOT"

@@ -32,13 +32,26 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install core dependencies
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - name: Install Python dependencies
         run: |
           cd packages/core && uv sync --all-extras
           cd ../cli && uv sync --all-extras
           cd ../poc_frontend && uv sync --all-extras
 
-      - name: Check formatting
+      - name: Install Vue dependencies
+        run: cd packages/gui && pnpm install
+
+      - name: Check Python formatting
         run: |
           for pkg in packages/core packages/cli packages/poc_frontend; do
             cd $pkg
@@ -46,13 +59,16 @@ jobs:
             cd ${{ github.workspace }}
           done
 
-      - name: Check linting
+      - name: Check Python linting
         run: |
           for pkg in packages/core packages/cli packages/poc_frontend; do
             cd $pkg
             uv run ruff check src/ tests/
             cd ${{ github.workspace }}
           done
+
+      - name: Check Vue formatting
+        run: cd packages/gui && pnpm prettier --check --experimental-cli src/
 
   language-check:
     name: Language Check
@@ -90,13 +106,37 @@ jobs:
           cd ../poc_frontend && uv sync --all-extras
 
       - name: Test core
-        run: cd packages/core && uv run pytest tests/ -v --cov=agent_core --cov-report=term-missing
+        run: cd packages/core && uv run pytest tests/ -v --cov=agent_core --cov-report=term-missing --junitxml=pytest-report.xml
 
       - name: Test CLI
-        run: cd packages/cli && uv run pytest tests/ -v
+        run: cd packages/cli && uv run pytest tests/ -v --junitxml=pytest-report.xml
 
       - name: Test POC frontend
-        run: cd packages/poc_frontend && uv run pytest tests/ -v
+        run: cd packages/poc_frontend && uv run pytest tests/ -v --junitxml=pytest-report.xml
+
+      - name: Merge test reports
+        if: always()
+        run: |
+          mkdir -p test-results
+          # Combine all JUnit XML reports
+          python3 << 'EOF'
+          import xml.etree.ElementTree as ET
+          import glob
+
+          merged = ET.Element("testsuites")
+          for xml_file in glob.glob("packages/*/pytest-report.xml"):
+              tree = ET.parse(xml_file)
+              for suite in tree.getroot().iter("testsuite"):
+                  merged.append(suite)
+          ET.ElementTree(merged).write("test-results/pytest-report.xml", xml_declaration=True, encoding="utf-8")
+          EOF
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-results-3.12
+          path: test-results/pytest-report.xml
 
   test-vue:
     name: Vue Tests
@@ -117,6 +157,9 @@ jobs:
 
       - name: Install dependencies
         run: cd packages/gui && pnpm install
+
+      - name: Check formatting
+        run: cd packages/gui && pnpm prettier --check --experimental-cli src/
 
       - name: Run tests
         run: cd packages/gui && pnpm vitest run
