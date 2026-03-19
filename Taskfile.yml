@@ -1,0 +1,162 @@
+# =============================================================================
+# Taskfile - Project task runner
+# Usage: task <task-name>
+# Install: https://taskfile.dev/installation/
+# =============================================================================
+
+version: '3'
+
+vars:
+  CORE_DIR: ./packages/core
+  CLI_DIR: ./packages/cli
+  POC_DIR: ./packages/poc_frontend
+  GUI_DIR: ./packages/gui
+
+tasks:
+  # ===== Initialization =====
+  init:
+    desc: "Install all dependencies for all packages"
+    cmds:
+      - task: init:python
+      - task: init:gui
+
+  init:python:
+    desc: "Install Python dependencies for core, cli, and poc_frontend"
+    cmds:
+      - cd {{.CORE_DIR}} && uv sync --all-extras
+      - cd {{.CLI_DIR}} && uv sync --all-extras
+      - cd {{.POC_DIR}} && uv sync --all-extras
+
+  init:gui:
+    desc: "Install Vue frontend dependencies"
+    dir: "{{.GUI_DIR}}"
+    cmds:
+      - pnpm install
+
+  # ===== Development =====
+  dev:
+    desc: "Start all dev services (backend API + Chainlit)"
+    deps: [dev:server, dev:poc]
+
+  dev:server:
+    desc: "Start the FastAPI backend server"
+    dir: "{{.CLI_DIR}}"
+    cmds:
+      - uv run agent-cli serve --port 8000
+
+  dev:poc:
+    desc: "Start the Chainlit POC frontend"
+    dir: "{{.POC_DIR}}"
+    cmds:
+      - uv run chainlit run src/poc_frontend/app.py --port 8001
+
+  dev:gui:
+    desc: "Start the Vue frontend dev server"
+    dir: "{{.GUI_DIR}}"
+    cmds:
+      - pnpm dev
+
+  # ===== Testing =====
+  test:
+    desc: "Run all tests"
+    cmds:
+      - task: test:core
+      - task: test:cli
+      - task: test:poc
+      - task: test:gui
+
+  test:core:
+    desc: "Run core package tests"
+    dir: "{{.CORE_DIR}}"
+    cmds:
+      - uv run pytest tests/ -v --cov=agent_core --cov-report=term-missing
+
+  test:cli:
+    desc: "Run CLI package tests"
+    dir: "{{.CLI_DIR}}"
+    cmds:
+      - uv run pytest tests/ -v
+
+  test:poc:
+    desc: "Run POC frontend tests"
+    dir: "{{.POC_DIR}}"
+    cmds:
+      - uv run pytest tests/ -v
+
+  test:gui:
+    desc: "Run Vue frontend tests"
+    dir: "{{.GUI_DIR}}"
+    cmds:
+      - pnpm vitest run
+
+  # ===== Linting & Formatting =====
+  lint:
+    desc: "Run linters on all Python packages"
+    cmds:
+      - task: lint:core
+      - task: lint:cli
+      - task: lint:poc
+
+  lint:core:
+    desc: "Lint core package"
+    dir: "{{.CORE_DIR}}"
+    cmds:
+      - uv run ruff check src/ tests/
+      - uv run ruff format --check src/ tests/
+
+  lint:cli:
+    desc: "Lint CLI package"
+    dir: "{{.CLI_DIR}}"
+    cmds:
+      - uv run ruff check src/ tests/
+      - uv run ruff format --check src/ tests/
+
+  lint:poc:
+    desc: "Lint POC frontend"
+    dir: "{{.POC_DIR}}"
+    cmds:
+      - uv run ruff check src/ tests/
+      - uv run ruff format --check src/ tests/
+
+  format:
+    desc: "Auto-format all Python code"
+    cmds:
+      - task: format:core
+      - task: format:cli
+      - task: format:poc
+
+  format:core:
+    dir: "{{.CORE_DIR}}"
+    cmds:
+      - uv run ruff format src/ tests/
+      - uv run ruff check --fix src/ tests/
+
+  format:cli:
+    dir: "{{.CLI_DIR}}"
+    cmds:
+      - uv run ruff format src/ tests/
+      - uv run ruff check --fix src/ tests/
+
+  format:poc:
+    dir: "{{.POC_DIR}}"
+    cmds:
+      - uv run ruff format src/ tests/
+      - uv run ruff check --fix src/ tests/
+
+  # ===== CI =====
+  ci:
+    desc: "Run full CI pipeline locally"
+    cmds:
+      - task: lint
+      - task: test
+
+  # ===== Clean =====
+  clean:
+    desc: "Clean all build artifacts"
+    cmds:
+      - find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+      - find . -type d -name .pytest_cache -exec rm -rf {} + 2>/dev/null || true
+      - find . -type d -name .mypy_cache -exec rm -rf {} + 2>/dev/null || true
+      - find . -type d -name .ruff_cache -exec rm -rf {} + 2>/dev/null || true
+      - find . -type d -name "*.egg-info" -exec rm -rf {} + 2>/dev/null || true
+      - find . -type f -name "*.pyc" -delete 2>/dev/null || true

@@ -1,17 +1,18 @@
 #!/bin/bash
 # =============================================================================
-# CI local simulation script
+# CI Local Simulation Script
 # Purpose: Run all CI checks locally before creating a PR
+# Usage: bash scripts/ci-local.sh
 # =============================================================================
 
-set -e  # Exit on error
+set -e
 
 # Color definitions
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 print_header() {
     echo ""
@@ -21,96 +22,96 @@ print_header() {
     echo ""
 }
 
-print_success() {
-    echo -e "${GREEN}✓ $1${NC}"
-}
+print_success() { echo -e "${GREEN}✓ $1${NC}"; }
+print_error() { echo -e "${RED}✗ $1${NC}"; }
 
-print_error() {
-    echo -e "${RED}✗ $1${NC}"
-}
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+cd "$PROJECT_ROOT"
 
-print_warning() {
-    echo -e "${YELLOW}⚠ $1${NC}"
-}
+export PATH="$HOME/.local/bin:$PATH"
+
+echo ""
+echo -e "${BLUE}========================================${NC}"
+echo -e "${BLUE}  Agent Project CI Simulation${NC}"
+echo -e "${BLUE}========================================${NC}"
+echo ""
 
 # =============================================================================
-# Step 1: Lint & Format Check
+# Step 1: Lint & Format Check (no auto-fix)
 # =============================================================================
 print_header "Step 1/4: Lint & Format Check"
 
-echo "Checking code format..."
-if ruff format --check src/ tests/; then
-    print_success "Code format check passed"
-else
-    print_error "Code format check failed"
-    echo ""
-    echo "Run the following to fix formatting:"
-    echo "  ruff format src/ tests/"
+LINT_FAILED=0
+for pkg in packages/core packages/cli packages/poc_frontend; do
+    if [ -d "$pkg/src" ]; then
+        echo "Checking $pkg..."
+        cd "$PROJECT_ROOT/$pkg"
+        if ! uv run ruff format --check src/ tests/; then
+            LINT_FAILED=1
+        fi
+        if ! uv run ruff check src/ tests/; then
+            LINT_FAILED=1
+        fi
+        cd "$PROJECT_ROOT"
+    fi
+done
+
+if [ $LINT_FAILED -ne 0 ]; then
+    print_error "Lint/format check failed"
+    echo "Run 'task format' to auto-fix formatting issues"
     exit 1
 fi
+print_success "Lint & format check passed"
 
-echo ""
-echo "Running linter..."
-if ruff check src/ tests/; then
-    print_success "Lint check passed"
+# =============================================================================
+# Step 2: Language Check
+# =============================================================================
+print_header "Step 2/4: Language Check"
+
+if python3 scripts/check_language.py --root "$PROJECT_ROOT"; then
+    print_success "Language check passed"
 else
-    print_error "Lint check failed"
-    echo ""
-    echo "Try auto-fixing with:"
-    echo "  ruff check --fix src/ tests/"
-    exit 1
-fi
-
-# =============================================================================
-# Step 2: Type Check
-# =============================================================================
-print_header "Step 2/4: Type Check"
-
-echo "Running MyPy type checks..."
-if mypy src/; then
-    print_success "Type check passed"
-else
-    print_error "Type check failed"
-    exit 1
-fi
-
-# =============================================================================
-# Step 3: Run Tests
-# =============================================================================
-print_header "Step 3/4: Run Tests"
-
-echo "Running tests and generating reports..."
-if pytest --junitxml=pytest-report.xml --cov=deep_solutions --cov-report=xml --cov-report=term-missing; then
-    print_success "All tests passed"
-else
-    print_error "Tests failed"
+    print_error "Language check failed"
     exit 1
 fi
 
 # =============================================================================
-# Step 4: Build Check
+# Step 3: Run Python Tests
 # =============================================================================
-print_header "Step 4/4: Build Check"
+print_header "Step 3/4: Run Python Tests"
 
-echo "Cleaning previous build artifacts..."
-rm -rf dist/ build/ *.egg-info
+TEST_FAILED=0
+for pkg in packages/core packages/cli packages/poc_frontend; do
+    if [ -d "$pkg/tests" ]; then
+        echo "Testing $pkg..."
+        cd "$PROJECT_ROOT/$pkg"
+        if ! uv run pytest tests/ -v --tb=short; then
+            TEST_FAILED=1
+        fi
+        cd "$PROJECT_ROOT"
+    fi
+done
 
-echo "Building package..."
-if python -m build; then
-    print_success "Package build succeeded"
-else
-    print_error "Package build failed"
+if [ $TEST_FAILED -ne 0 ]; then
+    print_error "Python tests failed"
     exit 1
 fi
+print_success "Python tests passed"
 
-echo ""
-echo "Checking distribution files..."
-if twine check dist/*; then
-    print_success "Distribution check passed"
+# =============================================================================
+# Step 4: Run Vue Frontend Tests
+# =============================================================================
+print_header "Step 4/4: Run Vue Tests"
+
+cd "$PROJECT_ROOT/packages/gui"
+if pnpm vitest run; then
+    print_success "Vue tests passed"
 else
-    print_error "Distribution check failed"
+    print_error "Vue tests failed"
     exit 1
 fi
+cd "$PROJECT_ROOT"
 
 # =============================================================================
 # Summary
@@ -118,10 +119,5 @@ fi
 print_header "Summary"
 
 echo -e "${GREEN}✓ All CI checks passed!${NC}"
-echo ""
-echo "Generated files:"
-echo "  - pytest-report.xml (test report)"
-echo "  - coverage.xml (coverage report)"
-echo "  - dist/ (build artifacts)"
 echo ""
 print_success "Code is ready to create a Pull Request"

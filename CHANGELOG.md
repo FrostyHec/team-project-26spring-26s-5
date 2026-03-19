@@ -8,17 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Initial project structure
-- Core module with example functionality
-- Utils module with helper functions
-- Development documentation
-- PyPI publishing guide
-
-## [0.1.0] - 2026-01-28
-
-### Added
-- Initial release
-- Basic package structure
-- Example core functionality
-- Developer documentation
-- PyPI publishing workflow
+- Monorepo project structure with 4 packages (core, cli, poc_frontend, gui)
+- ReAct agent engine using LangGraph StateGraph
+- Tool registry system with decorator-based registration
+- Calculator tools (add, subtract, multiply, divide) for POC demo
+- FastAPI REST API with SSE streaming support
+- CLI frontend with interactive chat and server modes
+- Chainlit POC frontend with tool call visualization
+- Vue3 + TypeScript frontend with Pinia state management
+- Comprehensive test suite (38 Python + 15 Vue tests)
+- Taskfile.yml for task orchestration
+- check.sh and ci-local.sh scripts for local validation
+- Language check script for source code
+- CI workflow for GitHub Actions
+- Full Chinese documentation

@@ -1,204 +1,112 @@
-# 项目结构说明
-
-本文档简要介绍 `deep-solutions` 项目的目录结构、依赖管理和开发环境要求。
-
-## 目录
-- [目录结构](#目录结构)
-- [依赖管理](#依赖管理)
-- [Python 版本要求](#python-版本要求)
-- [配置文件说明](#配置文件说明)
-
----
+# 项目结构
 
 ## 目录结构
 
 ```
-deep-solutions/
-├── src/deep_solutions/          # 主包（src-layout 布局）
-│   ├── __init__.py              # 公共 API 导出
-│   ├── _version.py              # setuptools-scm 自动生成
-│   ├── tools/                   # 面向用户的工具集（公共 API）
-│   │   ├── helloworld/          # 模板/示例工具
-│   │   │   ├── core.py          # 核心功能（@public_api 标记）
-│   │   │   ├── utils.py         # 工具函数（@public_api 标记）
-│   │   │   └── __init__.py      # 公共 API 导出
-│   │   └── parameter_search/    # 参数搜索库
-│   │       ├── core/            # 核心引擎（ParamSearcher）
-│   │       ├── epochs/          # 内置 epoch 实现
-│   │       ├── analyzers/       # 结果分析器（图表、最佳参数）
-│   │       └── pytorch/         # PyTorch DataLoader 封装
-│   └── _utils/                  # 内部工具（非公共 API）
-│       ├── timer.py             # 性能计时工具
-│       ├── metrics.py           # 指标收集
-│       ├── decorators.py        # @public_api 装饰器
-│       └── __init__.py          # 内部导出
-│
-├── tests/                       # 单元测试（pytest）
-│   ├── __init__.py
-│   ├── test_tools/              # 面向用户工具的测试
-│   │   ├── test_helloworld.py   # helloworld 工具测试
-│   │   └── test_parameter_search/  # 参数搜索测试
-│   └── test__utils/             # 内部工具的测试
-│       └── test_utils.py        # timer、metrics、decorators 测试
-│
-├── poc/                         # 概念验证示例
-│   └── param_selector/          # 参数选择 POC
-│       └── dataloader_param_selector.py  # 可运行的 DataLoader 示例
-│
-├── docs/                        # 文档（双语）
-│   ├── en-US/                   # 英文文档
-│   │   ├── devs/                # 开发指南（配置、规范、CI、发布）
-│   │   ├── user-guide/          # 用户教程和使用说明
-│   │   ├── design/              # 架构和设计文档
-│   │   └── index.md             # EN 文档索引
-│   └── zh-CN/                   # 中文文档（与 en-US 结构一致）
-│       ├── devs/                # 开发指南
-│       ├── user-guide/          # 用户指南
-│       ├── design/              # 设计文档
-│       └── index.md             # ZH 文档索引
-│
-├── scripts/                     # 开发与发布脚本
-│   ├── check.sh                 # 运行所有本地检查（格式、lint、类型、语言、测试）
-│   ├── ci-local.sh              # 本地模拟完整 CI 流程
-│   ├── check_language.py        # 验证代码纯英文（调用 document_checker）
-│   ├── document_checker.py      # 检查双语文档、空引用、文档结构
-│   ├── test_release.sh          # 自动化 TestPyPI 测试发布
-│   └── final_release.sh         # 自动化正式 PyPI 发布
-│
-├── .github/                     # GitHub 配置
-│   ├── dependabot.yml           # Dependabot 依赖更新配置
-│   ├── PULL_REQUEST_TEMPLATE.md # PR 描述模板
-│   ├── ISSUE_TEMPLATE/          # Issue 模板
-│   │   ├── config.yml           # 模板选择器配置
-│   │   ├── bug_report.md        # Bug 报告模板
-│   │   ├── feature_request.md   # 功能请求模板
-│   │   ├── documentation.md     # 文档问题模板
-│   │   └── custom.md            # 自定义 Issue 模板
-│   └── workflows/               # GitHub Actions 工作流
-│       ├── ci.yml               # CI：lint、类型检查、测试
-│       ├── report.yml           # 发布测试结果到 PR 评论
-│       ├── publish-test.yml     # 发布到 TestPyPI + 验证
-│       └── publish.yml          # 发布到 PyPI + 创建 GitHub Release
-│
-├── pyproject.toml               # 项目元数据、依赖、工具配置
-├── tox.ini                      # 多 Python 版本测试（3.8-3.12）
-├── environment.yml              # Conda 环境（仅 Python 版本）
-├── .pre-commit-config.yaml      # Pre-commit hooks 配置
-├── .gitmessage                  # Git 提交消息模板
-├── .gitignore                   # Git 忽略规则
-├── README.md                    # 项目说明（英文）
-├── README.zh-CN.md              # 项目说明（中文）
-├── CHANGELOG.md                 # 发布历史
-└── LICENSE                      # Apache 2.0 许可证
+team-project-26spring-26s-5/
+├── .env.example               # 环境变量模板
+├── .gitignore                 # Git 忽略规则
+├── .pre-commit-config.yaml    # Pre-commit hooks
+├── CHANGELOG.md               # 变更日志
+├── LICENSE                    # 许可证
+├── README.md                  # 项目说明
+├── Taskfile.yml               # 任务编排
+├── docs/
+│   └── zh-CN/                 # 中文文档
+│       ├── index.md
+│       ├── design/            # 设计文档
+│       ├── devs/              # 开发指南
+│       └── user-guide/        # 用户指南
+├── packages/
+│   ├── core/                  # 🔧 核心引擎
+│   │   ├── pyproject.toml     # 包配置和依赖
+│   │   ├── src/agent_core/    # 源代码
+│   │   │   ├── __init__.py    # 公共 API 导出
+│   │   │   ├── config.py      # 环境配置加载
+│   │   │   ├── engine/        # ReAct 引擎
+│   │   │   │   ├── agent.py   # ReactAgent 核心类
+│   │   │   │   └── state.py   # AgentState 类型定义
+│   │   │   ├── tools/         # 工具系统
+│   │   │   │   ├── registry.py    # ToolRegistry + @tool 装饰器
+│   │   │   │   └── calculator.py  # POC 计算工具
+│   │   │   └── api/           # Web API
+│   │   │       └── server.py  # FastAPI 应用
+│   │   └── tests/             # 单元测试
+│   ├── cli/                   # 💻 CLI 前端
+│   │   ├── pyproject.toml
+│   │   ├── src/agent_cli/
+│   │   │   └── main.py        # CLI 入口
+│   │   └── tests/
+│   ├── poc_frontend/          # 🎨 Chainlit POC
+│   │   ├── pyproject.toml
+│   │   ├── src/poc_frontend/
+│   │   │   └── app.py         # Chainlit 应用
+│   │   └── tests/
+│   └── gui/                   # 🖥️ Vue3 前端
+│       ├── package.json
+│       ├── vite.config.ts     # Vite 配置（含 API 代理）
+│       ├── vitest.config.ts   # Vitest 配置
+│       ├── src/
+│       │   ├── api/           # API 客户端
+│       │   ├── stores/        # Pinia 状态管理
+│       │   ├── views/         # 页面组件
+│       │   └── router/        # 路由配置
+│       └── e2e/               # Playwright e2e
+└── scripts/
+    ├── check.sh               # 开发者检查脚本
+    ├── ci-local.sh            # CI 本地模拟
+    └── check_language.py      # 源代码语言检查
 ```
 
-### 核心结构原则
+## Monorepo 架构
 
-**tools/ vs _utils/**: 代码库区分面向用户的工具和内部工具：
+本项目采用 monorepo 结构，各包相互独立但可以引用：
 
-- **`tools/`**: 面向用户的工具，属于公共 API 的一部分。每个工具都是一个完整的、面向任务的包，用户可以直接导入和使用。示例：`helloworld`、`parameter_search`。
-- **`_utils/`**: 内部的、项目无关的工具代码，在代码库中跨模块使用。NOT 公共 API 的一部分。用户不应直接从 `_utils` 导入。示例：`Timer`、`MetricsCollector`、`@public_api` 装饰器。
-
-**@public_api 装饰器**: 使用 `@public_api` 装饰的函数和类被明确标记为稳定的公共 API。该装饰器：
-- 在文档字符串前添加 `[PUBLIC API]` 标记以提高可见性
-- 向用户和开发者表明该 API 是稳定且受支持的
-- 用于 `tools/` 模块中标记面向用户的功能
-- 示例：`@public_api\ndef hello_world() -> str: ...`
-
----
+```
+packages/core  ← 核心引擎，不依赖其他包
+packages/cli   ← 依赖 core（通过 uv.sources path reference）
+packages/poc_frontend ← 依赖 core
+packages/gui   ← 独立的 Node.js 项目，通过 HTTP API 与 core 通信
+```
 
 ## 依赖管理
 
-### 依赖策略：Pip-in-Conda
+### Python 包（uv）
 
-- **Conda**：仅管理 Python 版本和 pip（`environment.yml`）
-- **pip / pyproject.toml**：管理所有包依赖
-- 确保开发和生产依赖保持同步
-
-### 依赖分类（`pyproject.toml`）
-
-| 类别 | 配置节 | 用途 |
-|------|--------|------|
-| 核心 | `[project] dependencies` | 运行时需求（numpy、scipy、torch、matplotlib） |
-| 开发 | `[project.optional-dependencies] dev` | 测试、检查、格式化、构建工具 |
-| 文档 | `[project.optional-dependencies] docs` | Sphinx 文档构建 |
-
-### 核心依赖
-
-以下依赖对所有用户都是必需的，会自动安装：
-
-- **NumPy** (>=1.17.0): 数值计算基础
-- **SciPy** (>=1.5.0): 科学计算算法
-- **PyTorch** (>=1.7.0): 深度学习框架（参数搜索工具所需）
-- **Matplotlib** (>=3.3.0): 可视化和绘图（图表生成所需）
-
-这些在 `pyproject.toml` 的 `[project] dependencies` 中定义。
-
-### 安装方式
+每个 Python 包有独立的 `pyproject.toml` 和 `.venv`：
 
 ```bash
-# 仅安装核心依赖
-pip install .
-
-# 核心 + 开发依赖（推荐开发时使用）
-pip install -e ".[dev]"
+# 安装单个包
+cd packages/core && uv sync --all-extras
 
 # 安装所有
-pip install -e ".[dev,docs]"
+task init:python
 ```
 
-### 添加依赖
+包间引用通过 `[tool.uv.sources]` 实现：
 
-1. 在 `pyproject.toml` 中的相应部分添加
-2. 重新安装：`pip install -e ".[dev]"`
+```toml
+[tool.uv.sources]
+agent-core = { path = "../core", editable = true }
+```
 
-> **注意**：不要在 `environment.yml` 中添加 Python 包——它仅管理 Python 版本。
+### Node.js 包（pnpm）
 
----
-
-## Python 版本要求
-
-| Python 版本 | 状态 |
-|-------------|------|
-| 3.8 | ✅ 支持（**开发版本**） |
-| 3.9–3.12 | ✅ 支持 |
-
-### ⚠️ 开发必须使用 Python 3.8
-
-Python 3.8 是最低支持版本。在 3.8 下开发保证向上兼容，避免意外使用新语法（`match-case`、`X | Y` 类型联合等）。
+Vue 前端使用 pnpm 管理依赖：
 
 ```bash
-conda create -n deep-solutions python=3.8 -y
-conda activate deep-solutions
-pip install -e ".[dev]"
+cd packages/gui && pnpm install
+# 或
+task init:gui
 ```
-
----
 
 ## 配置文件说明
 
-| 文件 | 用途 |
+| 文件 | 说明 |
 |------|------|
-| `pyproject.toml` | 项目元数据、依赖、工具配置（ruff、pytest、mypy、commitizen、setuptools-scm） |
-| `tox.ini` | 多版本测试（Python 3.8–3.12） |
-| `environment.yml` | Conda 环境规范（仅 Python 版本） |
-| `.pre-commit-config.yaml` | Pre-commit hooks 代码质量检查 |
-| `.gitmessage` | Git 提交消息模板 |
-
----
-
-## 版本管理
-
-项目使用 **setuptools-scm** 从 Git 标签自动生成版本号：
-
-- **标签格式**：`v<MAJOR>.<MINOR>.<PATCH>`（例如 `v1.0.0`）
-- **自动生成**：`src/deep_solutions/_version.py`
-- **遵循**：[语义化版本](https://semver.org/)
-
----
-
-## 相关文档
-
-- [开发者入门指南](zh-CN_developers_guide.md)
-- [代码规范](zh-CN_code_standards.md)
-- [本地测试指南](zh-CN_local_testing.md)
+| `Taskfile.yml` | 项目级任务编排（init, dev, test, lint, format, ci, clean） |
+| `pyproject.toml` | 各 Python 包的依赖和构建配置 |
+| `package.json` | Vue 前端依赖和脚本 |
+| `vite.config.ts` | Vite 构建配置 + 开发服务器代理 |
+| `.pre-commit-config.yaml` | Git hooks（ruff, commitizen） |
+| `.env.example` | 环境变量模板 |

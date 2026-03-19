@@ -1,16 +1,15 @@
-##ignore this file##
-/target/
+# =============================================================================
+# IDE / Editor
+# =============================================================================
 /.idea/
 /.settings/
 /.vscode/
-/bin/
+*.swp
+*.swo
 
-.classpath
-.project
-.settings
-.idea
-
-# python ignoring
+# =============================================================================
+# Python
+# =============================================================================
 __pycache__/
 *.py[cod]
 *$py.class
@@ -36,6 +35,7 @@ share/python-wheels/
 MANIFEST
 
 # Virtual environments
+.venv/
 venv/
 env/
 ENV/
@@ -49,11 +49,19 @@ venv.bak/
 htmlcov/
 .tox/
 .nox/
+pytest-report.xml
+coverage.xml
 
 # MyPy
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+# Ruff
+.ruff_cache/
+
+# uv
+uv.lock
 
 # Jupyter Notebook
 .ipynb_checkpoints
@@ -63,11 +71,41 @@ dmypy.json
 *.whl
 *.tar.gz
 
+# =============================================================================
+# Node.js / Vue
+# =============================================================================
+node_modules/
+dist/
+*.local
+.env.development.local
+.env.test.local
+.env.production.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# =============================================================================
 # OS
+# =============================================================================
 .DS_Store
 Thumbs.db
 
-# specified ignoring
+# =============================================================================
+# Environment
+# =============================================================================
+.env
+!.env.example
+
+# =============================================================================
+# Chainlit
+# =============================================================================
+.chainlit/
+!packages/poc_frontend/.chainlit/config.toml
+
+# =============================================================================
+# Project-specific
+# =============================================================================
 .nonpublic
 **/nonpublic-*
 **/*-nonpublic-*
