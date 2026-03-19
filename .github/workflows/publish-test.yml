@@ -1,0 +1,155 @@
+# =============================================================================
+# Publish to TestPyPI
+# Trigger: Manual workflow dispatch (workflow_dispatch)
+# Features:
+#   1. Build distribution package
+#   2. Publish to TestPyPI (using API Token)
+#   3. Verify installation
+#
+# Usage Instructions:
+#   1. Prerequisites:
+#      - Generate API Token on TestPyPI account: https://test.pypi.org/manage/account/tokens/
+#      - In GitHub repository Settings > Secrets and variables > Actions, add:
+#        - Name: TEST_PYPI_API_TOKEN
+#        - Secret: <your-test-pypi-api-token>
+#      - Ensure TEST_PYPI_API_TOKEN secret is configured in the environment
+#
+#   2. Trigger Publishing:
+#      - Go to GitHub Actions page and select this workflow
+#      - Click "Run workflow"
+#      - Enter version tag (e.g., v1.0.0-test, v0.1.0rc1, v2.0.0.dev1)
+#      - Click "Run workflow"
+#
+#   3. The workflow will automatically:
+#      - Build sdist and wheel distributions
+#      - Publish to TestPyPI
+#      - Verify installation
+# =============================================================================
+
+name: Publish to TestPyPI
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_tag:
+        description: 'Version tag to test publish (e.g., v1.0.0-test, v0.1.0rc1, v2.0.0.dev1)'
+        required: true
+        type: string
+
+jobs:
+  publish-test:
+    name: Publish to TestPyPI
+    runs-on: ubuntu-latest
+    environment: testpypi
+    
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0  # setuptools-scm requires complete git history
+
+      - name: Check git tag exists (fail if not)
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ github.event.inputs.version_tag }}"
+          git fetch --tags --force
+          if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+            echo "Tag already exists: ${TAG}"
+          else
+            echo "::error::Tag does not exist: ${TAG}"
+            exit 1
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.8"
+
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+
+      - name: Build package
+        run: python -m build
+
+      - name: Check package
+        run: twine check dist/*
+
+      - name: Publish to TestPyPI (using API Token)
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          TWINE_REPOSITORY_URL: https://test.pypi.org/legacy/
+          TWINE_NON_INTERACTIVE: 1
+        run: twine upload dist/* --skip-existing
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          TAG="${{ github.event.inputs.version_tag }}"
+          VERSION="${TAG#v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Extracted version from tag: $VERSION"
+
+      - name: Install from TestPyPI (retry until available) and validate
+        env:
+          EXPECTED_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          python -m venv test-env
+          source test-env/bin/activate
+          python -m pip install --upgrade pip
+
+          echo "Waiting for deep-solutions==${EXPECTED_VERSION} on TestPyPI..."
+          max_attempts=18   # 18 * 20s = 360s (6 minutes)
+          attempt=1
+          until pip install --index-url https://test.pypi.org/simple/ \
+                            --extra-index-url https://pypi.org/simple/ \
+                            "deep-solutions==${EXPECTED_VERSION}"
+          do
+            if [ "$attempt" -ge "$max_attempts" ]; then
+              echo "::error::Package deep-solutions==${EXPECTED_VERSION} not available after $((max_attempts*20))s"
+              exit 1
+            fi
+            echo "Attempt ${attempt}/${max_attempts} failed; retrying in 20s..."
+            attempt=$((attempt+1))
+            sleep 20
+          done
+          echo "✅ Package installed successfully"
+
+          # Validate version and functionality
+          python - <<PYEOF
+          import sys, os, deep_solutions
+          from deep_solutions import hello_world
+
+          expected = os.environ["EXPECTED_VERSION"]
+          actual = deep_solutions.__version__
+          print(f"Expected version: {expected}")
+          print(f"Actual version:   {actual}")
+          if actual != expected:
+              print(f"❌ Version mismatch! Expected '{expected}', got '{actual}'")
+              sys.exit(1)
+          print("✅ Version validated successfully!")
+
+          result = hello_world()
+          expected_output = "Hello from deep-solutions!"
+          print(f"Function output: {result}")
+          if result != expected_output:
+              print(f"❌ Output mismatch! Expected '{expected_output}', got '{result}'")
+              sys.exit(1)
+          print("✅ hello_world() validated successfully!")
+          print("\n✅ All validations passed! Package is ready for production PyPI.")
+          PYEOF
+
+          deactivate
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: dist-testpypi
+          path: dist/

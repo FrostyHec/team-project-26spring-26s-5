@@ -1,0 +1,212 @@
+# =============================================================================
+# Publish to PyPI
+# Trigger: Manual workflow dispatch (workflow_dispatch)
+# Features:
+#   1. Run full test suite
+#   2. Build distribution package
+#   3. Publish to PyPI (using API Token)
+#   4. Verify installation
+#   5. Create GitHub Release
+#
+# Usage Instructions:
+#   1. Prerequisites:
+#      - Generate API Token on PyPI account: https://pypi.org/manage/account/tokens/
+#      - In GitHub repository Settings > Secrets and variables > Actions, add:
+#        - Name: PYPI_API_TOKEN
+#        - Secret: <your-pypi-api-token>
+#      - Ensure PYPI_API_TOKEN secret is configured in the environment
+#
+#   2. Trigger Publishing:
+#      - Go to GitHub Actions page and select this workflow
+#      - Click "Run workflow"
+#      - Enter version tag (e.g., v1.0.0, v0.1.1, v2.0.0rc1)
+#      - Click "Run workflow"
+#
+#   3. The workflow will automatically:
+#      - Run tests on all Python versions
+#      - Build sdist and wheel distributions
+#      - Publish to PyPI
+#      - Create GitHub Release
+# =============================================================================
+
+name: Publish to PyPI
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_tag:
+        description: 'Version tag to publish (e.g., v1.0.0, v0.1.1, v2.0.0rc1)'
+        required: true
+        type: string
+
+jobs:
+  # ===========================================================================
+  # First run complete test suite
+  # ===========================================================================
+  test:
+    name: Test before publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run tests
+        run: pytest --tb=short
+
+  # ===========================================================================
+  # Publish to PyPI
+  # ===========================================================================
+  publish:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    needs: test
+    environment: pypi
+    
+    permissions:
+      contents: write  # For creating release
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0  # setuptools-scm requires complete git history
+
+      - name: Check git tag exists (fail if not)
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ github.event.inputs.version_tag }}"
+          git fetch --tags --force
+          if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+            echo "Tag already exists: ${TAG}"
+          else
+            echo "::error::Tag does not exist: ${TAG}"
+            exit 1
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.8"
+
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+
+      - name: Build package
+        run: python -m build
+
+      - name: Check package
+        run: twine check dist/*
+
+      - name: Publish to PyPI (using API Token)
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+          TWINE_NON_INTERACTIVE: 1
+        run: twine upload dist/* --skip-existing
+
+      - name: Extract version from tag
+        id: get_version
+        run: |
+          TAG="${{ github.event.inputs.version_tag }}"
+          VERSION="${TAG#v}"
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Extracted version from tag: $VERSION"
+
+      - name: Install from PyPI (retry until available) and validate
+        env:
+          EXPECTED_VERSION: ${{ steps.get_version.outputs.VERSION }}
+        run: |
+          set -euo pipefail
+          python -m venv test-env
+          source test-env/bin/activate
+          python -m pip install --upgrade pip
+
+          echo "Waiting for deep-solutions==${EXPECTED_VERSION} on PyPI..."
+          max_attempts=12   # 12 * 15s = 180s (3 minutes)
+          attempt=1
+          until pip install "deep-solutions==${EXPECTED_VERSION}"
+          do
+            if [ "$attempt" -ge "$max_attempts" ]; then
+              echo "::error::Package deep-solutions==${EXPECTED_VERSION} not available after $((max_attempts*15))s"
+              exit 1
+            fi
+            echo "Attempt ${attempt}/${max_attempts} failed; retrying in 15s..."
+            attempt=$((attempt+1))
+            sleep 15
+          done
+          echo "✅ Package installed successfully"
+
+          # Validate version and functionality
+          python - <<PYEOF
+          import sys, os, deep_solutions
+          from deep_solutions import hello_world
+
+          expected = os.environ["EXPECTED_VERSION"]
+          actual = deep_solutions.__version__
+          print(f"Expected version: {expected}")
+          print(f"Actual version:   {actual}")
+          if actual != expected:
+              print(f"❌ Version mismatch! Expected '{expected}', got '{actual}'")
+              sys.exit(1)
+          print("✅ Version validated successfully!")
+
+          result = hello_world()
+          expected_output = "Hello from deep-solutions!"
+          print(f"Function output: {result}")
+          if result != expected_output:
+              print(f"❌ Output mismatch! Expected '{expected_output}', got '{result}'")
+              sys.exit(1)
+          print("✅ hello_world() validated successfully!")
+          print("\n✅ All validations passed!")
+          PYEOF
+
+          deactivate
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.version_tag }}
+          name: Release ${{ github.event.inputs.version_tag }}
+          body: |
+            ## deep-solutions ${{ github.event.inputs.version_tag }}
+            
+            ### Installation
+            
+            ```bash
+            pip install deep-solutions==${{ steps.get_version.outputs.VERSION }}
+            ```
+            
+            ### Changelog
+            
+            See [CHANGELOG.md](https://github.com/FrostyHec/deep-solutions/blob/main/CHANGELOG.md) for details.
+          files: |
+            dist/*
+          draft: false
+          prerelease: false
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: dist-pypi
+          path: dist/

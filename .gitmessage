@@ -1,0 +1,18 @@
+# <type>(<scope>): <subject>
+#
+# Types: feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert
+#
+# Examples:
+#   feat(core): add data validation function
+#   fix(utils): resolve parsing edge case
+#   docs(readme): update installation guide
+#
+# Rules:
+#   - Subject: imperative mood, no period, ≤50 chars
+#   - Body: wrap at 72 chars, explain what and why
+#   - Footer: reference issues (Closes #123)
+#
+# Breaking changes: add "BREAKING CHANGE:" in footer
+#
+# --- COMMIT MESSAGE STARTS BELOW THIS LINE ---
+

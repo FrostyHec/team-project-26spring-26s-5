@@ -1,0 +1,66 @@
+version: 2
+updates:
+  # Python dependencies via pip
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:00"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "FrostyHec"
+    assignees:
+      - "FrostyHec"
+    commit-message:
+      prefix: "build(deps)"
+      prefix-development: "build(deps-dev)"
+      include: "scope"
+    pull-request-branch-name:
+      separator: "/"
+    
+    # Rebase automatically to keep PRs updated
+    rebase-strategy: "auto"
+    
+    # Group dependencies to reduce PR count
+    groups:
+      minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+      major:
+        patterns:
+          - "*"
+        update-types:
+          - "major"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "04:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "FrostyHec"
+    assignees:
+      - "FrostyHec"
+    commit-message:
+      prefix: "ci(actions)"
+      include: "scope"
+    
+    # Rebase automatically to keep PRs updated
+    rebase-strategy: "auto"
+    
+    # Group all actions updates together
+    groups:
+      actions-all:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+          - "major"
