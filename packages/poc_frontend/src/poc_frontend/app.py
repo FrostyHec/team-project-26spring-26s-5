@@ -11,6 +11,7 @@ from typing import Any
 import chainlit as cl
 from agent_core.config import AgentConfig
 from agent_core.engine.agent import ReactAgent
+from agent_core.logging_utils import setup_logger
 from agent_core.tools.calculator import register_calculator_tools
 from agent_core.tools.registry import ToolRegistry
 
@@ -48,6 +49,10 @@ def _create_agent() -> ReactAgent:
 @cl.on_chat_start
 async def on_chat_start() -> None:
     """Initialize the agent when a new chat session starts."""
+    # Ensure logs are set up (loads settings from env)
+    config = AgentConfig.from_env()
+    setup_logger(log_level=config.log_level, log_file=config.log_file)
+
     agent = _create_agent()
     cl.user_session.set("agent", agent)
     await cl.Message(
@@ -65,35 +70,73 @@ async def on_message(message: cl.Message) -> None:
     Args:
         message: The incoming user message.
     """
+    import json
+
     agent: ReactAgent = cl.user_session.get("agent")  # type: ignore[assignment]
+
+    # Overall trace step for ReAct Loop details
+    react_step = cl.Step(name="ReAct Engine Loop Trace", type="run")
+    await react_step.send()
 
     # Create the response message for streaming
     response_msg = cl.Message(content="")
     await response_msg.send()
 
-    current_step: cl.Step | None = None
+    current_tool_step: cl.Step | None = None
 
-    async for event in agent.stream(message.content):
+    react_step.output = "**ReAct loop started.**\n\n"
+    await react_step.update()
+
+    session_id = cl.user_session.get("id", "chainlit_session")
+
+    async for event in agent.stream(message.content, session_id=session_id):
         event_type = event["type"]
 
         if event_type == "tool_start":
-            # Show tool call as a step
-            current_step = cl.Step(
-                name=f"Tool: {event['name']}",
+            tool_name = event["name"]
+            input_data = event.get("input", {})
+            input_str = json.dumps(input_data, indent=2, ensure_ascii=False)
+
+            # Record in parent step
+            react_step.output += f"- `🔧 Tool Initiated`: **{tool_name}**\n"
+            await react_step.update()
+
+            # Create specific tool child step
+            current_tool_step = cl.Step(
+                name=f"Tool Execution: {tool_name}",
                 type="tool",
+                parent_id=react_step.id,
             )
-            current_step.input = str(event.get("input", {}))
-            await current_step.send()
+            current_tool_step.output = (
+                f"### Input Payload\n```json\n{input_str}\n```\n\n"
+                "*Waiting for execution...*"
+            )
+            await current_tool_step.send()
 
         elif event_type == "tool_end":
             # Complete the tool step with output
-            if current_step is not None:
-                current_step.output = str(event.get("output", ""))
-                await current_step.update()
-                current_step = None
+            if current_tool_step is not None:
+                output_data = str(event.get("output", ""))
+
+                # Update specific tool child step
+                current_tool_step.output = current_tool_step.output.replace(
+                    "*Waiting for execution...*",
+                    f"### Execution Result\n```\n{output_data}\n```",
+                )
+                await current_tool_step.update()
+                current_tool_step = None
+
+                # Record in parent step
+                react_step.output += (
+                    f"- `✅ Tool Completed`: "
+                    f"Returned output length {len(output_data)}\n"
+                )
+                await react_step.update()
 
         elif event_type == "token":
             # Stream text tokens to the response
             await response_msg.stream_token(event["content"])
 
+    react_step.output += "\n**ReAct loop finished successfully.**"
+    await react_step.update()
     await response_msg.update()

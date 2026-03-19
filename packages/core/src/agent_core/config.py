@@ -27,6 +27,8 @@ class AgentConfig:
     model_name: str = "gpt-4o-mini"
     temperature: float = 0.0
     max_iterations: int = 10
+    log_level: str = "INFO"
+    log_file: str = "./output/logs/agent.log"
     system_prompt: str = field(
         default=(
             "You are a helpful AI assistant. You can use tools to help "
@@ -56,6 +58,8 @@ class AgentConfig:
             model_name=os.getenv("MODEL_NAME", "gpt-4o-mini"),
             temperature=float(os.getenv("TEMPERATURE", "0.0")),
             max_iterations=int(os.getenv("MAX_ITERATIONS", "10")),
+            log_level=os.getenv("LOG_LEVEL", "INFO"),
+            log_file=os.getenv("LOG_FILE", "agent.log"),
             system_prompt=os.getenv(
                 "SYSTEM_PROMPT",
                 cls.system_prompt,

@@ -63,7 +63,7 @@ agent-cli serve    # 启动 API 服务器
 2. **版本号**：遵循 [语义化版本](https://semver.org/)（SemVer）
 3. **依赖声明**：移除 `[tool.uv.sources]` 中的本地路径引用，改为版本约束
 4. **README**：每个包的 `README.md` 作为 PyPI 页面描述
-5. **License**：已配置 MIT 许可证
+5. **License**：已配置 Apache 2.0 许可证
 
 ### 发布流程（计划）
 

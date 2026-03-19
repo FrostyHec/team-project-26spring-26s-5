@@ -4,7 +4,6 @@ Provides REST API endpoints for interacting with the agent,
 including chat and streaming responses.
 """
 
-import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Any
@@ -16,10 +15,11 @@ from pydantic import BaseModel
 
 from agent_core.config import AgentConfig
 from agent_core.engine.agent import ReactAgent
+from agent_core.logging_utils import get_logger, setup_logger
 from agent_core.tools.calculator import register_calculator_tools
 from agent_core.tools.registry import ToolRegistry
 
-logger = logging.getLogger(__name__)
+logger = get_logger("server")
 
 
 class ChatRequest(BaseModel):
@@ -105,6 +105,10 @@ def create_app(config: AgentConfig | None = None) -> FastAPI:
         Configured FastAPI app.
     """
     global _agent
+
+    # Setup logger initially based on config or env
+    init_config = config or AgentConfig.from_env()
+    setup_logger(log_level=init_config.log_level, log_file=init_config.log_file)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
