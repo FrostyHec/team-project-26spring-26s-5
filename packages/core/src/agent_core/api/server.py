@@ -4,11 +4,12 @@ Provides REST API endpoints for interacting with the agent,
 including chat and streaming responses.
 """
 
+import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -17,6 +18,8 @@ from agent_core.config import AgentConfig
 from agent_core.engine.agent import ReactAgent
 from agent_core.tools.calculator import register_calculator_tools
 from agent_core.tools.registry import ToolRegistry
+
+logger = logging.getLogger(__name__)
 
 
 class ChatRequest(BaseModel):
@@ -148,7 +151,11 @@ def create_app(config: AgentConfig | None = None) -> FastAPI:
     async def chat(request: ChatRequest) -> ChatResponse:
         """Send a message and get a response."""
         assert _agent is not None
-        response = await _agent.chat(request.message)
+        try:
+            response = await _agent.chat(request.message)
+        except Exception as e:
+            logger.exception("Chat request failed")
+            raise HTTPException(status_code=502, detail=str(e)) from e
         return ChatResponse(response=response)
 
     @app.post("/chat/stream")
@@ -159,9 +166,14 @@ def create_app(config: AgentConfig | None = None) -> FastAPI:
         async def event_generator() -> AsyncGenerator[str, None]:
             import json
 
-            async for event in _agent.stream(request.message):
-                yield f"data: {json.dumps(event)}\n\n"
-            yield "data: [DONE]\n\n"
+            try:
+                async for event in _agent.stream(request.message):
+                    yield f"data: {json.dumps(event)}\n\n"
+                yield "data: [DONE]\n\n"
+            except Exception as e:
+                logger.exception("Stream request failed")
+                error_event = {"type": "error", "content": str(e)}
+                yield f"data: {json.dumps(error_event)}\n\n"
 
         return StreamingResponse(
             event_generator(),

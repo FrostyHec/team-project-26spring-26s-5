@@ -1,5 +1,7 @@
 """Tests for the FastAPI server endpoints."""
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -44,3 +46,26 @@ class TestToolsEndpoint:
         assert "subtract" in names
         assert "multiply" in names
         assert "divide" in names
+
+
+class TestChatEndpointErrors:
+    """Test error handling for chat endpoint."""
+
+    def test_chat_llm_error_returns_502(self, client: TestClient) -> None:
+        """Test that LLM API errors return 502 with error detail."""
+        with patch(
+            "agent_core.engine.agent.ReactAgent.chat",
+            new_callable=AsyncMock,
+            side_effect=Exception("API key quota exhausted"),
+        ):
+            response = client.post(
+                "/chat",
+                json={"message": "Hello"},
+            )
+            assert response.status_code == 502
+            assert "API key quota exhausted" in response.json()["detail"]
+
+    def test_chat_missing_message_returns_422(self, client: TestClient) -> None:
+        """Test that missing message field returns 422."""
+        response = client.post("/chat", json={})
+        assert response.status_code == 422

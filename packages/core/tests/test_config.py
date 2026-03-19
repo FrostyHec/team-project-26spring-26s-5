@@ -45,7 +45,6 @@ class TestAgentConfig:
 
     def test_from_env_defaults(self) -> None:
         """Test from_env with no env vars uses defaults."""
-        # Clear relevant env vars
         env_clear = {
             "OPENAI_API_KEY": "",
             "MODEL_NAME": "",
@@ -55,6 +54,8 @@ class TestAgentConfig:
             # Remove keys if they exist
             for key in env_clear:
                 os.environ.pop(key, None)
-            config = AgentConfig.from_env()
-            assert config.model_name == "gpt-4o-mini"
-            assert config.temperature == 0.0
+            # Patch load_dotenv to prevent .env file from overriding
+            with patch("agent_core.config.load_dotenv"):
+                config = AgentConfig.from_env()
+                assert config.model_name == "gpt-4o-mini"
+                assert config.temperature == 0.0
