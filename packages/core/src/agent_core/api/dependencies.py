@@ -1,7 +1,7 @@
 """Dependency injection for FastAPI routes.
 
-Provides the shared ReactAgent instance via FastAPI's Depends system,
-analogous to Spring Boot's @Autowired / service injection.
+Provides the shared ReactAgent instance and SessionStore via
+FastAPI's Depends system, analogous to Spring Boot's @Autowired.
 """
 
 from typing import Any
@@ -10,11 +10,13 @@ from langchain_openai import ChatOpenAI
 
 from agent_core.config import AgentConfig
 from agent_core.engine.agent import ReactAgent
+from agent_core.persistence.session_store import SessionStore
 from agent_core.tools.calculator import register_calculator_tools
 from agent_core.tools.registry import ToolRegistry
 
-# Module-level agent instance (initialized during app lifespan)
+# Module-level singletons (initialized during app lifespan)
 _agent: ReactAgent | None = None
+_store: SessionStore | None = None
 
 
 def create_agent(config: AgentConfig | None = None) -> ReactAgent:
@@ -50,19 +52,28 @@ def create_agent(config: AgentConfig | None = None) -> ReactAgent:
     )
 
 
-def init_agent(config: AgentConfig | None = None) -> None:
-    """Initialize the global agent instance (called during lifespan).
+async def init_dependencies(config: AgentConfig | None = None) -> None:
+    """Initialize all singletons (called during lifespan startup).
 
     Args:
         config: Optional configuration.
     """
-    global _agent
+    global _agent, _store
+    resolved = config or AgentConfig.from_env()
+
+    _store = SessionStore(resolved.db_path)
+    await _store.initialize()
+
     _agent = create_agent(config)
+    _agent.session_store = _store
 
 
-def shutdown_agent() -> None:
-    """Release the global agent instance (called during lifespan)."""
-    global _agent
+async def shutdown_dependencies() -> None:
+    """Release all singletons (called during lifespan shutdown)."""
+    global _agent, _store
+    if _store:
+        await _store.close()
+        _store = None
     _agent = None
 
 
@@ -78,3 +89,17 @@ def get_agent() -> ReactAgent:
     if _agent is None:
         raise RuntimeError("Agent not initialized")
     return _agent
+
+
+def get_store() -> SessionStore:
+    """FastAPI dependency that provides the SessionStore.
+
+    Returns:
+        The initialized SessionStore.
+
+    Raises:
+        RuntimeError: If the store has not been initialized.
+    """
+    if _store is None:
+        raise RuntimeError("SessionStore not initialized")
+    return _store

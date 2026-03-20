@@ -2,9 +2,9 @@
 
 import uuid
 from collections.abc import AsyncGenerator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 from langchain_core.runnables.config import RunnableConfig
 from langgraph.graph import END, StateGraph
 
@@ -16,6 +16,9 @@ from agent_core.models.events import (
     ToolStartEvent,
 )
 from agent_core.tools.registry import ToolRegistry
+
+if TYPE_CHECKING:
+    from agent_core.persistence.session_store import SessionStore
 
 logger = get_logger("agent")
 
@@ -51,6 +54,7 @@ class ReactAgent:
         self.llm = llm
         self.tool_registry = tool_registry
         self.system_prompt = system_prompt
+        self.session_store: SessionStore | None = None
 
         # Bind tools to the LLM
         lc_tools = self.tool_registry.get_langchain_tools()
@@ -202,12 +206,66 @@ class ReactAgent:
 
         return {"messages": tool_messages}
 
+    async def _load_history(self, session_id: str) -> list[BaseMessage]:
+        """Load conversation history from the session store.
+
+        Args:
+            session_id: The session UUID.
+
+        Returns:
+            List of LangChain messages from history.
+        """
+        if not self.session_store:
+            return []
+
+        from agent_core.persistence.converters import record_to_message
+
+        records = await self.session_store.get_messages(session_id)
+        return [record_to_message(r) for r in records]
+
+    async def _persist_messages(
+        self,
+        session_id: str,
+        messages: list[BaseMessage],
+        start_ordinal: int,
+    ) -> None:
+        """Persist new messages to the session store.
+
+        Args:
+            session_id: The session UUID.
+            messages: New messages to persist.
+            start_ordinal: Ordinal offset for the first message.
+        """
+        if not self.session_store:
+            return
+
+        from agent_core.persistence.converters import message_to_record
+
+        for i, msg in enumerate(messages):
+            record = message_to_record(msg, session_id, start_ordinal + i)
+            await self.session_store.add_message(record)
+
+    async def _ensure_session(self, session_id: str) -> None:
+        """Ensure a session exists in the store, creating if needed.
+
+        Args:
+            session_id: The session UUID.
+        """
+        if not self.session_store:
+            return
+        existing = await self.session_store.get_session(session_id)
+        if existing is None:
+            await self.session_store.create_session_with_id(session_id)
+
     async def chat(self, user_input: str, session_id: str | None = None) -> str:
         """Send a message to the agent and get a response.
 
+        If session_id is provided and a SessionStore is attached,
+        conversation history is loaded and new messages are persisted.
+
         Args:
             user_input: The user's message.
-            session_id: Optional session identifier for tracking logs.
+            session_id: Optional session identifier.
 
         Returns:
             The agent's final text response.
@@ -215,24 +273,30 @@ class ReactAgent:
         if not session_id:
             session_id = str(uuid.uuid4())
 
-        logger.info(
-            f"Starting chat with input: {user_input}", extra={"session_id": session_id}
-        )
+        extra = {"session_id": session_id}
+        logger.info(f"Starting chat with input: {user_input}", extra=extra)
+
+        # Load history and build initial state
+        history = await self._load_history(session_id)
+        await self._ensure_session(session_id)
+        new_msg = HumanMessage(content=user_input)
+        all_messages = history + [new_msg]
 
         initial_state: AgentState = {
-            "messages": [HumanMessage(content=user_input)],
+            "messages": all_messages,
             "pending_tool_call": None,
         }
 
         config = {"configurable": {"session_id": session_id}}
 
         result = await self.graph.ainvoke(initial_state, config=config)
-        last_message = result["messages"][-1]
 
-        logger.info(
-            f"Finished chat, final response length: len({str(last_message.content)})",
-            extra={"session_id": session_id},
-        )
+        # Persist new messages (everything after history)
+        new_messages = result["messages"][len(history) :]
+        await self._persist_messages(session_id, new_messages, len(history))
+
+        last_message = result["messages"][-1]
+        logger.info("Finished chat.", extra=extra)
         return str(last_message.content)
 
     async def stream(
@@ -240,9 +304,12 @@ class ReactAgent:
     ) -> AsyncGenerator[dict[str, Any], None]:
         """Stream agent execution steps for real-time UI updates.
 
+        If session_id is provided and a SessionStore is attached,
+        conversation history is loaded and new messages are persisted.
+
         Args:
             user_input: The user's message.
-            session_id: Optional session identifier for tracking logs.
+            session_id: Optional session identifier.
 
         Yields:
             Dicts with step type and content for UI rendering.
@@ -250,17 +317,24 @@ class ReactAgent:
         if not session_id:
             session_id = str(uuid.uuid4())
 
-        logger.info(
-            f"Starting stream with input: {user_input}",
-            extra={"session_id": session_id},
-        )
+        extra = {"session_id": session_id}
+        logger.info(f"Starting stream with input: {user_input}", extra=extra)
+
+        # Load history and build initial state
+        history = await self._load_history(session_id)
+        await self._ensure_session(session_id)
+        new_msg = HumanMessage(content=user_input)
+        all_messages = history + [new_msg]
 
         initial_state: AgentState = {
-            "messages": [HumanMessage(content=user_input)],
+            "messages": all_messages,
             "pending_tool_call": None,
         }
 
         config = {"configurable": {"session_id": session_id}}
+
+        # Collect new messages for persistence
+        new_messages: list[BaseMessage] = [new_msg]
 
         async for event in self.graph.astream_events(
             initial_state, config=config, version="v2"
@@ -272,6 +346,12 @@ class ReactAgent:
                 if content:
                     yield TokenEvent(content=content).model_dump()
 
+            elif kind == "on_chat_model_end":
+                # Capture the full AI message for persistence
+                ai_msg = event["data"]["output"]
+                if isinstance(ai_msg, AIMessage):
+                    new_messages.append(ai_msg)
+
             elif kind == "on_custom_event":
                 custom_name = event["name"]
                 if custom_name == "tool_call_start":
@@ -280,9 +360,19 @@ class ReactAgent:
                         input=event["data"].get("args", {}),
                     ).model_dump()
                 elif custom_name == "tool_call_end":
-                    yield ToolEndEvent(
-                        name=event["data"]["tool"],
-                        output=event["data"].get("output", ""),
-                    ).model_dump()
+                    tool_name = event["data"]["tool"]
+                    output = event["data"].get("output", "")
+                    yield ToolEndEvent(name=tool_name, output=output).model_dump()
+                    # Capture tool message for persistence
+                    new_messages.append(
+                        ToolMessage(
+                            content=output,
+                            name=tool_name,
+                            tool_call_id="",
+                        )
+                    )
 
-        logger.info("Finished stream.", extra={"session_id": session_id})
+        # Persist all new messages
+        await self._persist_messages(session_id, new_messages, len(history))
+
+        logger.info("Finished stream.", extra=extra)

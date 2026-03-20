@@ -29,6 +29,7 @@ class AgentConfig:
     max_iterations: int = 10
     log_level: str = "INFO"
     log_file: str = "./output/logs/agent.log"
+    db_path: str = "./output/sessions.db"
     system_prompt: str = field(
         default=(
             "You are a helpful AI assistant. You can use tools to help "
@@ -60,6 +61,7 @@ class AgentConfig:
             max_iterations=int(os.getenv("MAX_ITERATIONS", "10")),
             log_level=os.getenv("LOG_LEVEL", "INFO"),
             log_file=os.getenv("LOG_FILE", "agent.log"),
+            db_path=os.getenv("DB_PATH", "./output/sessions.db"),
             system_prompt=os.getenv(
                 "SYSTEM_PROMPT",
                 cls.system_prompt,
