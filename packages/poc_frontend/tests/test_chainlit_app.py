@@ -1,6 +1,7 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from agent_core.models.events import EventType
 
 import poc_frontend.app as app
 
@@ -12,10 +13,14 @@ async def test_on_message():
     mock_agent = AsyncMock()
 
     async def mock_stream(msg, session_id=None):
-        yield {"type": "token", "content": "I "}
-        yield {"type": "tool_start", "name": "add", "input": {"a": 1, "b": 2}}
-        yield {"type": "tool_end", "name": "add", "output": "3"}
-        yield {"type": "token", "content": "did it."}
+        yield {"type": EventType.TOKEN, "content": "I "}
+        yield {
+            "type": EventType.TOOL_START,
+            "name": "add",
+            "input": {"a": 1, "b": 2},
+        }
+        yield {"type": EventType.TOOL_END, "name": "add", "output": "3"}
+        yield {"type": EventType.TOKEN, "content": "did it."}
 
     mock_agent.stream = mock_stream
 

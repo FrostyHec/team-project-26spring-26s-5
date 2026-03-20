@@ -12,6 +12,7 @@ import chainlit as cl
 from agent_core.config import AgentConfig
 from agent_core.engine.agent import ReactAgent
 from agent_core.logging_utils import setup_logger
+from agent_core.models.events import EventType
 from agent_core.tools.calculator import register_calculator_tools
 from agent_core.tools.registry import ToolRegistry
 
@@ -92,7 +93,7 @@ async def on_message(message: cl.Message) -> None:
     async for event in agent.stream(message.content, session_id=session_id):
         event_type = event["type"]
 
-        if event_type == "tool_start":
+        if event_type == EventType.TOOL_START:
             tool_name = event["name"]
             input_data = event.get("input", {})
             input_str = json.dumps(input_data, indent=2, ensure_ascii=False)
@@ -113,7 +114,7 @@ async def on_message(message: cl.Message) -> None:
             )
             await current_tool_step.send()
 
-        elif event_type == "tool_end":
+        elif event_type == EventType.TOOL_END:
             # Complete the tool step with output
             if current_tool_step is not None:
                 output_data = str(event.get("output", ""))
@@ -133,7 +134,7 @@ async def on_message(message: cl.Message) -> None:
                 )
                 await react_step.update()
 
-        elif event_type == "token":
+        elif event_type == EventType.TOKEN:
             # Stream text tokens to the response
             await response_msg.stream_token(event["content"])
 

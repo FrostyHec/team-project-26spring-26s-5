@@ -3,7 +3,7 @@ name = "agent-poc-frontend"
 version = "0.1.0"
 description = "Chainlit POC frontend for the ReAct Agent"
 requires-python = ">=3.12"
-license = { text = "MIT" }
+license = { text = "Apache-2.0" }
 dependencies = [
     "agent-core",
     "chainlit>=2.0.0",

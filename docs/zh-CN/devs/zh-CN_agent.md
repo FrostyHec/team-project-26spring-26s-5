@@ -19,12 +19,20 @@ team-project-26spring-26s-5/
 │   │   │   ├── engine/       # ReAct 循环引擎
 │   │   │   │   ├── agent.py  # ReactAgent（LangGraph）
 │   │   │   │   └── state.py  # AgentState 类型
+│   │   │   ├── models/       # 数据模型
+│   │   │   │   └── events.py # EventType 枚举 + 事件模型
 │   │   │   ├── tools/        # 工具系统
 │   │   │   │   ├── registry.py   # ToolRegistry + @register
 │   │   │   │   └── calculator.py # POC 计算工具
 │   │   │   ├── api/
-│   │   │   │   └── server.py # FastAPI 服务端
-│   │   │   └── config.py     # 环境配置
+│   │   │   │   ├── server.py      # 应用工厂
+│   │   │   │   ├── dependencies.py # 依赖注入
+│   │   │   │   └── routes/        # 路由层
+│   │   │   │       ├── health.py
+│   │   │   │       ├── chat.py
+│   │   │   │       └── tools.py
+│   │   │   ├── config.py     # 环境配置
+│   │   │   └── logging_utils.py # 日志工具
 │   │   └── tests/            # pytest 测试
 │   ├── cli/                  # CLI 前端（Python）
 │   │   ├── pyproject.toml
@@ -203,6 +211,60 @@ Vue3 前端通过 Vite 代理 `/api` → `localhost:8000`，使用 Pinia 管理�
 - 合理使用设计模式（注册表模式、工厂模式等），但不为了用而用
 - 代码应高度模块化，便于扩展和维护
 - 包间解耦：`core` 不依赖任何前端包，前端通过 HTTP API 与 `core` 通信
+
+### 类型安全与常量管理
+
+为减少因字符串硬编码导致的运行时错误，项目遵循以下规范：
+
+1. **使用枚举（Enum）代替字符串常量**：
+   所有事件类型、状态标识等分类值必须定义为 `StrEnum`，禁止在业务代码中直接使用字符串字面量。
+   ```python
+   # 正确 ✅
+   from agent_core.models.events import EventType
+   if event_type == EventType.TOOL_START:
+       ...
+
+   # 错误 ❌
+   if event_type == "tool_start":
+       ...
+   ```
+
+2. **使用 Pydantic BaseModel 代替裸字典**：
+   所有跨模块传递的数据结构应定义为 Pydantic 模型，利用类型检查和字段验证确保正确性。
+   ```python
+   # 正确 ✅
+   event = ToolStartEvent(name="add", input={"a": 1, "b": 2})
+   yield event.model_dump()
+
+   # 错误 ❌
+   yield {"type": "tool_start", "name": "add", "input": {"a": 1, "b": 2}}
+   ```
+
+3. **保留 LangGraph 规范**：
+   LangGraph 内部使用的 `TypedDict`（如 `AgentState`）保持不变，遵循框架约定。访问 LangGraph 字典字段时可使用字符串键（如 `state["messages"]`）。
+
+4. **充分利用 Linter 功能**：
+   - 使用 Ruff 进行格式化和静态检查
+   - 开启 `mypy` 严格模式，确保所有公共 API 有完整类型注解
+   - IDE（如 VS Code + Pylance）会自动提示未定义的枚举成员和模型字段拼写错误
+
+### API 分层架构
+
+FastAPI 服务采用类似 Spring Boot 的分层结构：
+
+```
+api/
+├── server.py          # 应用工厂（组装路由、中间件、生命周期）
+├── dependencies.py    # 依赖注入（Agent 实例管理）
+└── routes/            # 路由层（相当于 Controller）
+    ├── health.py      # GET /health
+    ├── chat.py        # POST /chat, POST /chat/stream
+    └── tools.py       # GET /tools
+```
+
+- **Routes**（Controller）：定义 HTTP 端点，负责请求/响应转换
+- **Dependencies**（Service DI）：通过 FastAPI 的 `Depends` 机制注入 `ReactAgent`
+- **Engine**（Service）：核心业务逻辑（`ReactAgent`、`ToolRegistry`）
 
 ### 高质量标准
 

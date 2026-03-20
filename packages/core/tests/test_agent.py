@@ -4,6 +4,7 @@ import pytest
 from langchain_core.messages import AIMessage
 
 from agent_core.engine.agent import ReactAgent
+from agent_core.models.events import EventType
 from agent_core.tools.registry import ToolRegistry
 
 
@@ -32,8 +33,8 @@ async def test_agent_stream_tool_events():
     async for event in agent.stream("test input", session_id="test_session"):
         events.append(event)
 
-    tool_start_events = [e for e in events if e["type"] == "tool_start"]
-    tool_end_events = [e for e in events if e["type"] == "tool_end"]
+    tool_start_events = [e for e in events if e["type"] == EventType.TOOL_START]
+    tool_end_events = [e for e in events if e["type"] == EventType.TOOL_END]
 
     # We expect custom events emitted from _execute_tools
     assert len(tool_start_events) == 1

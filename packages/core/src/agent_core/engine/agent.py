@@ -10,6 +10,11 @@ from langgraph.graph import END, StateGraph
 
 from agent_core.engine.state import AgentState
 from agent_core.logging_utils import get_logger
+from agent_core.models.events import (
+    TokenEvent,
+    ToolEndEvent,
+    ToolStartEvent,
+)
 from agent_core.tools.registry import ToolRegistry
 
 logger = get_logger("agent")
@@ -101,6 +106,8 @@ class ReactAgent:
         if self.system_prompt:
             from langchain_core.messages import SystemMessage
 
+            # TODO: system prompt is fixed and auto-prepended;
+            # this may change to support dynamic system prompts
             # Only add system message if not already present
             if not messages or not isinstance(messages[0], SystemMessage):
                 messages = [SystemMessage(content=self.system_prompt)] + messages
@@ -175,7 +182,9 @@ class ReactAgent:
                         )
                     )
                 except Exception as e:
-                    logger.debug(f"Tool {tool_name} execution error: {e}", extra=extra)
+                    logger.warning(
+                        f"Tool {tool_name} execution error: {e}", extra=extra
+                    )
                     tool_messages.append(
                         ToolMessage(
                             content=f"Error: {e}",
@@ -261,21 +270,19 @@ class ReactAgent:
             if kind == "on_chat_model_stream":
                 content = event["data"]["chunk"].content
                 if content:
-                    yield {"type": "token", "content": content}
+                    yield TokenEvent(content=content).model_dump()
 
             elif kind == "on_custom_event":
                 custom_name = event["name"]
                 if custom_name == "tool_call_start":
-                    yield {
-                        "type": "tool_start",
-                        "name": event["data"]["tool"],
-                        "input": event["data"].get("args", {}),
-                    }
+                    yield ToolStartEvent(
+                        name=event["data"]["tool"],
+                        input=event["data"].get("args", {}),
+                    ).model_dump()
                 elif custom_name == "tool_call_end":
-                    yield {
-                        "type": "tool_end",
-                        "name": event["data"]["tool"],
-                        "output": event["data"].get("output", ""),
-                    }
+                    yield ToolEndEvent(
+                        name=event["data"]["tool"],
+                        output=event["data"].get("output", ""),
+                    ).model_dump()
 
         logger.info("Finished stream.", extra={"session_id": session_id})
