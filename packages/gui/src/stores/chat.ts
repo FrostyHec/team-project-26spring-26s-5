@@ -8,6 +8,8 @@ export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
   toolCalls?: ToolCallInfo[]
+  traceSteps?: TraceStep[]
+  loopActive?: boolean
   timestamp: Date
 }
 
@@ -17,6 +19,15 @@ export interface ToolCallInfo {
   input: Record<string, unknown>
   output?: string
   status: 'running' | 'completed' | 'error'
+}
+
+/** A step in the linear ReAct trace. */
+export interface TraceStep {
+  type: 'loop_start' | 'thinking' | 'tool_start' | 'tool_end' | 'loop_end'
+  content?: string
+  name?: string
+  input?: Record<string, unknown>
+  output?: string
 }
 
 export const useChatStore = defineStore('chat', () => {
@@ -57,6 +68,8 @@ export const useChatStore = defineStore('chat', () => {
       role: 'assistant',
       content: '',
       toolCalls: [],
+      traceSteps: [],
+      loopActive: false,
       timestamp: new Date(),
     }
     messages.value.push(assistantMsg)
@@ -70,11 +83,28 @@ export const useChatStore = defineStore('chat', () => {
             assistantMsg.content += event.content || ''
             break
 
+          case 'loop_start':
+            assistantMsg.loopActive = true
+            assistantMsg.traceSteps?.push({ type: 'loop_start' })
+            break
+
+          case 'thinking':
+            assistantMsg.traceSteps?.push({
+              type: 'thinking',
+              content: event.content || '',
+            })
+            break
+
           case 'tool_start':
             assistantMsg.toolCalls?.push({
               name: event.name || 'unknown',
               input: event.input || {},
               status: 'running',
+            })
+            assistantMsg.traceSteps?.push({
+              type: 'tool_start',
+              name: event.name || 'unknown',
+              input: event.input || {},
             })
             break
 
@@ -86,8 +116,18 @@ export const useChatStore = defineStore('chat', () => {
               tc.output = event.output || ''
               tc.status = 'completed'
             }
+            assistantMsg.traceSteps?.push({
+              type: 'tool_end',
+              name: event.name || 'unknown',
+              output: event.output || '',
+            })
             break
           }
+
+          case 'loop_end':
+            assistantMsg.loopActive = false
+            assistantMsg.traceSteps?.push({ type: 'loop_end' })
+            break
         }
       }
     } catch (e) {

@@ -1,6 +1,5 @@
 """Tests for SessionStore — SQLite-backed session and message CRUD."""
 
-
 import pytest
 
 from agent_core.models.session import MessageRecord, MessageRole

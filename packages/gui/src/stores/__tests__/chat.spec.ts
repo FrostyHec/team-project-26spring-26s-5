@@ -60,7 +60,9 @@ describe('useChatStore', () => {
     it('adds user and assistant messages', async () => {
       // Mock an async generator that yields token events
       async function* fakeStream() {
+        yield { type: 'loop_start' as const }
         yield { type: 'token' as const, content: 'Hello!' }
+        yield { type: 'loop_end' as const }
       }
       mockStreamMessage.mockReturnValue(fakeStream())
 
@@ -76,8 +78,10 @@ describe('useChatStore', () => {
 
     it('handles token events by appending content', async () => {
       async function* fakeStream() {
+        yield { type: 'loop_start' as const }
         yield { type: 'token' as const, content: 'Hello' }
         yield { type: 'token' as const, content: ' world' }
+        yield { type: 'loop_end' as const }
       }
       mockStreamMessage.mockReturnValue(fakeStream())
 
@@ -90,9 +94,11 @@ describe('useChatStore', () => {
 
     it('handles tool_start and tool_end events', async () => {
       async function* fakeStream() {
+        yield { type: 'loop_start' as const }
         yield { type: 'tool_start' as const, name: 'add', input: { a: 1, b: 2 } }
         yield { type: 'tool_end' as const, name: 'add', output: '3' }
         yield { type: 'token' as const, content: 'Result: 3' }
+        yield { type: 'loop_end' as const }
       }
       mockStreamMessage.mockReturnValue(fakeStream())
 
@@ -105,6 +111,44 @@ describe('useChatStore', () => {
       expect(assistantMsg.toolCalls![0]!.status).toBe('completed')
       expect(assistantMsg.toolCalls![0]!.output).toBe('3')
       expect(assistantMsg.content).toBe('Result: 3')
+    })
+
+    it('handles loop_start and loop_end events', async () => {
+      async function* fakeStream() {
+        yield { type: 'loop_start' as const }
+        yield { type: 'token' as const, content: 'Hi' }
+        yield { type: 'loop_end' as const }
+      }
+      mockStreamMessage.mockReturnValue(fakeStream())
+
+      const store = useChatStore()
+      await store.sendMessage('hello')
+
+      const assistantMsg = store.messages[1]!
+      expect(assistantMsg.traceSteps).toHaveLength(2)
+      expect(assistantMsg.traceSteps![0]!.type).toBe('loop_start')
+      expect(assistantMsg.traceSteps![1]!.type).toBe('loop_end')
+      expect(assistantMsg.loopActive).toBe(false)
+    })
+
+    it('handles thinking events', async () => {
+      async function* fakeStream() {
+        yield { type: 'loop_start' as const }
+        yield { type: 'thinking' as const, content: 'Let me analyze...' }
+        yield { type: 'tool_start' as const, name: 'add', input: { a: 1, b: 2 } }
+        yield { type: 'tool_end' as const, name: 'add', output: '3' }
+        yield { type: 'token' as const, content: 'Done' }
+        yield { type: 'loop_end' as const }
+      }
+      mockStreamMessage.mockReturnValue(fakeStream())
+
+      const store = useChatStore()
+      await store.sendMessage('compute')
+
+      const assistantMsg = store.messages[1]!
+      const thinkingSteps = assistantMsg.traceSteps!.filter((s) => s.type === 'thinking')
+      expect(thinkingSteps).toHaveLength(1)
+      expect(thinkingSteps[0]!.content).toBe('Let me analyze...')
     })
 
     it('sets error on stream failure', async () => {

@@ -60,27 +60,46 @@ watch(
           {{ msg.role === 'user' ? 'You' : 'Agent' }}
         </div>
 
-        <!-- Tool calls (thought trace) -->
-        <div v-if="msg.toolCalls && msg.toolCalls.length > 0" class="tool-calls">
-          <details v-for="(tc, i) in msg.toolCalls" :key="i" class="tool-call" open>
-            <summary>
-              <span class="tool-status" :class="tc.status">
-                {{ tc.status === 'running' ? '⏳' : '✅' }}
-              </span>
-              Tool: {{ tc.name }}
-            </summary>
-            <div class="tool-detail">
-              <div class="tool-input">
-                <strong>Input:</strong>
-                <code>{{ JSON.stringify(tc.input) }}</code>
+        <!-- Linear ReAct Trace -->
+        <details
+          v-if="msg.traceSteps && msg.traceSteps.length > 0"
+          class="trace-block"
+          :open="msg.loopActive"
+        >
+          <summary class="trace-summary">
+            {{ msg.loopActive ? '⏳ ReAct Loop Running...' : '🔍 ReAct Trace' }}
+          </summary>
+          <div class="trace-steps">
+            <div v-for="(step, i) in msg.traceSteps" :key="i" class="trace-step" :class="step.type">
+              <!-- Loop start -->
+              <div v-if="step.type === 'loop_start'" class="step-label loop-boundary">
+                ▶ ReAct loop started
               </div>
-              <div v-if="tc.output" class="tool-output">
-                <strong>Output:</strong>
-                <code>{{ tc.output }}</code>
+
+              <!-- Thinking -->
+              <div v-else-if="step.type === 'thinking'" class="step-thinking">
+                💭 <strong>Thinking:</strong> {{ step.content }}
+              </div>
+
+              <!-- Tool start -->
+              <div v-else-if="step.type === 'tool_start'" class="step-tool-start">
+                🔧 <strong>Tool Call:</strong> {{ step.name }}
+                <code class="tool-args">{{ JSON.stringify(step.input) }}</code>
+              </div>
+
+              <!-- Tool end -->
+              <div v-else-if="step.type === 'tool_end'" class="step-tool-end">
+                ✅ <strong>Result:</strong>
+                <code class="tool-result">{{ step.output }}</code>
+              </div>
+
+              <!-- Loop end -->
+              <div v-else-if="step.type === 'loop_end'" class="step-label loop-boundary">
+                ■ ReAct loop finished
               </div>
             </div>
-          </details>
-        </div>
+          </div>
+        </details>
 
         <!-- Message content -->
         <div class="message-content">{{ msg.content }}</div>
@@ -243,6 +262,67 @@ watch(
   padding: 2px 6px;
   border-radius: 3px;
   font-size: 12px;
+}
+
+.trace-block {
+  margin-bottom: 8px;
+  border: 1px solid #d0d7de;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.trace-summary {
+  cursor: pointer;
+  padding: 8px 12px;
+  background: #f6f8fa;
+  font-weight: 500;
+  font-size: 13px;
+  user-select: none;
+}
+
+.trace-steps {
+  padding: 8px 12px;
+  border-top: 1px solid #d0d7de;
+}
+
+.trace-step {
+  padding: 4px 0;
+  font-size: 13px;
+  line-height: 1.5;
+  border-bottom: 1px solid #eef1f3;
+}
+
+.trace-step:last-child {
+  border-bottom: none;
+}
+
+.step-label.loop-boundary {
+  color: #586069;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.step-thinking {
+  color: #6f42c1;
+  padding-left: 4px;
+}
+
+.step-tool-start {
+  padding-left: 4px;
+}
+
+.step-tool-end {
+  padding-left: 4px;
+}
+
+.tool-args,
+.tool-result {
+  display: inline-block;
+  background: #d4edda;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 12px;
+  margin-left: 4px;
 }
 
 .loading-indicator {

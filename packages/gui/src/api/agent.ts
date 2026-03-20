@@ -14,7 +14,7 @@ export interface ToolInfo {
 
 /** A streaming event from the agent. */
 export interface AgentEvent {
-  type: 'token' | 'tool_start' | 'tool_end'
+  type: 'token' | 'tool_start' | 'tool_end' | 'thinking' | 'loop_start' | 'loop_end' | 'error'
   content?: string
   name?: string
   input?: Record<string, unknown>

@@ -64,9 +64,10 @@ async def on_chat_start() -> None:
 
 @cl.on_message
 async def on_message(message: cl.Message) -> None:
-    """Handle incoming user messages with streaming thought trace.
+    """Handle incoming user messages with linear thought trace.
 
-    Shows tool calls as expandable steps in the Chainlit UI.
+    Displays the full ReAct loop as a linear trace:
+    loop_start -> thinking -> tool_start -> tool_end -> ... -> loop_end
 
     Args:
         message: The incoming user message.
@@ -77,6 +78,7 @@ async def on_message(message: cl.Message) -> None:
 
     # Overall trace step for ReAct Loop details
     react_step = cl.Step(name="ReAct Engine Loop Trace", type="run")
+    react_step.output = ""
     await react_step.send()
 
     # Create the response message for streaming
@@ -84,60 +86,62 @@ async def on_message(message: cl.Message) -> None:
     await response_msg.send()
 
     current_tool_step: cl.Step | None = None
-
-    react_step.output = "**ReAct loop started.**\n\n"
-    await react_step.update()
-
     session_id = cl.user_session.get("id", "chainlit_session")
 
     async for event in agent.stream(message.content, session_id=session_id):
         event_type = event["type"]
 
-        if event_type == EventType.TOOL_START:
+        if event_type == EventType.LOOP_START:
+            react_step.output += "**ReAct loop started.**\n\n"
+            await react_step.update()
+
+        elif event_type == EventType.THINKING:
+            # LLM reasoning before a tool call
+            thinking_text = event.get("content", "")
+            react_step.output += f"💭 **LLM Thinking:**\n> {thinking_text}\n\n"
+            await react_step.update()
+
+        elif event_type == EventType.TOOL_START:
             tool_name = event["name"]
             input_data = event.get("input", {})
             input_str = json.dumps(input_data, indent=2, ensure_ascii=False)
 
-            # Record in parent step
-            react_step.output += f"- `🔧 Tool Initiated`: **{tool_name}**\n"
+            # Record in linear trace
+            react_step.output += f"🔧 **Tool Call: {tool_name}**\n"
             await react_step.update()
 
-            # Create specific tool child step
+            # Create collapsible child step for tool detail
             current_tool_step = cl.Step(
-                name=f"Tool Execution: {tool_name}",
+                name=f"Tool: {tool_name}",
                 type="tool",
                 parent_id=react_step.id,
             )
             current_tool_step.output = (
-                f"### Input Payload\n```json\n{input_str}\n```\n\n"
-                "*Waiting for execution...*"
+                f"### Input\n```json\n{input_str}\n```\n\n*Executing...*"
             )
             await current_tool_step.send()
 
         elif event_type == EventType.TOOL_END:
-            # Complete the tool step with output
-            if current_tool_step is not None:
-                output_data = str(event.get("output", ""))
+            output_data = str(event.get("output", ""))
 
-                # Update specific tool child step
+            # Complete the child step
+            if current_tool_step is not None:
                 current_tool_step.output = current_tool_step.output.replace(
-                    "*Waiting for execution...*",
-                    f"### Execution Result\n```\n{output_data}\n```",
+                    "*Executing...*",
+                    f"### Output\n```\n{output_data}\n```",
                 )
                 await current_tool_step.update()
                 current_tool_step = None
 
-                # Record in parent step
-                react_step.output += (
-                    f"- `✅ Tool Completed`: "
-                    f"Returned output length {len(output_data)}\n"
-                )
-                await react_step.update()
+            # Record in linear trace with actual output
+            react_step.output += f"✅ **Result:** `{output_data}`\n\n"
+            await react_step.update()
 
         elif event_type == EventType.TOKEN:
-            # Stream text tokens to the response
             await response_msg.stream_token(event["content"])
 
-    react_step.output += "\n**ReAct loop finished successfully.**"
-    await react_step.update()
+        elif event_type == EventType.LOOP_END:
+            react_step.output += "**ReAct loop finished.**"
+            await react_step.update()
+
     await response_msg.update()

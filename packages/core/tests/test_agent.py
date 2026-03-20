@@ -44,3 +44,41 @@ async def test_agent_stream_tool_events():
     assert len(tool_end_events) == 1
     assert tool_end_events[0]["name"] == "mock_tool"
     assert tool_end_events[0]["output"] == "mocked_tool_output"
+
+
+@pytest.mark.asyncio
+async def test_agent_stream_loop_events():
+    """Test that stream emits loop_start and loop_end events."""
+    mock_llm = AsyncMock()
+    mock_llm.bind_tools.return_value = mock_llm
+
+    registry = ToolRegistry()
+
+    response = AIMessage(content="Hello!")
+    mock_llm.ainvoke.return_value = response
+
+    agent = ReactAgent(llm=mock_llm, tool_registry=registry)
+
+    events = []
+    async for event in agent.stream("hi", session_id="test_loop"):
+        events.append(event)
+
+    # First event should be loop_start, last should be loop_end
+    assert events[0]["type"] == EventType.LOOP_START
+    assert events[-1]["type"] == EventType.LOOP_END
+
+
+@pytest.mark.asyncio
+async def test_agent_stream_thinking_event():
+    """Test ThinkingEvent model is well-formed.
+
+    Note: The actual thinking event is emitted during on_chat_model_end
+    in LangGraph, which requires a real LLM. This test validates the
+    event model itself and its integration with EventType.
+    """
+    from agent_core.models.events import ThinkingEvent
+
+    event = ThinkingEvent(content="Let me calculate that for you.")
+    dumped = event.model_dump()
+    assert dumped["type"] == EventType.THINKING
+    assert dumped["content"] == "Let me calculate that for you."

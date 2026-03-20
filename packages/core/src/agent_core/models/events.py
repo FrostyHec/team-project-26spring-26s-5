@@ -20,6 +20,9 @@ class EventType(StrEnum):
     TOKEN = "token"
     TOOL_START = "tool_start"
     TOOL_END = "tool_end"
+    THINKING = "thinking"
+    LOOP_START = "loop_start"
+    LOOP_END = "loop_end"
     ERROR = "error"
 
 
@@ -61,6 +64,38 @@ class ToolEndEvent(BaseModel):
     type: str = EventType.TOOL_END
     name: str
     output: str
+
+
+class ThinkingEvent(BaseModel):
+    """Emitted when the LLM produces reasoning text before a tool call.
+
+    Attributes:
+        type: Always EventType.THINKING.
+        content: The reasoning/analysis text.
+    """
+
+    type: str = EventType.THINKING
+    content: str
+
+
+class LoopStartEvent(BaseModel):
+    """Emitted at the beginning of the ReAct loop.
+
+    Attributes:
+        type: Always EventType.LOOP_START.
+    """
+
+    type: str = EventType.LOOP_START
+
+
+class LoopEndEvent(BaseModel):
+    """Emitted at the end of the ReAct loop.
+
+    Attributes:
+        type: Always EventType.LOOP_END.
+    """
+
+    type: str = EventType.LOOP_END
 
 
 class ErrorEvent(BaseModel):

@@ -11,6 +11,9 @@ from langgraph.graph import END, StateGraph
 from agent_core.engine.state import AgentState
 from agent_core.logging_utils import get_logger
 from agent_core.models.events import (
+    LoopEndEvent,
+    LoopStartEvent,
+    ThinkingEvent,
     TokenEvent,
     ToolEndEvent,
     ToolStartEvent,
@@ -336,6 +339,8 @@ class ReactAgent:
         # Collect new messages for persistence
         new_messages: list[BaseMessage] = [new_msg]
 
+        yield LoopStartEvent().model_dump()
+
         async for event in self.graph.astream_events(
             initial_state, config=config, version="v2"
         ):
@@ -351,6 +356,11 @@ class ReactAgent:
                 ai_msg = event["data"]["output"]
                 if isinstance(ai_msg, AIMessage):
                     new_messages.append(ai_msg)
+                    # If the AI produced reasoning text before tool calls,
+                    # emit a thinking event so frontends can show it in
+                    # the trace alongside tool execution details.
+                    if ai_msg.tool_calls and ai_msg.content:
+                        yield ThinkingEvent(content=str(ai_msg.content)).model_dump()
 
             elif kind == "on_custom_event":
                 custom_name = event["name"]
@@ -371,6 +381,8 @@ class ReactAgent:
                             tool_call_id="",
                         )
                     )
+
+        yield LoopEndEvent().model_dump()
 
         # Persist all new messages
         await self._persist_messages(session_id, new_messages, len(history))
