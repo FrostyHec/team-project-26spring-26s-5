@@ -97,6 +97,12 @@ watch(
               <div v-else-if="step.type === 'loop_end'" class="step-label loop-boundary">
                 ■ ReAct loop finished
               </div>
+
+              <!-- Approval request -->
+              <div v-else-if="step.type === 'approval_request'" class="step-approval">
+                ⚠️ <strong>Approval Required:</strong> {{ step.name }}
+                <code class="tool-args">{{ JSON.stringify(step.input) }}</code>
+              </div>
             </div>
           </div>
         </details>
@@ -107,6 +113,25 @@ watch(
 
       <div v-if="chatStore.isLoading" class="loading-indicator">
         <span class="dot-pulse" />
+      </div>
+    </div>
+
+    <!-- Approval dialog -->
+    <div v-if="chatStore.pendingApproval" class="approval-dialog">
+      <div class="approval-content">
+        <div class="approval-icon">⚠️</div>
+        <h3>Sensitive Tool Approval</h3>
+        <p>
+          The agent wants to execute
+          <strong>{{ chatStore.pendingApproval.toolName }}</strong> with:
+        </p>
+        <code class="approval-args">{{
+          JSON.stringify(chatStore.pendingApproval.toolArgs, null, 2)
+        }}</code>
+        <div class="approval-actions">
+          <button class="btn-approve" @click="chatStore.respondToApproval(true)">✅ Approve</button>
+          <button class="btn-reject" @click="chatStore.respondToApproval(false)">❌ Reject</button>
+        </div>
       </div>
     </div>
 
@@ -315,6 +340,14 @@ watch(
   padding-left: 4px;
 }
 
+.step-approval {
+  color: #d32f2f;
+  padding-left: 4px;
+  background: #fff3e0;
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+
 .tool-args,
 .tool-result {
   display: inline-block;
@@ -323,6 +356,92 @@ watch(
   border-radius: 3px;
   font-size: 12px;
   margin-left: 4px;
+}
+
+.approval-dialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.approval-content {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 480px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.approval-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+
+.approval-content h3 {
+  margin: 0 0 8px;
+  color: #d32f2f;
+}
+
+.approval-content p {
+  margin: 0 0 12px;
+  color: #333;
+}
+
+.approval-args {
+  display: block;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 16px;
+  text-align: left;
+  white-space: pre-wrap;
+  font-size: 13px;
+}
+
+.approval-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.btn-approve {
+  padding: 10px 24px;
+  background: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.btn-approve:hover {
+  background: #43a047;
+}
+
+.btn-reject {
+  padding: 10px 24px;
+  background: #f44336;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.btn-reject:hover {
+  background: #e53935;
 }
 
 .loading-indicator {

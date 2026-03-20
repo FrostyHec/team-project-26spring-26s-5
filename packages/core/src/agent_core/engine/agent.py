@@ -1,7 +1,7 @@
 """ReAct Agent - Core agent loop using LangGraph."""
 
 import uuid
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable
 from typing import TYPE_CHECKING, Any
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
@@ -11,6 +11,7 @@ from langgraph.graph import END, StateGraph
 from agent_core.engine.state import AgentState
 from agent_core.logging_utils import get_logger
 from agent_core.models.events import (
+    ApprovalRequestEvent,
     LoopEndEvent,
     LoopStartEvent,
     ThinkingEvent,
@@ -24,6 +25,11 @@ if TYPE_CHECKING:
     from agent_core.persistence.session_store import SessionStore
 
 logger = get_logger("agent")
+
+# Type for the HITL approval handler callback.
+# Signature: (tool_name, tool_args, tool_call_id) -> bool
+# Returns True to approve execution, False to reject.
+ApprovalHandler = Callable[[str, dict[str, Any], str], Any]
 
 
 class ReactAgent:
@@ -58,6 +64,7 @@ class ReactAgent:
         self.tool_registry = tool_registry
         self.system_prompt = system_prompt
         self.session_store: SessionStore | None = None
+        self.approval_handler: ApprovalHandler | None = None
 
         # Bind tools to the LLM
         lc_tools = self.tool_registry.get_langchain_tools()
@@ -146,6 +153,10 @@ class ReactAgent:
     ) -> dict:
         """Execute tool calls from the LLM response.
 
+        For SENSITIVE tools, invokes the approval_handler callback
+        before execution. If the handler rejects or no handler is set
+        for a sensitive tool, returns a cancellation message.
+
         Args:
             state: Current agent state.
             config: RunnableConfig injected by LangGraph.
@@ -166,10 +177,60 @@ class ReactAgent:
                 tool_id = tool_call["id"]
 
                 logger.debug(
-                    f"Executing Tool: {tool_name} with args: {tool_args}", extra=extra
+                    f"Executing Tool: {tool_name} with args: {tool_args}",
+                    extra=extra,
                 )
 
-                # Emit a custom event right before execution so stream can read it
+                # HITL: check if tool is sensitive
+                if self.tool_registry.is_sensitive(tool_name):
+                    logger.info(
+                        f"Sensitive tool detected: {tool_name}",
+                        extra=extra,
+                    )
+                    # Emit approval request event
+                    await adispatch_custom_event(
+                        "approval_request",
+                        {
+                            "tool": tool_name,
+                            "args": tool_args,
+                            "tool_call_id": tool_id,
+                        },
+                        config=config,
+                    )
+
+                    # Check with approval handler
+                    approved = False
+                    if self.approval_handler is not None:
+                        result = self.approval_handler(tool_name, tool_args, tool_id)
+                        # Support both sync and async handlers
+                        if hasattr(result, "__await__"):
+                            approved = await result
+                        else:
+                            approved = bool(result)
+
+                    if not approved:
+                        logger.info(
+                            f"Tool {tool_name} rejected by user",
+                            extra=extra,
+                        )
+                        tool_messages.append(
+                            ToolMessage(
+                                content="Tool call cancelled by user.",
+                                name=tool_name,
+                                tool_call_id=tool_id,
+                            )
+                        )
+                        await adispatch_custom_event(
+                            "tool_call_end",
+                            {
+                                "tool": tool_name,
+                                "output": "Tool call cancelled by user.",
+                            },
+                            config=config,
+                        )
+                        continue
+
+                # Emit a custom event right before execution
                 await adispatch_custom_event(
                     "tool_call_start",
                     {"tool": tool_name, "args": tool_args},
@@ -179,7 +240,8 @@ class ReactAgent:
                 try:
                     result = await self.tool_registry.execute(tool_name, tool_args)
                     logger.debug(
-                        f"Tool {tool_name} execution success: {result}", extra=extra
+                        f"Tool {tool_name} execution success: {result}",
+                        extra=extra,
                     )
                     tool_messages.append(
                         ToolMessage(
@@ -190,7 +252,8 @@ class ReactAgent:
                     )
                 except Exception as e:
                     logger.warning(
-                        f"Tool {tool_name} execution error: {e}", extra=extra
+                        f"Tool {tool_name} execution error: {e}",
+                        extra=extra,
                     )
                     tool_messages.append(
                         ToolMessage(
@@ -203,7 +266,10 @@ class ReactAgent:
                 # Emit custom event after execution
                 await adispatch_custom_event(
                     "tool_call_end",
-                    {"tool": tool_name, "output": tool_messages[-1].content},
+                    {
+                        "tool": tool_name,
+                        "output": tool_messages[-1].content,
+                    },
                     config=config,
                 )
 
@@ -364,7 +430,13 @@ class ReactAgent:
 
             elif kind == "on_custom_event":
                 custom_name = event["name"]
-                if custom_name == "tool_call_start":
+                if custom_name == "approval_request":
+                    yield ApprovalRequestEvent(
+                        tool_name=event["data"]["tool"],
+                        tool_args=event["data"].get("args", {}),
+                        tool_call_id=event["data"].get("tool_call_id", ""),
+                    ).model_dump()
+                elif custom_name == "tool_call_start":
                     yield ToolStartEvent(
                         name=event["data"]["tool"],
                         input=event["data"].get("args", {}),

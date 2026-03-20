@@ -23,6 +23,7 @@ class EventType(StrEnum):
     THINKING = "thinking"
     LOOP_START = "loop_start"
     LOOP_END = "loop_end"
+    APPROVAL_REQUEST = "approval_request"
     ERROR = "error"
 
 
@@ -96,6 +97,25 @@ class LoopEndEvent(BaseModel):
     """
 
     type: str = EventType.LOOP_END
+
+
+class ApprovalRequestEvent(BaseModel):
+    """Emitted when a sensitive tool requires user approval.
+
+    The frontend should display a warning and ask the user
+    whether to proceed with the tool execution.
+
+    Attributes:
+        type: Always EventType.APPROVAL_REQUEST.
+        tool_name: Name of the sensitive tool.
+        tool_args: Arguments the tool would be called with.
+        tool_call_id: The tool call ID for matching approval.
+    """
+
+    type: str = EventType.APPROVAL_REQUEST
+    tool_name: str
+    tool_args: dict[str, Any]
+    tool_call_id: str
 
 
 class ErrorEvent(BaseModel):

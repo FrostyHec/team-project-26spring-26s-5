@@ -6,6 +6,7 @@ Provides a chat GUI with:
 - Human-in-the-Loop confirmation for sensitive operations
 """
 
+import json
 from typing import Any
 
 import chainlit as cl
@@ -15,6 +16,7 @@ from agent_core.logging_utils import setup_logger
 from agent_core.models.events import EventType
 from agent_core.tools.calculator import register_calculator_tools
 from agent_core.tools.registry import ToolRegistry
+from agent_core.tools.weather import register_weather_tools
 
 
 def _create_agent() -> ReactAgent:
@@ -39,12 +41,54 @@ def _create_agent() -> ReactAgent:
     llm = ChatOpenAI(**llm_kwargs)
     registry = ToolRegistry()
     register_calculator_tools(registry)
+    register_weather_tools(registry)
 
     return ReactAgent(
         llm=llm,
         tool_registry=registry,
         system_prompt=config.system_prompt,
     )
+
+
+async def _chainlit_approval_handler(
+    tool_name: str, tool_args: dict[str, Any], tool_call_id: str
+) -> bool:
+    """Ask the user for approval before running a sensitive tool.
+
+    Uses Chainlit's AskActionMessage to display a confirmation dialog.
+
+    Args:
+        tool_name: Name of the sensitive tool.
+        tool_args: Arguments the LLM wants to pass.
+        tool_call_id: Unique ID for this tool invocation.
+
+    Returns:
+        True if user approved, False otherwise.
+    """
+    args_str = json.dumps(tool_args, indent=2, ensure_ascii=False)
+    res = await cl.AskActionMessage(
+        content=(
+            f"⚠️ **Sensitive Tool Detected**\n\n"
+            f"The agent wants to call **{tool_name}** with:\n"
+            f"```json\n{args_str}\n```\n\n"
+            f"Do you approve this action?"
+        ),
+        actions=[
+            cl.Action(
+                name="approve",
+                payload={"tool_call_id": tool_call_id},
+                label="✅ Approve",
+            ),
+            cl.Action(
+                name="reject", payload={"tool_call_id": tool_call_id}, label="❌ Reject"
+            ),
+        ],
+        timeout=120,
+    ).send()
+
+    if res and res.get("name") == "approve":
+        return True
+    return False
 
 
 @cl.on_chat_start
@@ -55,10 +99,11 @@ async def on_chat_start() -> None:
     setup_logger(log_level=config.log_level, log_file=config.log_file)
 
     agent = _create_agent()
+    agent.approval_handler = _chainlit_approval_handler
     cl.user_session.set("agent", agent)
     await cl.Message(
-        content="Hello! I'm a ReAct Agent with calculator tools. "
-        "Ask me to perform calculations!"
+        content="Hello! I'm a ReAct Agent with calculator and weather tools. "
+        "Ask me to perform calculations or check the weather!"
     ).send()
 
 
@@ -72,8 +117,6 @@ async def on_message(message: cl.Message) -> None:
     Args:
         message: The incoming user message.
     """
-    import json
-
     agent: ReactAgent = cl.user_session.get("agent")  # type: ignore[assignment]
 
     # Overall trace step for ReAct Loop details
@@ -99,6 +142,18 @@ async def on_message(message: cl.Message) -> None:
             # LLM reasoning before a tool call
             thinking_text = event.get("content", "")
             react_step.output += f"💭 **LLM Thinking:**\n> {thinking_text}\n\n"
+            await react_step.update()
+
+        elif event_type == EventType.APPROVAL_REQUEST:
+            # Sensitive tool detected — show in trace
+            tool_name = event.get("tool_name", "unknown")
+            tool_args = event.get("tool_args", {})
+            args_str = json.dumps(tool_args, indent=2, ensure_ascii=False)
+            react_step.output += (
+                f"⚠️ **Approval Required:** {tool_name}\n"
+                f"```json\n{args_str}\n```\n"
+                f"_Waiting for user decision..._\n\n"
+            )
             await react_step.update()
 
         elif event_type == EventType.TOOL_START:

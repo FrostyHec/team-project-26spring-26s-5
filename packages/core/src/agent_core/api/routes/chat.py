@@ -1,4 +1,4 @@
-"""Chat routes — synchronous and streaming endpoints."""
+"""Chat routes — synchronous, streaming, and approval endpoints."""
 
 import json
 from collections.abc import AsyncGenerator
@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from agent_core.api.approval import resolve_pending
 from agent_core.api.dependencies import get_agent
 from agent_core.engine.agent import ReactAgent
 from agent_core.logging_utils import get_logger
@@ -95,3 +96,47 @@ async def chat_stream(
         event_generator(),
         media_type="text/event-stream",
     )
+
+
+class ApprovalRequest(BaseModel):
+    """Request body for the tool approval endpoint.
+
+    Attributes:
+        tool_call_id: The unique ID of the tool invocation.
+        approved: Whether the user approves execution.
+    """
+
+    tool_call_id: str
+    approved: bool
+
+
+class ApprovalResponse(BaseModel):
+    """Response body for the tool approval endpoint.
+
+    Attributes:
+        ok: Whether the approval was successfully processed.
+    """
+
+    ok: bool
+
+
+@router.post("/chat/approve", response_model=ApprovalResponse)
+async def approve_tool(request: ApprovalRequest) -> ApprovalResponse:
+    """Approve or reject a pending sensitive tool call.
+
+    Args:
+        request: The approval decision payload.
+
+    Returns:
+        Success indicator.
+
+    Raises:
+        HTTPException: 404 if no matching pending approval is found.
+    """
+    resolved = resolve_pending(request.tool_call_id, request.approved)
+    if not resolved:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No pending approval for tool_call_id: {request.tool_call_id}",
+        )
+    return ApprovalResponse(ok=True)

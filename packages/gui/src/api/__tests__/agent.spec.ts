@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { checkHealth, fetchTools, sendMessage } from '../agent'
+import { checkHealth, fetchTools, sendMessage, approveToolCall } from '../agent'
 
 // Mock global fetch
 const mockFetch = vi.fn()
@@ -66,6 +66,32 @@ describe('API client', () => {
           body: JSON.stringify({ message: 'Hi' }),
         }),
       )
+    })
+  })
+
+  describe('approveToolCall', () => {
+    it('sends approval request and returns result', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ ok: true }),
+      })
+
+      const result = await approveToolCall('tc_123', true)
+
+      expect(result).toEqual({ ok: true })
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/chat/approve'),
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ tool_call_id: 'tc_123', approved: true }),
+        }),
+      )
+    })
+
+    it('throws on API error', async () => {
+      mockFetch.mockResolvedValue({ ok: false, status: 404 })
+
+      await expect(approveToolCall('missing', true)).rejects.toThrow('API error: 404')
     })
   })
 })

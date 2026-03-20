@@ -6,12 +6,14 @@ import { useChatStore } from '../chat'
 vi.mock('@/api/agent', () => ({
   checkHealth: vi.fn(),
   streamMessage: vi.fn(),
+  approveToolCall: vi.fn(),
 }))
 
-import { checkHealth, streamMessage } from '@/api/agent'
+import { checkHealth, streamMessage, approveToolCall } from '@/api/agent'
 
 const mockCheckHealth = vi.mocked(checkHealth)
 const mockStreamMessage = vi.mocked(streamMessage)
+const mockApproveToolCall = vi.mocked(approveToolCall)
 
 describe('useChatStore', () => {
   beforeEach(() => {
@@ -186,6 +188,79 @@ describe('useChatStore', () => {
       await promise
 
       expect(store.isLoading).toBe(false)
+    })
+    it('handles approval_request events', async () => {
+      async function* fakeStream() {
+        yield { type: 'loop_start' as const }
+        yield {
+          type: 'approval_request' as const,
+          tool_name: 'get_weather',
+          tool_args: { city: 'Beijing' },
+          tool_call_id: 'tc_1',
+        }
+        yield { type: 'tool_end' as const, name: 'get_weather', output: 'cancelled' }
+        yield { type: 'loop_end' as const }
+      }
+      mockStreamMessage.mockReturnValue(fakeStream())
+
+      const store = useChatStore()
+      await store.sendMessage('weather')
+
+      // Pending approval should be set
+      expect(store.pendingApproval).toEqual({
+        toolName: 'get_weather',
+        toolArgs: { city: 'Beijing' },
+        toolCallId: 'tc_1',
+      })
+
+      // Trace should include approval_request step
+      const assistantMsg = store.messages[1]!
+      const approvalSteps = assistantMsg.traceSteps!.filter((s) => s.type === 'approval_request')
+      expect(approvalSteps).toHaveLength(1)
+      expect(approvalSteps[0]!.name).toBe('get_weather')
+    })
+  })
+
+  describe('respondToApproval', () => {
+    it('calls approveToolCall API and clears pending', async () => {
+      mockApproveToolCall.mockResolvedValue({ ok: true })
+
+      const store = useChatStore()
+      store.pendingApproval = {
+        toolName: 'get_weather',
+        toolArgs: { city: 'Beijing' },
+        toolCallId: 'tc_approve',
+      }
+
+      await store.respondToApproval(true)
+
+      expect(mockApproveToolCall).toHaveBeenCalledWith('tc_approve', true)
+      expect(store.pendingApproval).toBeNull()
+    })
+
+    it('sets error when API call fails', async () => {
+      mockApproveToolCall.mockRejectedValue(new Error('Network error'))
+
+      const store = useChatStore()
+      store.pendingApproval = {
+        toolName: 'get_weather',
+        toolArgs: { city: 'Tokyo' },
+        toolCallId: 'tc_fail',
+      }
+
+      await store.respondToApproval(false)
+
+      expect(store.error).toBe('Network error')
+      expect(store.pendingApproval).toBeNull()
+    })
+
+    it('does nothing when no pending approval', async () => {
+      const store = useChatStore()
+      store.pendingApproval = null
+
+      await store.respondToApproval(true)
+
+      expect(mockApproveToolCall).not.toHaveBeenCalled()
     })
   })
 

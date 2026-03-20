@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
-import { streamMessage, checkHealth } from '@/api/agent'
+import { streamMessage, checkHealth, approveToolCall } from '@/api/agent'
 
 /** A single message in the chat. */
 export interface ChatMessage {
@@ -23,11 +23,18 @@ export interface ToolCallInfo {
 
 /** A step in the linear ReAct trace. */
 export interface TraceStep {
-  type: 'loop_start' | 'thinking' | 'tool_start' | 'tool_end' | 'loop_end'
+  type: 'loop_start' | 'thinking' | 'tool_start' | 'tool_end' | 'loop_end' | 'approval_request'
   content?: string
   name?: string
   input?: Record<string, unknown>
   output?: string
+}
+
+/** Pending approval dialog state. */
+export interface PendingApproval {
+  toolName: string
+  toolArgs: Record<string, unknown>
+  toolCallId: string
 }
 
 export const useChatStore = defineStore('chat', () => {
@@ -35,6 +42,7 @@ export const useChatStore = defineStore('chat', () => {
   const isLoading = ref(false)
   const isConnected = ref(false)
   const error = ref<string | null>(null)
+  const pendingApproval = ref<PendingApproval | null>(null)
 
   let messageCounter = 0
 
@@ -128,6 +136,19 @@ export const useChatStore = defineStore('chat', () => {
             assistantMsg.loopActive = false
             assistantMsg.traceSteps?.push({ type: 'loop_end' })
             break
+
+          case 'approval_request':
+            pendingApproval.value = {
+              toolName: event.tool_name || 'unknown',
+              toolArgs: event.tool_args || {},
+              toolCallId: event.tool_call_id || '',
+            }
+            assistantMsg.traceSteps?.push({
+              type: 'approval_request',
+              name: event.tool_name || 'unknown',
+              input: event.tool_args || {},
+            })
+            break
         }
       }
     } catch (e) {
@@ -143,13 +164,27 @@ export const useChatStore = defineStore('chat', () => {
     messages.value = []
   }
 
+  /** Respond to a pending approval request. */
+  async function respondToApproval(approved: boolean): Promise<void> {
+    if (!pendingApproval.value) return
+    try {
+      await approveToolCall(pendingApproval.value.toolCallId, approved)
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Approval request failed'
+    } finally {
+      pendingApproval.value = null
+    }
+  }
+
   return {
     messages,
     isLoading,
     isConnected,
     error,
+    pendingApproval,
     sendMessage,
     clearMessages,
     checkConnection,
+    respondToApproval,
   }
 })

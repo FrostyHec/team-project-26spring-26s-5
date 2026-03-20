@@ -8,11 +8,13 @@ from typing import Any
 
 from langchain_openai import ChatOpenAI
 
+from agent_core.api.approval import make_api_approval_handler
 from agent_core.config import AgentConfig
 from agent_core.engine.agent import ReactAgent
 from agent_core.persistence.session_store import SessionStore
 from agent_core.tools.calculator import register_calculator_tools
 from agent_core.tools.registry import ToolRegistry
+from agent_core.tools.weather import register_weather_tools
 
 # Module-level singletons (initialized during app lifespan)
 _agent: ReactAgent | None = None
@@ -44,6 +46,7 @@ def create_agent(config: AgentConfig | None = None) -> ReactAgent:
 
     registry = ToolRegistry()
     register_calculator_tools(registry)
+    register_weather_tools(registry)
 
     return ReactAgent(
         llm=llm,
@@ -66,6 +69,7 @@ async def init_dependencies(config: AgentConfig | None = None) -> None:
 
     _agent = create_agent(config)
     _agent.session_store = _store
+    _agent.approval_handler = make_api_approval_handler
 
 
 async def shutdown_dependencies() -> None:

@@ -14,11 +14,22 @@ export interface ToolInfo {
 
 /** A streaming event from the agent. */
 export interface AgentEvent {
-  type: 'token' | 'tool_start' | 'tool_end' | 'thinking' | 'loop_start' | 'loop_end' | 'error'
+  type:
+    | 'token'
+    | 'tool_start'
+    | 'tool_end'
+    | 'thinking'
+    | 'loop_start'
+    | 'loop_end'
+    | 'approval_request'
+    | 'error'
   content?: string
   name?: string
   input?: Record<string, unknown>
   output?: string
+  tool_name?: string
+  tool_args?: Record<string, unknown>
+  tool_call_id?: string
 }
 
 /**
@@ -87,6 +98,24 @@ export async function* streamMessage(message: string): AsyncGenerator<AgentEvent
  */
 export async function fetchTools(): Promise<ToolInfo[]> {
   const response = await fetch(`${API_BASE}/tools`)
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`)
+  }
+  return response.json()
+}
+
+/**
+ * Approve or reject a pending sensitive tool call.
+ */
+export async function approveToolCall(
+  toolCallId: string,
+  approved: boolean,
+): Promise<{ ok: boolean }> {
+  const response = await fetch(`${API_BASE}/chat/approve`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tool_call_id: toolCallId, approved }),
+  })
   if (!response.ok) {
     throw new Error(`API error: ${response.status}`)
   }

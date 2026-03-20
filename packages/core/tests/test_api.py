@@ -40,12 +40,13 @@ class TestToolsEndpoint:
         assert response.status_code == 200
         tools = response.json()
         assert isinstance(tools, list)
-        assert len(tools) == 4  # 4 calculator tools
+        assert len(tools) == 5  # 4 calculator + 1 weather
         names = {t["name"] for t in tools}
         assert "add" in names
         assert "subtract" in names
         assert "multiply" in names
         assert "divide" in names
+        assert "get_weather" in names
 
 
 class TestChatEndpointErrors:
@@ -68,4 +69,49 @@ class TestChatEndpointErrors:
     def test_chat_missing_message_returns_422(self, client: TestClient) -> None:
         """Test that missing message field returns 422."""
         response = client.post("/chat", json={})
+        assert response.status_code == 422
+
+
+class TestApprovalEndpoint:
+    """Test the tool approval endpoint."""
+
+    def test_approve_missing_pending_returns_404(self, client: TestClient) -> None:
+        """Test approving a non-existent pending returns 404."""
+        response = client.post(
+            "/chat/approve",
+            json={"tool_call_id": "nonexistent", "approved": True},
+        )
+        assert response.status_code == 404
+
+    def test_approve_existing_pending(self, client: TestClient) -> None:
+        """Test approving an existing pending approval."""
+        from agent_core.api.approval import _pending, create_pending
+
+        _pending.clear()
+        create_pending("test_tc_1")
+
+        response = client.post(
+            "/chat/approve",
+            json={"tool_call_id": "test_tc_1", "approved": True},
+        )
+        assert response.status_code == 200
+        assert response.json() == {"ok": True}
+
+    def test_reject_existing_pending(self, client: TestClient) -> None:
+        """Test rejecting an existing pending approval."""
+        from agent_core.api.approval import _pending, create_pending
+
+        _pending.clear()
+        create_pending("test_tc_2")
+
+        response = client.post(
+            "/chat/approve",
+            json={"tool_call_id": "test_tc_2", "approved": False},
+        )
+        assert response.status_code == 200
+        assert response.json() == {"ok": True}
+
+    def test_approve_missing_fields_returns_422(self, client: TestClient) -> None:
+        """Test that missing fields returns 422."""
+        response = client.post("/chat/approve", json={})
         assert response.status_code == 422
