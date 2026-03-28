@@ -39,13 +39,13 @@ jobs:
       # repo for path resolution, but does not need the actual PR code.
       # SECURITY: Never checkout fork code in a privileged workflow_run context.
       - name: Checkout base repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: main
           fetch-depth: 1
 
       - name: Download test results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: pytest-results-3.12
           path: test-results
@@ -53,7 +53,7 @@ jobs:
           run-id: ${{ github.event.workflow_run.id }}
 
       - name: Publish Test Report (Check Run)
-        uses: dorny/test-reporter@v1
+        uses: dorny/test-reporter@v3
         if: always()
         with:
           name: PyTest Results (Python 3.12)
@@ -77,7 +77,7 @@ jobs:
 
     steps:
       - name: Download test results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: pytest-results-3.12
           path: test-results
@@ -215,7 +215,7 @@ jobs:
           PYEOF
 
       - name: Post sticky PR comment
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@v3
         with:
           number: ${{ github.event.workflow_run.pull_requests[0].number }}
           header: ci-test-summary
