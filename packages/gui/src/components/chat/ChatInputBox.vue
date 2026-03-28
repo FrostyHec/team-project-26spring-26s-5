@@ -108,82 +108,78 @@ function handleKeydown(e: KeyboardEvent) {
 </script>
 
 <template>
-  <div
-    class="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-white via-white to-transparent pt-10"
-  >
-    <div class="max-w-4xl mx-auto w-full">
-      <!-- Quick skill pills -->
-      <div v-if="quickSkills.length > 0" class="flex flex-wrap gap-2 mb-3">
+  <div class="p-5 bg-white border-t border-gray-100 flex-shrink-0">
+    <div class="relative">
+      <!-- @mention dropdown -->
+      <div
+        v-if="showSkillMenu && filteredSkills.length > 0"
+        class="absolute bottom-full left-0 right-0 mb-2 bg-white border border-gray-200 rounded-xl shadow-lg z-20 max-h-56 overflow-y-auto p-1.5"
+      >
         <button
-          v-for="skill in quickSkills"
+          v-for="skill in filteredSkills"
           :key="skill.id"
-          class="text-[13px] px-3 py-1.5 rounded-full border transition-all duration-200 transform hover:-translate-y-0.5 shadow-sm"
-          :class="
-            chatStore.activeSession?.skill === skill.id
-              ? 'bg-blue-600 border-blue-600 text-white shadow-md'
-              : 'bg-white border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-600 hover:shadow'
-          "
+          class="w-full text-left px-3 py-2.5 rounded-lg text-sm hover:bg-gray-50 transition-colors flex items-center gap-3"
           @click="selectSkill(skill.id, skill.name)"
         >
-          @{{ skill.name }}
+          <span class="text-lg shrink-0">{{ skill.icon }}</span>
+          <div class="flex flex-col flex-1 min-w-0">
+            <span class="font-medium text-gray-800 text-sm">{{ skill.name }}</span>
+            <span class="text-xs text-gray-500 truncate">{{ skill.description }}</span>
+          </div>
         </button>
       </div>
 
-      <!-- Input box -->
+      <!-- Input composite -->
       <div
-        class="relative flex items-end gap-2 border border-slate-300 rounded-2xl shadow-lg hover:border-slate-400 focus-within:ring-4 focus-within:ring-blue-100 focus-within:border-blue-500 transition-all bg-white"
+        class="flex items-end border border-gray-300 rounded-xl shadow-sm focus-within:ring-2 focus-within:ring-blue-100 focus-within:border-blue-400 transition-all duration-200 bg-gray-50/50 px-1 py-1"
       >
-        <!-- @mention dropdown -->
-        <div
-          v-if="showSkillMenu && filteredSkills.length > 0"
-          class="absolute bottom-full left-0 right-0 mb-3 bg-white border border-slate-200 rounded-xl shadow-2xl z-20 max-h-64 overflow-y-auto w-full p-2"
-        >
-          <button
-            v-for="skill in filteredSkills"
-            :key="skill.id"
-            class="w-full text-left px-4 py-3 rounded-lg text-sm hover:bg-slate-50 transition-colors flex items-center gap-3"
-            @click="selectSkill(skill.id, skill.name)"
-          >
-            <span class="text-xl shrink-0">{{ skill.icon }}</span>
-            <div class="flex flex-col flex-1 min-w-0">
-              <span class="font-semibold text-slate-800">{{ skill.name }}</span>
-              <span class="text-xs text-slate-500 truncate">{{ skill.description }}</span>
-            </div>
-          </button>
-        </div>
-
+        <!-- Paperclip / Attach -->
         <button
-          class="p-4 text-slate-400 hover:text-blue-600 transition-colors flex-shrink-0"
+          class="p-3.5 text-gray-400 hover:text-blue-500 transition-colors duration-150 flex-shrink-0 cursor-pointer"
           title="Attach file"
         >
           <Paperclip class="w-5 h-5" />
         </button>
 
+        <!-- Text input -->
         <textarea
           ref="inputRef"
           v-model="inputText"
-          placeholder="Message Student Agent... (Type '@' to mention a specific skill)"
+          placeholder="Message Agent... (Type '@' to invoke a skill)"
           rows="1"
-          class="flex-1 py-4 text-[15px] resize-none outline-none bg-transparent max-h-40 text-slate-800 placeholder:text-slate-400"
+          class="flex-1 py-4 bg-transparent border-none focus:ring-0 resize-none outline-none text-[15px] leading-7 min-h-[52px] max-h-36 text-gray-800 placeholder:text-gray-400"
           :disabled="chatStore.isLoading"
           @input="handleInput"
           @keydown="handleKeydown"
         />
 
+        <!-- Send button -->
         <button
-          class="p-3 text-white bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 rounded-xl m-2 transition-all flex-shrink-0 active:scale-95 shadow-sm"
+          class="p-2.5 m-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 transition-colors duration-150 shadow-sm flex-shrink-0 cursor-pointer"
           :disabled="!inputText.trim() || chatStore.isLoading"
           @click="handleSend"
         >
-          <Send class="w-5 h-5 ml-0.5 mt-0.5" />
+          <Send class="w-[18px] h-[18px]" />
         </button>
       </div>
+    </div>
 
-      <div class="text-center mt-2">
-        <span class="text-[11px] text-slate-400"
-          >AI can make mistakes. Consider verifying important information.</span
-        >
-      </div>
+    <!-- Skill Suggestions -->
+    <div v-if="quickSkills.length > 0" class="mt-2.5 flex items-center gap-2 px-1 flex-wrap">
+      <span class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Skills:</span>
+      <button
+        v-for="skill in quickSkills"
+        :key="skill.id"
+        class="text-[10px] font-semibold px-2.5 py-1 rounded-full transition-colors duration-150 cursor-pointer"
+        :class="
+          chatStore.activeSession?.skill === skill.id
+            ? 'bg-blue-600 text-white'
+            : 'text-blue-600 bg-blue-50 hover:bg-blue-100'
+        "
+        @click="selectSkill(skill.id, skill.name)"
+      >
+        @{{ skill.name }}
+      </button>
     </div>
   </div>
 </template>

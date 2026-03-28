@@ -13,17 +13,17 @@ defineProps<{
     <div
       v-for="(tc, j) in toolCalls"
       :key="j"
-      class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 shadow-sm rounded-lg text-xs text-gray-700 font-medium"
+      class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 border border-gray-100 rounded-full text-xs font-medium text-gray-500 shadow-sm"
     >
       <CheckCircle2
         v-if="tc.status === TOOL_CALL_STATUS.COMPLETED"
-        class="w-4 h-4 text-green-500"
+        class="w-3.5 h-3.5 text-green-500"
       />
       <Loader2
         v-else-if="tc.status === TOOL_CALL_STATUS.RUNNING"
-        class="w-4 h-4 text-blue-500 animate-spin"
+        class="w-3.5 h-3.5 text-blue-500 animate-spin"
       />
-      <AlertCircle v-else class="w-4 h-4 text-red-500" />
+      <AlertCircle v-else class="w-3.5 h-3.5 text-red-500" />
       <span>{{ tc.name }}</span>
     </div>
   </div>

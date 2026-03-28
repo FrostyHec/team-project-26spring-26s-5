@@ -61,23 +61,23 @@ onUnmounted(() => {
 <template>
   <div
     ref="scrollContainer"
-    class="flex-1 overflow-y-auto px-6 py-6 pb-32 max-w-4xl mx-auto w-full"
+    class="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50/30"
   >
     <!-- Empty state -->
     <div
       v-if="chatStore.messages.length === 0"
-      class="flex flex-col items-center justify-center h-full text-slate-400 opacity-90"
+      class="flex flex-col items-center justify-center h-full text-gray-400"
     >
       <div
-        class="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center mb-6 shadow-sm border border-blue-50"
+        class="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center mb-6 border border-blue-100"
       >
-        <Bot class="w-10 h-10 text-blue-500" />
+        <Bot class="w-8 h-8 text-blue-400" />
       </div>
-      <h3 class="text-xl font-semibold text-slate-700 mb-2">How can I help you today?</h3>
-      <p class="text-[14px] text-center max-w-sm text-slate-500 leading-relaxed">
+      <h3 class="text-lg font-semibold text-gray-600 mb-2">How can I help you today?</h3>
+      <p class="text-sm text-center max-w-sm text-gray-400 leading-relaxed">
         Ask about courses, deadlines, campus policies, or type
-        <strong class="text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded">@</strong> to select a
-        specific AI skill.
+        <strong class="text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded text-xs">@</strong> to select
+        a specific AI skill.
       </p>
     </div>
 

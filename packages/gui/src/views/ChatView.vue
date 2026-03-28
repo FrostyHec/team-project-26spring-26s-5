@@ -8,7 +8,7 @@ import WorkspacePanel from '@/components/WorkspacePanel.vue'
 
 const chatStore = useChatStore()
 const isDragging = ref(false)
-const workspaceWidth = ref(400) // Default right panel width
+const workspaceWidth = ref(320) // Default right panel width
 
 useEventListener(window, 'mousemove', (e) => {
   if (!isDragging.value) return
@@ -43,31 +43,32 @@ async function handleNewChat() {
 </script>
 
 <template>
-  <div class="flex w-full h-screen bg-[#f8fafc] text-slate-800 font-sans overflow-hidden">
+  <div class="flex w-full h-screen bg-white text-gray-800 overflow-hidden">
     <!-- Left sidebar: sessions -->
     <SessionSidebar @new-chat="handleNewChat" />
 
     <!-- Center: chat panel -->
-    <div class="flex-1 flex flex-col min-w-[400px] shadow-2xl z-10 bg-white relative">
+    <main class="flex-1 flex flex-col min-w-[350px] bg-white relative">
       <ChatPanel @toggle-workspace="chatStore.toggleWorkspace" />
-    </div>
+    </main>
 
     <!-- Right: workspace panel with resizer -->
     <Transition name="slide">
-      <div
+      <aside
         v-if="chatStore.isWorkspaceOpen"
-        class="flex flex-shrink-0 relative bg-slate-50 border-l border-slate-200"
+        class="flex flex-shrink-0 relative border-l border-gray-200 bg-white"
         :style="{ width: `${workspaceWidth}px` }"
+        style="box-shadow: -4px 0 15px -3px rgba(0,0,0,0.05)"
       >
         <!-- Resizer handle -->
         <div
-          class="absolute left-0 top-0 bottom-0 w-2.5 -ml-1.5 cursor-col-resize hover:bg-blue-400/20 active:bg-blue-400/40 z-20 transition-colors"
+          class="absolute left-0 top-0 bottom-0 w-2 -ml-1 cursor-col-resize hover:bg-blue-400/20 active:bg-blue-400/40 z-20 transition-colors"
           @mousedown="startDragging"
         />
         <div class="w-full h-full overflow-hidden">
           <WorkspacePanel @close="chatStore.toggleWorkspace" />
         </div>
-      </div>
+      </aside>
     </Transition>
   </div>
 </template>
@@ -75,11 +76,11 @@ async function handleNewChat() {
 <style scoped>
 .slide-enter-active,
 .slide-leave-active {
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: all 0.3s ease;
 }
 .slide-enter-from,
 .slide-leave-to {
-  transform: translateX(100%);
   opacity: 0;
+  transform: translateX(20px);
 }
 </style>

@@ -54,11 +54,11 @@ const widgetTitle = computed(() => {
   <aside class="flex flex-col h-full w-full bg-white relative z-10">
     <!-- Header -->
     <div
-      class="flex items-center justify-between px-4 py-3.5 border-b border-slate-200 bg-white shadow-sm z-20"
+      class="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-white flex-shrink-0"
     >
-      <h3 class="text-[15px] font-semibold text-slate-800 tracking-tight">{{ widgetTitle }}</h3>
+      <h3 class="text-sm font-semibold text-gray-800">{{ widgetTitle }}</h3>
       <button
-        class="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
+        class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
         @click="emit('close')"
       >
         <X class="w-4 h-4" />
@@ -66,7 +66,7 @@ const widgetTitle = computed(() => {
     </div>
 
     <!-- Widget content -->
-    <div class="flex-1 overflow-y-auto bg-slate-50">
+    <div class="flex-1 overflow-y-auto bg-gray-50">
       <component :is="widgetComponent" :data="chatStore.activeWidget.data" />
     </div>
   </aside>
