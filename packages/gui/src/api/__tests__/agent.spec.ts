@@ -1,5 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { checkHealth, fetchTools, sendMessage, approveToolCall } from '../agent'
+import {
+  checkHealth,
+  fetchTools,
+  sendMessage,
+  approveToolCall,
+  fetchSkills,
+  listSessions,
+  createSession,
+  getSession,
+  deleteSession,
+} from '../agent'
 
 // Mock global fetch
 const mockFetch = vi.fn()
@@ -67,6 +77,27 @@ describe('API client', () => {
         }),
       )
     })
+
+    it('sends message with sessionId and skill', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ response: 'Done' }),
+      })
+
+      await sendMessage('help', 'sess-1', 'course_assistant')
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/chat'),
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            message: 'help',
+            session_id: 'sess-1',
+            skill: 'course_assistant',
+          }),
+        }),
+      )
+    })
   })
 
   describe('approveToolCall', () => {
@@ -92,6 +123,106 @@ describe('API client', () => {
       mockFetch.mockResolvedValue({ ok: false, status: 404 })
 
       await expect(approveToolCall('missing', true)).rejects.toThrow('API error: 404')
+    })
+  })
+
+  describe('fetchSkills', () => {
+    it('returns skills from API', async () => {
+      const skills = [
+        {
+          id: 'general',
+          name: 'General',
+          description: '',
+          system_prompt: '',
+          icon: '💬',
+          color: '#000',
+        },
+      ]
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(skills),
+      })
+
+      const result = await fetchSkills()
+
+      expect(result).toEqual(skills)
+      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/skills'))
+    })
+
+    it('throws on API error', async () => {
+      mockFetch.mockResolvedValue({ ok: false, status: 500 })
+
+      await expect(fetchSkills()).rejects.toThrow('API error: 500')
+    })
+  })
+
+  describe('listSessions', () => {
+    it('returns sessions from API', async () => {
+      const sessions = [{ id: 's1', title: 'Chat', created_at: '', updated_at: '' }]
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(sessions),
+      })
+
+      const result = await listSessions()
+
+      expect(result).toEqual(sessions)
+      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/sessions'))
+    })
+  })
+
+  describe('createSession', () => {
+    it('creates a session via POST', async () => {
+      const session = { id: 's1', title: 'New', created_at: '', updated_at: '' }
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(session),
+      })
+
+      const result = await createSession('New')
+
+      expect(result).toEqual(session)
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/sessions'),
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ title: 'New' }),
+        }),
+      )
+    })
+  })
+
+  describe('getSession', () => {
+    it('fetches session detail by ID', async () => {
+      const detail = { session: { id: 's1' }, messages: [] }
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(detail),
+      })
+
+      const result = await getSession('s1')
+
+      expect(result).toEqual(detail)
+      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/sessions/s1'))
+    })
+  })
+
+  describe('deleteSession', () => {
+    it('deletes a session by ID', async () => {
+      mockFetch.mockResolvedValue({ ok: true })
+
+      await deleteSession('s1')
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/sessions/s1'),
+        expect.objectContaining({ method: 'DELETE' }),
+      )
+    })
+
+    it('throws on API error', async () => {
+      mockFetch.mockResolvedValue({ ok: false, status: 404 })
+
+      await expect(deleteSession('missing')).rejects.toThrow('API error: 404')
     })
   })
 })

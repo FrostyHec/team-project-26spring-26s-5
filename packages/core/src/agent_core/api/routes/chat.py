@@ -24,10 +24,12 @@ class ChatRequest(BaseModel):
     Attributes:
         message: The user's message to the agent.
         session_id: Optional session ID for conversation persistence.
+        skill: Optional skill ID for preset prompt selection.
     """
 
     message: str
     session_id: str | None = None
+    skill: str | None = None
 
 
 class ChatResponse(BaseModel):

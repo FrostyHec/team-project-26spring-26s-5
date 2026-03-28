@@ -108,7 +108,10 @@ class SessionStore:
     # ---- Session CRUD ----
 
     async def create_session(self, title: str = "") -> SessionRecord:
-        """Create a new chat session.
+        """Create a new chat session with a unique UUID.
+
+        Generates UUIDs until one is found that does not conflict
+        with existing sessions.
 
         Args:
             title: Optional session title.
@@ -116,7 +119,26 @@ class SessionStore:
         Returns:
             The created SessionRecord.
         """
+        for _ in range(10):
+            session_id = str(uuid.uuid4())
+            if not await self.session_exists(session_id):
+                return await self.create_session_with_id(session_id, title)
+        # Extremely unlikely: fallback after 10 collisions
         return await self.create_session_with_id(str(uuid.uuid4()), title)
+
+    async def session_exists(self, session_id: str) -> bool:
+        """Check if a session ID already exists (active or inactive).
+
+        Args:
+            session_id: The session UUID.
+
+        Returns:
+            True if the session ID is already in use.
+        """
+        cursor = await self.db.execute(
+            "SELECT 1 FROM sessions WHERE id = ?", (session_id,)
+        )
+        return await cursor.fetchone() is not None
 
     async def create_session_with_id(
         self, session_id: str, title: str = ""

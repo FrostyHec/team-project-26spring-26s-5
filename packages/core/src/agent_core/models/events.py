@@ -24,7 +24,23 @@ class EventType(StrEnum):
     LOOP_START = "loop_start"
     LOOP_END = "loop_end"
     APPROVAL_REQUEST = "approval_request"
+    WIDGET_DISPLAY = "widget_display"
     ERROR = "error"
+
+
+class WidgetType(StrEnum):
+    """Types of widgets that can be rendered in the frontend workspace.
+
+    Each value corresponds to a Vue component in the right panel.
+    """
+
+    CALENDAR = "calendar"
+    DOCUMENT = "document"
+    WEB_PREVIEW = "web_preview"
+    COURSE_CARDS = "course_cards"
+    SOURCES = "sources"
+    INBOX = "inbox"
+    EMPTY = "empty"
 
 
 class TokenEvent(BaseModel):
@@ -118,12 +134,29 @@ class ApprovalRequestEvent(BaseModel):
     tool_call_id: str
 
 
+class WidgetDisplayEvent(BaseModel):
+    """Emitted when the agent wants to display a widget in the workspace.
+
+    The frontend should switch the right panel to render the specified
+    widget type with the provided data payload.
+
+    Attributes:
+        type: Always EventType.WIDGET_DISPLAY.
+        widget_type: The kind of widget to render.
+        data: Arbitrary payload for the widget component.
+    """
+
+    type: str = EventType.WIDGET_DISPLAY
+    widget_type: str
+    data: dict[str, Any] = {}
+
+
 class ErrorEvent(BaseModel):
     """Emitted when an error occurs during streaming.
 
     Attributes:
         type: Always EventType.ERROR.
-        content: The error message.
+        content: Error message text.
     """
 
     type: str = EventType.ERROR

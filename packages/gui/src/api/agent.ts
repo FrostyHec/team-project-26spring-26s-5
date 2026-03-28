@@ -1,6 +1,6 @@
 /**
  * API client for the ReAct Agent backend.
- * Handles chat requests and SSE streaming.
+ * Handles chat requests, SSE streaming, session CRUD, and skills.
  */
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api'
@@ -10,6 +10,43 @@ export interface ToolInfo {
   name: string
   description: string
   sensitivity: string
+}
+
+/** Skill definition from the backend. */
+export interface SkillInfo {
+  id: string
+  name: string
+  description: string
+  system_prompt: string
+  icon: string
+  color: string
+}
+
+/** Session summary from the API. */
+export interface SessionInfo {
+  id: string
+  title: string
+  created_at: string
+  updated_at: string
+  message_count?: number
+}
+
+/** Session detail with messages. */
+export interface SessionDetail {
+  session: SessionInfo
+  messages: SessionMessage[]
+}
+
+/** A persisted message from the session store. */
+export interface SessionMessage {
+  id: number
+  session_id: string
+  role: string
+  content: string
+  tool_call_id?: string
+  tool_calls?: unknown[]
+  created_at: string
+  ordinal: number
 }
 
 /** A streaming event from the agent. */
@@ -22,6 +59,7 @@ export interface AgentEvent {
     | 'loop_start'
     | 'loop_end'
     | 'approval_request'
+    | 'widget_display'
     | 'error'
   content?: string
   name?: string
@@ -30,16 +68,26 @@ export interface AgentEvent {
   tool_name?: string
   tool_args?: Record<string, unknown>
   tool_call_id?: string
+  widget_type?: string
+  data?: Record<string, unknown>
 }
 
 /**
  * Send a chat message and get a complete response.
  */
-export async function sendMessage(message: string): Promise<string> {
+export async function sendMessage(
+  message: string,
+  sessionId?: string,
+  skill?: string,
+): Promise<string> {
+  const body: Record<string, unknown> = { message }
+  if (sessionId) body.session_id = sessionId
+  if (skill) body.skill = skill
+
   const response = await fetch(`${API_BASE}/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message }),
+    body: JSON.stringify(body),
   })
 
   if (!response.ok) {
@@ -54,11 +102,19 @@ export async function sendMessage(message: string): Promise<string> {
  * Stream a chat response via SSE.
  * Yields AgentEvent objects for real-time UI updates.
  */
-export async function* streamMessage(message: string): AsyncGenerator<AgentEvent> {
+export async function* streamMessage(
+  message: string,
+  sessionId?: string,
+  skill?: string,
+): AsyncGenerator<AgentEvent> {
+  const body: Record<string, unknown> = { message }
+  if (sessionId) body.session_id = sessionId
+  if (skill) body.skill = skill
+
   const response = await fetch(`${API_BASE}/chat/stream`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message }),
+    body: JSON.stringify(body),
   })
 
   if (!response.ok) {
@@ -102,6 +158,66 @@ export async function fetchTools(): Promise<ToolInfo[]> {
     throw new Error(`API error: ${response.status}`)
   }
   return response.json()
+}
+
+/**
+ * Fetch the list of available skills.
+ */
+export async function fetchSkills(): Promise<SkillInfo[]> {
+  const response = await fetch(`${API_BASE}/skills`)
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`)
+  }
+  return response.json()
+}
+
+/**
+ * List all sessions.
+ */
+export async function listSessions(): Promise<SessionInfo[]> {
+  const response = await fetch(`${API_BASE}/sessions`)
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`)
+  }
+  return response.json()
+}
+
+/**
+ * Create a new session.
+ */
+export async function createSession(title: string = ''): Promise<SessionInfo> {
+  const response = await fetch(`${API_BASE}/sessions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title }),
+  })
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`)
+  }
+  return response.json()
+}
+
+/**
+ * Get a session with its message history.
+ */
+export async function getSession(sessionId: string): Promise<SessionDetail> {
+  const response = await fetch(`${API_BASE}/sessions/${sessionId}`)
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`)
+  }
+  return response.json()
+}
+
+/**
+ * Delete a session.
+ */
+export async function deleteSession(sessionId: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/sessions/${sessionId}`, {
+    method: 'DELETE',
+  })
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`)
+  }
 }
 
 /**

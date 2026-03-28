@@ -17,6 +17,7 @@ from agent_core.api.dependencies import init_dependencies, shutdown_dependencies
 from agent_core.api.routes.chat import router as chat_router
 from agent_core.api.routes.health import router as health_router
 from agent_core.api.routes.sessions import router as sessions_router
+from agent_core.api.routes.skills import router as skills_router
 from agent_core.api.routes.tools import router as tools_router
 from agent_core.config import AgentConfig
 from agent_core.logging_utils import setup_logger
@@ -58,6 +59,7 @@ def create_app(config: AgentConfig | None = None) -> FastAPI:
     # Mount routers (controllers)
     app.include_router(health_router)
     app.include_router(tools_router)
+    app.include_router(skills_router)
     app.include_router(chat_router)
     app.include_router(sessions_router)
 

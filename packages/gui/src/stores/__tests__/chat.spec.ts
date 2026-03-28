@@ -1,19 +1,38 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
-import { useChatStore } from '../chat'
+import { useChatStore, EVENT_TYPES, WIDGET_TYPES } from '../chat'
 
 // Mock the API module
 vi.mock('@/api/agent', () => ({
   checkHealth: vi.fn(),
   streamMessage: vi.fn(),
   approveToolCall: vi.fn(),
+  listSessions: vi.fn(),
+  createSession: vi.fn(),
+  getSession: vi.fn(),
+  deleteSession: vi.fn(),
+  fetchSkills: vi.fn(),
 }))
 
-import { checkHealth, streamMessage, approveToolCall } from '@/api/agent'
+import {
+  checkHealth,
+  streamMessage,
+  approveToolCall,
+  listSessions,
+  createSession,
+  getSession,
+  deleteSession,
+  fetchSkills,
+} from '@/api/agent'
 
 const mockCheckHealth = vi.mocked(checkHealth)
 const mockStreamMessage = vi.mocked(streamMessage)
 const mockApproveToolCall = vi.mocked(approveToolCall)
+const mockListSessions = vi.mocked(listSessions)
+const mockCreateSession = vi.mocked(createSession)
+const mockGetSession = vi.mocked(getSession)
+const mockDeleteSession = vi.mocked(deleteSession)
+const mockFetchSkills = vi.mocked(fetchSkills)
 
 describe('useChatStore', () => {
   beforeEach(() => {
@@ -27,6 +46,17 @@ describe('useChatStore', () => {
     expect(store.isLoading).toBe(false)
     expect(store.isConnected).toBe(false)
     expect(store.error).toBeNull()
+    expect(store.sessions).toHaveLength(0)
+    expect(store.activeSessionId).toBeNull()
+    expect(store.activeWidget.type).toBe(WIDGET_TYPES.EMPTY)
+    expect(store.skills).toHaveLength(0)
+  })
+
+  it('exports EVENT_TYPES and WIDGET_TYPES constants', () => {
+    expect(EVENT_TYPES.TOKEN).toBe('token')
+    expect(EVENT_TYPES.WIDGET_DISPLAY).toBe('widget_display')
+    expect(WIDGET_TYPES.CALENDAR).toBe('calendar')
+    expect(WIDGET_TYPES.COURSE_CARDS).toBe('course_cards')
   })
 
   describe('checkConnection', () => {
@@ -49,6 +79,136 @@ describe('useChatStore', () => {
     })
   })
 
+  describe('loadSkills', () => {
+    it('loads skills from backend', async () => {
+      const skills = [
+        {
+          id: 'general',
+          name: 'General',
+          description: 'desc',
+          system_prompt: '',
+          icon: '💬',
+          color: '#000',
+        },
+      ]
+      mockFetchSkills.mockResolvedValue(skills)
+      const store = useChatStore()
+
+      await store.loadSkills()
+
+      expect(store.skills).toHaveLength(1)
+      expect(store.skills[0]!.id).toBe('general')
+    })
+
+    it('does not throw when skills API fails', async () => {
+      mockFetchSkills.mockRejectedValue(new Error('fail'))
+      const store = useChatStore()
+
+      await store.loadSkills()
+
+      expect(store.skills).toHaveLength(0)
+    })
+  })
+
+  describe('session management', () => {
+    it('creates a new session via API', async () => {
+      mockCreateSession.mockResolvedValue({
+        id: 'sess-1',
+        title: '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      const store = useChatStore()
+
+      const id = await store.newSession()
+
+      expect(id).toBe('sess-1')
+      expect(store.sessions).toHaveLength(1)
+      expect(store.activeSessionId).toBe('sess-1')
+    })
+
+    it('falls back to local session when API fails', async () => {
+      mockCreateSession.mockRejectedValue(new Error('fail'))
+      const store = useChatStore()
+
+      const id = await store.newSession()
+
+      expect(id).toMatch(/^local-/)
+      expect(store.sessions).toHaveLength(1)
+      expect(store.activeSessionId).toBe(id)
+    })
+
+    it('switches session and loads history', async () => {
+      mockCreateSession.mockResolvedValue({
+        id: 'sess-1',
+        title: '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      mockGetSession.mockResolvedValue({
+        session: { id: 'sess-1', title: 'Chat', created_at: '', updated_at: '' },
+        messages: [
+          { id: 1, session_id: 'sess-1', role: 'human', content: 'hi', created_at: '', ordinal: 0 },
+          { id: 2, session_id: 'sess-1', role: 'ai', content: 'hello', created_at: '', ordinal: 1 },
+        ],
+      })
+
+      const store = useChatStore()
+      await store.newSession()
+      // Clear messages to test loading
+      store.sessions[0]!.messages = []
+
+      await store.switchSession('sess-1')
+
+      expect(store.activeSessionId).toBe('sess-1')
+      expect(store.sessions[0]!.messages).toHaveLength(2)
+    })
+
+    it('removes a session', async () => {
+      mockCreateSession
+        .mockResolvedValueOnce({
+          id: 'sess-1',
+          title: '',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .mockResolvedValueOnce({
+          id: 'sess-2',
+          title: '',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+      mockDeleteSession.mockResolvedValue(undefined)
+
+      const store = useChatStore()
+      await store.newSession()
+      await store.newSession()
+
+      expect(store.sessions).toHaveLength(2)
+
+      await store.removeSession('sess-2')
+
+      expect(store.sessions).toHaveLength(1)
+    })
+
+    it('loads sessions from backend', async () => {
+      mockListSessions.mockResolvedValue([
+        {
+          id: 'remote-1',
+          title: 'Chat 1',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ])
+      const store = useChatStore()
+
+      await store.loadSessions()
+
+      expect(store.sessions).toHaveLength(1)
+      expect(store.sessions[0]!.id).toBe('remote-1')
+    })
+  })
+
   describe('sendMessage', () => {
     it('ignores empty messages', async () => {
       const store = useChatStore()
@@ -60,6 +220,14 @@ describe('useChatStore', () => {
     })
 
     it('adds user and assistant messages', async () => {
+      // Set up session creation
+      mockCreateSession.mockResolvedValue({
+        id: 'sess-auto',
+        title: '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+
       // Mock an async generator that yields token events
       async function* fakeStream() {
         yield { type: 'loop_start' as const }
@@ -79,6 +247,13 @@ describe('useChatStore', () => {
     })
 
     it('handles token events by appending content', async () => {
+      mockCreateSession.mockResolvedValue({
+        id: 'sess-t',
+        title: '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+
       async function* fakeStream() {
         yield { type: 'loop_start' as const }
         yield { type: 'token' as const, content: 'Hello' }
@@ -95,6 +270,13 @@ describe('useChatStore', () => {
     })
 
     it('handles tool_start and tool_end events', async () => {
+      mockCreateSession.mockResolvedValue({
+        id: 'sess-tool',
+        title: '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+
       async function* fakeStream() {
         yield { type: 'loop_start' as const }
         yield { type: 'tool_start' as const, name: 'add', input: { a: 1, b: 2 } }
@@ -116,6 +298,13 @@ describe('useChatStore', () => {
     })
 
     it('handles loop_start and loop_end events', async () => {
+      mockCreateSession.mockResolvedValue({
+        id: 'sess-loop',
+        title: '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+
       async function* fakeStream() {
         yield { type: 'loop_start' as const }
         yield { type: 'token' as const, content: 'Hi' }
@@ -134,6 +323,13 @@ describe('useChatStore', () => {
     })
 
     it('handles thinking events', async () => {
+      mockCreateSession.mockResolvedValue({
+        id: 'sess-think',
+        title: '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+
       async function* fakeStream() {
         yield { type: 'loop_start' as const }
         yield { type: 'thinking' as const, content: 'Let me analyze...' }
@@ -153,7 +349,42 @@ describe('useChatStore', () => {
       expect(thinkingSteps[0]!.content).toBe('Let me analyze...')
     })
 
+    it('handles widget_display events', async () => {
+      mockCreateSession.mockResolvedValue({
+        id: 'sess-widget',
+        title: '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+
+      async function* fakeStream() {
+        yield { type: 'loop_start' as const }
+        yield {
+          type: 'widget_display' as const,
+          widget_type: 'calendar',
+          data: { events: [{ title: 'Exam' }] },
+        }
+        yield { type: 'token' as const, content: 'Here are your events' }
+        yield { type: 'loop_end' as const }
+      }
+      mockStreamMessage.mockReturnValue(fakeStream())
+
+      const store = useChatStore()
+      await store.sendMessage('show calendar')
+
+      expect(store.activeWidget.type).toBe('calendar')
+      expect(store.activeWidget.data).toEqual({ events: [{ title: 'Exam' }] })
+      expect(store.isWorkspaceOpen).toBe(true)
+    })
+
     it('sets error on stream failure', async () => {
+      mockCreateSession.mockResolvedValue({
+        id: 'sess-err',
+        title: '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+
       async function* fakeStream(): AsyncGenerator<never> {
         throw new Error('Connection failed')
       }
@@ -167,6 +398,13 @@ describe('useChatStore', () => {
     })
 
     it('manages loading state', async () => {
+      mockCreateSession.mockResolvedValue({
+        id: 'sess-load',
+        title: '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+
       let resolve: () => void
       const barrier = new Promise<void>((r) => {
         resolve = r
@@ -181,6 +419,9 @@ describe('useChatStore', () => {
       const store = useChatStore()
       const promise = store.sendMessage('test')
 
+      // Allow microtasks (session creation) to settle so isLoading is set
+      await new Promise((r) => setTimeout(r, 0))
+
       // isLoading should be true while streaming
       expect(store.isLoading).toBe(true)
 
@@ -189,7 +430,15 @@ describe('useChatStore', () => {
 
       expect(store.isLoading).toBe(false)
     })
+
     it('handles approval_request events', async () => {
+      mockCreateSession.mockResolvedValue({
+        id: 'sess-approval',
+        title: '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+
       async function* fakeStream() {
         yield { type: 'loop_start' as const }
         yield {
@@ -264,8 +513,37 @@ describe('useChatStore', () => {
     })
   })
 
+  describe('widget management', () => {
+    it('setWidget updates activeWidget', () => {
+      const store = useChatStore()
+
+      store.setWidget('calendar', { events: [] })
+
+      expect(store.activeWidget.type).toBe('calendar')
+      expect(store.isWorkspaceOpen).toBe(true)
+    })
+
+    it('toggleWorkspace flips isWorkspaceOpen', () => {
+      const store = useChatStore()
+      expect(store.isWorkspaceOpen).toBe(true)
+
+      store.toggleWorkspace()
+      expect(store.isWorkspaceOpen).toBe(false)
+
+      store.toggleWorkspace()
+      expect(store.isWorkspaceOpen).toBe(true)
+    })
+  })
+
   describe('clearMessages', () => {
-    it('removes all messages', async () => {
+    it('removes all messages in active session', async () => {
+      mockCreateSession.mockResolvedValue({
+        id: 'sess-clear',
+        title: '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+
       async function* fakeStream() {
         yield { type: 'token' as const, content: 'Hi' }
       }

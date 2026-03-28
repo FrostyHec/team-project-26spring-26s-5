@@ -40,13 +40,15 @@ class TestToolsEndpoint:
         assert response.status_code == 200
         tools = response.json()
         assert isinstance(tools, list)
-        assert len(tools) == 5  # 4 calculator + 1 weather
+        assert len(tools) == 10  # 4 calculator + 1 weather + 5 widget
         names = {t["name"] for t in tools}
         assert "add" in names
         assert "subtract" in names
         assert "multiply" in names
         assert "divide" in names
         assert "get_weather" in names
+        assert "show_calendar" in names
+        assert "show_document" in names
 
 
 class TestChatEndpointErrors:
@@ -70,6 +72,47 @@ class TestChatEndpointErrors:
         """Test that missing message field returns 422."""
         response = client.post("/chat", json={})
         assert response.status_code == 422
+
+    def test_chat_accepts_skill_parameter(self, client: TestClient) -> None:
+        """Test that chat endpoint accepts skill parameter."""
+        with patch(
+            "agent_core.engine.agent.ReactAgent.chat",
+            new_callable=AsyncMock,
+            return_value="Hello!",
+        ):
+            response = client.post(
+                "/chat",
+                json={"message": "Hello", "skill": "course_assistant"},
+            )
+            assert response.status_code == 200
+
+
+class TestSkillsEndpoint:
+    """Test the skills listing endpoint."""
+
+    def test_list_skills(self, client: TestClient) -> None:
+        """Test listing available skills."""
+        response = client.get("/skills")
+        assert response.status_code == 200
+        skills = response.json()
+        assert isinstance(skills, list)
+        assert len(skills) >= 6
+        ids = {s["id"] for s in skills}
+        assert "general" in ids
+        assert "course_assistant" in ids
+        assert "deadline_manager" in ids
+
+    def test_skills_have_required_fields(self, client: TestClient) -> None:
+        """Test that each skill has all required fields."""
+        response = client.get("/skills")
+        skills = response.json()
+        for skill in skills:
+            assert "id" in skill
+            assert "name" in skill
+            assert "description" in skill
+            assert "system_prompt" in skill
+            assert "icon" in skill
+            assert "color" in skill
 
 
 class TestApprovalEndpoint:

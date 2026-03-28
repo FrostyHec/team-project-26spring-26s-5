@@ -18,6 +18,7 @@ from agent_core.models.events import (
     TokenEvent,
     ToolEndEvent,
     ToolStartEvent,
+    WidgetDisplayEvent,
 )
 from agent_core.tools.registry import ToolRegistry
 
@@ -445,6 +446,21 @@ class ReactAgent:
                     tool_name = event["data"]["tool"]
                     output = event["data"].get("output", "")
                     yield ToolEndEvent(name=tool_name, output=output).model_dump()
+
+                    # Check if tool output contains a widget display directive
+                    try:
+                        import json
+
+                        parsed = json.loads(output)
+                        if isinstance(parsed, dict) and "__widget__" in parsed:
+                            widget_type = parsed.pop("__widget__")
+                            yield WidgetDisplayEvent(
+                                widget_type=widget_type,
+                                data=parsed,
+                            ).model_dump()
+                    except (json.JSONDecodeError, TypeError, ValueError):
+                        pass
+
                     # Capture tool message for persistence
                     new_messages.append(
                         ToolMessage(
