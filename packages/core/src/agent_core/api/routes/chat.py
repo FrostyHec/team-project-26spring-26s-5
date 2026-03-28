@@ -8,7 +8,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from agent_core.api.approval import resolve_pending
-from agent_core.api.dependencies import get_agent
+from agent_core.api.dependencies import get_agent, get_agent_for_skill
 from agent_core.engine.agent import ReactAgent
 from agent_core.logging_utils import get_logger
 from agent_core.models.events import ErrorEvent
@@ -60,7 +60,8 @@ async def chat(
         HTTPException: 502 if the LLM call fails.
     """
     try:
-        response = await agent.chat(request.message, session_id=request.session_id)
+        target = get_agent_for_skill(request.skill) if request.skill else agent
+        response = await target.chat(request.message, session_id=request.session_id)
     except Exception as e:
         logger.exception("Chat request failed")
         raise HTTPException(status_code=502, detail=str(e)) from e
@@ -82,9 +83,11 @@ async def chat_stream(
         SSE stream of agent events.
     """
 
+    target = get_agent_for_skill(request.skill) if request.skill else agent
+
     async def event_generator() -> AsyncGenerator[str, None]:
         try:
-            async for event in agent.stream(
+            async for event in target.stream(
                 request.message, session_id=request.session_id
             ):
                 yield f"data: {json.dumps(event)}\n\n"

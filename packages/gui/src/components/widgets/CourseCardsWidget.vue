@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { BookOpen, Clock, Star } from 'lucide-vue-next'
 
 interface CourseInfo {
@@ -15,9 +16,9 @@ const props = defineProps<{
   data: Record<string, unknown>
 }>()
 
-const courses: CourseInfo[] = Array.isArray(props.data.courses)
-  ? (props.data.courses as CourseInfo[])
-  : []
+const courses = computed<CourseInfo[]>(() =>
+  Array.isArray(props.data.courses) ? (props.data.courses as CourseInfo[]) : [],
+)
 
 function ratingStars(rating?: number): number {
   return Math.round(rating ?? 0)

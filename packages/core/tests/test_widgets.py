@@ -95,6 +95,19 @@ class TestShowWebPreview:
         result = json.loads(show_web_preview("https://example.edu"))
         assert result["title"] == "https://example.edu"
 
+    def test_rejects_javascript_url(self) -> None:
+        result = json.loads(show_web_preview("javascript:alert(1)"))
+        assert "error" in result
+        assert "__widget__" not in result
+
+    def test_rejects_data_url(self) -> None:
+        result = json.loads(show_web_preview("data:text/html,<h1>Bad</h1>"))
+        assert "error" in result
+
+    def test_accepts_http_url(self) -> None:
+        result = json.loads(show_web_preview("http://example.com"))
+        assert result["__widget__"] == WidgetType.WEB_PREVIEW
+
 
 class TestShowSources:
     """Tests for the show_sources tool."""

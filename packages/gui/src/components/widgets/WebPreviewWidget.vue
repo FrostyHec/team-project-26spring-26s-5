@@ -1,12 +1,13 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { Globe, ExternalLink } from 'lucide-vue-next'
 
 const props = defineProps<{
   data: Record<string, unknown>
 }>()
 
-const url = (props.data.url as string) || ''
-const title = (props.data.title as string) || 'Web Preview'
+const url = computed(() => (props.data.url as string) || '')
+const title = computed(() => (props.data.title as string) || 'Web Preview')
 </script>
 
 <template>
@@ -27,11 +28,7 @@ const title = (props.data.title as string) || 'Web Preview'
     </div>
 
     <div v-if="url" class="flex-1 rounded-lg overflow-hidden border border-gray-200 bg-white">
-      <iframe
-        :src="url"
-        class="w-full h-full min-h-[300px]"
-        sandbox="allow-scripts allow-same-origin"
-      />
+      <iframe :src="url" class="w-full h-full min-h-[300px]" sandbox="allow-scripts" />
     </div>
 
     <div

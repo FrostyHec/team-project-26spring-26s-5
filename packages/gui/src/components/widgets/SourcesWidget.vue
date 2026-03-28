@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { Link2, ExternalLink, FileText } from 'lucide-vue-next'
 
 interface SourceItem {
@@ -12,9 +13,9 @@ const props = defineProps<{
   data: Record<string, unknown>
 }>()
 
-const sources: SourceItem[] = Array.isArray(props.data.sources)
-  ? (props.data.sources as SourceItem[])
-  : []
+const sources = computed<SourceItem[]>(() =>
+  Array.isArray(props.data.sources) ? (props.data.sources as SourceItem[]) : [],
+)
 </script>
 
 <template>

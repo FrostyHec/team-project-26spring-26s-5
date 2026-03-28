@@ -1,20 +1,21 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { FileText, ExternalLink } from 'lucide-vue-next'
 
 const props = defineProps<{
   data: Record<string, unknown>
 }>()
 
-const title = (props.data.title as string) || 'Document'
-const content = (props.data.content as string) || ''
-const docType = (props.data.doc_type as string) || 'text'
-const url = props.data.url as string | undefined
-const pages = (props.data.pages as number) || 1
-const currentPage = (props.data.current_page as number) || 1
+const title = computed(() => (props.data.title as string) || 'Document')
+const content = computed(() => (props.data.content as string) || '')
+const docType = computed(() => (props.data.doc_type as string) || 'text')
+const url = computed(() => props.data.url as string | undefined)
+const pages = computed(() => (props.data.pages as number) || 1)
+const currentPage = computed(() => (props.data.current_page as number) || 1)
 
-const highlights: string[] = Array.isArray(props.data.highlights)
-  ? (props.data.highlights as string[])
-  : []
+const highlights = computed<string[]>(() =>
+  Array.isArray(props.data.highlights) ? (props.data.highlights as string[]) : [],
+)
 </script>
 
 <template>

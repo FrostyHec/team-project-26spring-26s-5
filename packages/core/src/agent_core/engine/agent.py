@@ -1,5 +1,6 @@
 """ReAct Agent - Core agent loop using LangGraph."""
 
+import json
 import uuid
 from collections.abc import AsyncGenerator, Callable
 from typing import TYPE_CHECKING, Any
@@ -449,14 +450,15 @@ class ReactAgent:
 
                     # Check if tool output contains a widget display directive
                     try:
-                        import json
-
                         parsed = json.loads(output)
                         if isinstance(parsed, dict) and "__widget__" in parsed:
-                            widget_type = parsed.pop("__widget__")
+                            widget_type = parsed["__widget__"]
+                            widget_data = {
+                                k: v for k, v in parsed.items() if k != "__widget__"
+                            }
                             yield WidgetDisplayEvent(
                                 widget_type=widget_type,
-                                data=parsed,
+                                data=widget_data,
                             ).model_dump()
                     except (json.JSONDecodeError, TypeError, ValueError):
                         pass

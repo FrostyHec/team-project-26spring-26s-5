@@ -116,6 +116,29 @@ def get_agent() -> ReactAgent:
     return _agent
 
 
+def get_agent_for_skill(skill_id: str | None) -> ReactAgent:
+    """Get an agent configured for a specific skill.
+
+    If no skill_id is given (or it matches the default), returns the
+    shared singleton. Otherwise creates a new agent with the skill's
+    system prompt, sharing the session store and approval handler.
+
+    Args:
+        skill_id: Optional skill identifier.
+
+    Returns:
+        A ReactAgent with the appropriate system prompt.
+    """
+    base = get_agent()
+    if not skill_id:
+        return base
+
+    agent = create_agent(_config, skill_id=skill_id)
+    agent.session_store = base.session_store
+    agent.approval_handler = base.approval_handler
+    return agent
+
+
 def get_store() -> SessionStore:
     """FastAPI dependency that provides the SessionStore.
 

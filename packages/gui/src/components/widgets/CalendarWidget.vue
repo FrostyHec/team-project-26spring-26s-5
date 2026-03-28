@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { Calendar, Clock, AlertCircle } from 'lucide-vue-next'
 
 interface CalendarEvent {
@@ -13,9 +14,9 @@ const props = defineProps<{
   data: Record<string, unknown>
 }>()
 
-const events: CalendarEvent[] = Array.isArray(props.data.events)
-  ? (props.data.events as CalendarEvent[])
-  : []
+const events = computed<CalendarEvent[]>(() =>
+  Array.isArray(props.data.events) ? (props.data.events as CalendarEvent[]) : [],
+)
 
 function priorityDot(priority?: string): string {
   switch (priority) {

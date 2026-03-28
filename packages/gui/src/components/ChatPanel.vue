@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, nextTick, watch, computed, onMounted } from 'vue'
+import { ref, nextTick, watch, computed } from 'vue'
 import {
   Send,
   Paperclip,
@@ -33,10 +33,6 @@ watch(
   },
   { deep: true },
 )
-
-onMounted(() => {
-  chatStore.loadSkills()
-})
 
 /** Detect @ mention and show skill menu. */
 function handleInput() {

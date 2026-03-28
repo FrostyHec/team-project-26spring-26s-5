@@ -81,16 +81,22 @@ def show_courses(courses: str) -> str:
     )
 
 
+_ALLOWED_URL_SCHEMES = ("http://", "https://")
+
+
 def show_web_preview(url: str, title: str = "") -> str:
     """Display a web preview widget for the given URL.
 
     Args:
-        url: The URL to preview.
+        url: The URL to preview (must be http or https).
         title: Optional title for the preview header.
 
     Returns:
         Confirmation message with widget display instruction.
     """
+    if not url.lower().startswith(_ALLOWED_URL_SCHEMES):
+        return json.dumps({"error": "Only http/https URLs are allowed."})
+
     return json.dumps(
         {
             "__widget__": WidgetType.WEB_PREVIEW,
