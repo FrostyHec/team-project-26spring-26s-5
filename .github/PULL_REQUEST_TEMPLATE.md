@@ -28,7 +28,7 @@
 - [ ] Code comments have been added where necessary (English only)
 - [ ] Documentation has been updated (if applicable)
 - [ ] Tests have been added/updated
-- [ ] All tests pass locally (`./scripts/check.sh`)
+- [ ] All tests pass locally (`bash scripts/check.sh --check-only`)
 - [ ] No breaking changes (or documented in description)
 
 ## Screenshots (if applicable)

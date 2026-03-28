@@ -85,7 +85,11 @@ function openSettings() {
     </div>
 
     <!-- Session list -->
-    <div :class="props.collapsed ? 'flex-1 overflow-y-auto px-2 pb-3' : 'flex-1 overflow-y-auto px-3 pb-4'">
+    <div
+      :class="
+        props.collapsed ? 'flex-1 overflow-y-auto px-2 pb-3' : 'flex-1 overflow-y-auto px-3 pb-4'
+      "
+    >
       <div v-if="groupedSessions.length === 0" class="text-center text-gray-400 text-sm mt-8">
         <span v-if="!props.collapsed">No conversations yet</span>
       </div>
@@ -102,22 +106,20 @@ function openSettings() {
             v-for="session in group.sessions"
             :key="session.id"
             class="w-full flex items-center rounded-lg text-left text-sm transition-all duration-150 group cursor-pointer"
-            :title="props.collapsed ? (session.title || 'New Chat') : undefined"
+            :title="props.collapsed ? session.title || 'New Chat' : undefined"
             :class="
               chatStore.activeSessionId === session.id
                 ? 'bg-white shadow-sm border border-gray-200 text-blue-600 font-medium'
                 : 'text-gray-600 hover:bg-gray-100 border border-transparent'
             "
-            :style="props.collapsed ? 'padding: 10px; justify-content: center;' : 'padding: 10px 12px;'"
+            :style="
+              props.collapsed ? 'padding: 10px; justify-content: center;' : 'padding: 10px 12px;'
+            "
             @click="handleSelectSession(session.id)"
           >
             <MessageSquare
               class="w-[18px] h-[18px] flex-shrink-0"
-              :class="
-                chatStore.activeSessionId === session.id
-                  ? 'text-blue-500'
-                  : 'text-gray-400'
-              "
+              :class="chatStore.activeSessionId === session.id ? 'text-blue-500' : 'text-gray-400'"
             />
             <span v-if="!props.collapsed" class="flex-1 truncate font-medium text-sm">{{
               session.title || 'New Chat'
@@ -137,14 +139,18 @@ function openSettings() {
     </div>
 
     <!-- User Info Footer -->
-    <div :class="props.collapsed ? 'p-2.5 border-t border-gray-200' : 'p-4 border-t border-gray-200'">
+    <div
+      :class="props.collapsed ? 'p-2.5 border-t border-gray-200' : 'p-4 border-t border-gray-200'"
+    >
       <div class="flex items-center gap-3">
         <div
           class="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center font-bold text-sm text-gray-500 flex-shrink-0"
         >
           U
         </div>
-        <span v-if="!props.collapsed" class="text-sm font-medium text-gray-700 flex-1">User Profile</span>
+        <span v-if="!props.collapsed" class="text-sm font-medium text-gray-700 flex-1"
+          >User Profile</span
+        >
         <button
           @click="openSettings"
           class="text-gray-400 hover:text-gray-600 transition-colors duration-150 cursor-pointer"

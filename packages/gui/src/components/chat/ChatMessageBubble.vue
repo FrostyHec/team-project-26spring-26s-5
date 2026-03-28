@@ -27,10 +27,7 @@ const showCursor = computed(() => !!props.msg.content && chatStore.isLoading && 
 </script>
 
 <template>
-  <div
-    class="flex flex-col"
-    :class="msg.role === 'user' ? 'items-end' : 'items-start'"
-  >
+  <div class="flex flex-col" :class="msg.role === 'user' ? 'items-end' : 'items-start'">
     <!-- Tool call badges (assistant only) -->
     <ChatToolBadges
       v-if="msg.toolCalls && msg.toolCalls.length > 0 && msg.role === 'assistant'"

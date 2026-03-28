@@ -165,7 +165,10 @@ function handleKeydown(e: KeyboardEvent) {
     </div>
 
     <!-- Skill Suggestions -->
-    <div v-if="quickSkills.length > 0" class="mt-2.5 flex items-center gap-2 px-1 flex-wrap mx-auto w-full max-w-[920px]">
+    <div
+      v-if="quickSkills.length > 0"
+      class="mt-2.5 flex items-center gap-2 px-1 flex-wrap mx-auto w-full max-w-[920px]"
+    >
       <span class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Skills:</span>
       <button
         v-for="skill in quickSkills"

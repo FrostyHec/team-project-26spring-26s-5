@@ -104,8 +104,7 @@ team-project-26spring-26s-5/
 │       └── e2e/               # Playwright E2E 测试
 │           └── vue.spec.ts
 └── scripts/
-    ├── check.sh               # 开发者检查脚本（5 步）
-    ├── ci-local.sh            # CI 本地模拟（4 步）
+    ├── check.sh               # 统一检查脚本（开发 + CI 模式）
     └── check_language.py      # 源代码语言检查（禁止中文）
 ```
 

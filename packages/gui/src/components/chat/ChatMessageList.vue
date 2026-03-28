@@ -59,10 +59,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div
-    ref="scrollContainer"
-    class="flex-1 overflow-y-auto px-5 py-6 bg-gray-50/30"
-  >
+  <div ref="scrollContainer" class="flex-1 overflow-y-auto px-5 py-6 bg-gray-50/30">
     <div class="mx-auto w-full max-w-[920px]">
       <!-- Empty state -->
       <div
@@ -77,8 +74,8 @@ onUnmounted(() => {
         <h3 class="text-lg font-semibold text-gray-600 mb-2">How can I help you today?</h3>
         <p class="text-sm text-center max-w-sm text-gray-400 leading-relaxed">
           Ask about courses, deadlines, campus policies, or type
-          <strong class="text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded text-xs">@</strong> to select
-          a specific AI skill.
+          <strong class="text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded text-xs">@</strong> to
+          select a specific AI skill.
         </p>
       </div>
 

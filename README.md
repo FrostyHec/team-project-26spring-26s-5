@@ -54,14 +54,14 @@ task dev:gui
 ### Testing
 
 ```bash
-# Run all checks (format + lint + language + tests)
+# Run all checks with auto-format (development mode)
 bash scripts/check.sh
+
+# Run checks without auto-format (CI mode - for pre-commit verification)
+bash scripts/check.sh --check-only
 
 # Run only tests
 task test
-
-# CI simulation
-bash scripts/ci-local.sh
 ```
 
 ## Tech Stack

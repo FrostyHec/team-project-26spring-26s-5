@@ -9,8 +9,7 @@ team-project-26spring-26s-5/
 ├── Taskfile.yml              # 任务编排（go-task）
 ├── .env.example              # 环境变量模板
 ├── scripts/                  # 脚本
-│   ├── check.sh              # 开发者检查脚本
-│   ├── ci-local.sh           # CI 本地模拟
+│   ├── check.sh              # 统一检查脚本（开发 + CI 模式）
 │   └── check_language.py     # 语言检查工具
 ├── packages/
 │   ├── core/                 # 核心引擎（Python）
@@ -135,11 +134,11 @@ task test                     # 运行所有测试
 ## 本地测试指南
 
 ```bash
-# 快速检查（开发时使用）— 5 步：格式化 → Lint → 语言检查 → Python 测试 → Vue 测试
+# 快速检查（开发时使用）— 6 步：格式化 → Lint → 语言检查 → Python 测试 → Vue 测试 → Type Check & Build
 bash scripts/check.sh
 
-# CI 模拟（提交前使用）— 4 步：Lint（不自动修复）→ 语言检查 → Python 测试 → Vue 测试
-bash scripts/ci-local.sh
+# CI 模拟（提交前使用）— 5 步：Lint（不自动修复）→ 语言检查 → Python 测试 → Vue 测试 → Type Check & Build
+bash scripts/check.sh --check-only
 
 # 仅运行特定包测试
 task test:core

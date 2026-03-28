@@ -1,8 +1,12 @@
 #!/bin/bash
 # =============================================================================
-# Agent Project - Developer Check Script
-# Run complete code check pipeline before commit
-# Usage: bash scripts/check.sh
+# Agent Project - Check Script
+# Run code check and format pipeline
+# 
+# Usage:
+#   bash scripts/check.sh              # Full check + auto-format (dev mode)
+#   bash scripts/check.sh --check-only # Only check, no auto-format (CI mode)
+#   bash scripts/check.sh --help       # Show this help message
 # =============================================================================
 
 set -e
@@ -24,15 +28,59 @@ print_header() {
 
 print_success() { echo -e "${GREEN}✓ $1${NC}"; }
 print_error() { echo -e "${RED}✗ $1${NC}"; }
+print_info() { echo -e "${YELLOW}ℹ $1${NC}"; }
 
 # Get project root directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_ROOT"
 
+# Parse command line arguments
+CHECK_ONLY=false
+SHOW_HELP=false
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --check-only)
+            CHECK_ONLY=true
+            shift
+            ;;
+        --help)
+            SHOW_HELP=true
+            shift
+            ;;
+        *)
+            print_error "Unknown option: $1"
+            SHOW_HELP=true
+            shift
+            ;;
+    esac
+done
+
+if [ "$SHOW_HELP" = true ]; then
+    echo ""
+    echo "Usage: bash scripts/check.sh [OPTIONS]"
+    echo ""
+    echo "Options:"
+    echo "  --check-only   Only check code style, do not auto-format (CI mode)"
+    echo "  --help         Show this help message"
+    echo ""
+    echo "Examples:"
+    echo "  bash scripts/check.sh              # Dev mode: check + auto-format"
+    echo "  bash scripts/check.sh --check-only # CI mode: check only"
+    echo ""
+    exit 0
+fi
+
+MODE_TEXT="dev mode (auto-format enabled)"
+if [ "$CHECK_ONLY" = true ]; then
+    MODE_TEXT="CI mode (check only, no auto-format)"
+fi
+
 echo ""
 echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}  Agent Project Code Check${NC}"
+echo -e "${BLUE}  Mode: $MODE_TEXT${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 echo "Project directory: $PROJECT_ROOT"
@@ -41,31 +89,45 @@ echo "Project directory: $PROJECT_ROOT"
 export PATH="$HOME/.local/bin:$PATH"
 
 # =============================================================================
-# Step 1: Format code (Python + Vue)
+# Step 1: Format code (Python + Vue) - only if not --check-only
 # =============================================================================
-print_header "Step 1/6: Code Formatting (ruff + prettier)"
+if [ "$CHECK_ONLY" = false ]; then
+    print_header "Step 1/6: Code Formatting (ruff + prettier)"
 
-for pkg in packages/core packages/cli packages/poc_frontend; do
-    if [ -d "$pkg/src" ]; then
-        echo "Formatting $pkg..."
-        cd "$PROJECT_ROOT/$pkg"
-        uv run ruff format src/ tests/ 2>/dev/null || true
-        uv run ruff check --fix src/ tests/ 2>/dev/null || true
-        cd "$PROJECT_ROOT"
-    fi
-done
+    for pkg in packages/core packages/cli packages/poc_frontend; do
+        if [ -d "$pkg/src" ]; then
+            echo "Formatting $pkg..."
+            cd "$PROJECT_ROOT/$pkg"
+            uv run ruff format src/ tests/ 2>/dev/null || true
+            uv run ruff check --fix src/ tests/ 2>/dev/null || true
+            cd "$PROJECT_ROOT"
+        fi
+    done
 
-echo "Formatting packages/gui..."
-cd "$PROJECT_ROOT/packages/gui"
-pnpm format 2>/dev/null || true
-cd "$PROJECT_ROOT"
+    echo "Formatting packages/gui..."
+    cd "$PROJECT_ROOT/packages/gui"
+    pnpm format 2>/dev/null || true
+    cd "$PROJECT_ROOT"
 
-print_success "Code formatting complete"
+    print_success "Code formatting complete"
+else
+    print_info "Skipping auto-format (--check-only mode)"
+fi
 
 # =============================================================================
-# Step 2: Lint Check (Python + Vue)
+# Step 2 (or 1 if --check-only): Lint Check (Python + Vue)
 # =============================================================================
-print_header "Step 2/6: Lint Check (ruff + eslint)"
+if [ "$CHECK_ONLY" = false ]; then
+    STEP_NUM="2/6"
+    NEXT_STEP="3"
+    TOTAL_STEPS=6
+else
+    STEP_NUM="1/5"
+    NEXT_STEP="2"
+    TOTAL_STEPS=5
+fi
+
+print_header "Step $STEP_NUM: Lint Check (ruff + prettier)"
 
 LINT_FAILED=0
 for pkg in packages/core packages/cli packages/poc_frontend; do
@@ -93,9 +155,10 @@ fi
 print_success "Lint check passed"
 
 # =============================================================================
-# Step 3: Language Check
+# Step 3 (or 2 if --check-only): Language Check
 # =============================================================================
-print_header "Step 3/6: Language Check"
+STEP_NUM=$((NEXT_STEP))/$(echo "$TOTAL_STEPS")
+print_header "Step $STEP_NUM: Language Check"
 
 echo "Checking for Chinese characters in source code..."
 if python3 scripts/check_language.py --root "$PROJECT_ROOT"; then
@@ -105,10 +168,14 @@ else
     exit 1
 fi
 
+# Update step counter for next steps
+NEXT_STEP=$((NEXT_STEP + 1))
+
 # =============================================================================
-# Step 4: Run Tests (pytest + vitest)
+# Step 4 (or 3 if --check-only): Run Tests (pytest)
 # =============================================================================
-print_header "Step 4/6: Run Python Tests (pytest)"
+STEP_NUM=$((NEXT_STEP))/$TOTAL_STEPS
+print_header "Step $STEP_NUM: Run Python Tests (pytest)"
 
 TEST_FAILED=0
 for pkg in packages/core packages/cli packages/poc_frontend; do
@@ -128,10 +195,14 @@ if [ $TEST_FAILED -ne 0 ]; then
 fi
 print_success "Python tests passed"
 
+# Update step counter for next steps
+NEXT_STEP=$((NEXT_STEP + 1))
+
 # =============================================================================
-# Step 5: Run Vue Frontend Tests (vitest)
+# Step 5 (or 4 if --check-only): Run Vue Frontend Tests (vitest)
 # =============================================================================
-print_header "Step 5/6: Run Vue Tests (vitest)"
+STEP_NUM=$((NEXT_STEP))/$TOTAL_STEPS
+print_header "Step $STEP_NUM: Run Vue Tests (vitest)"
 
 cd "$PROJECT_ROOT/packages/gui"
 if pnpm vitest run; then
@@ -142,19 +213,37 @@ else
 fi
 cd "$PROJECT_ROOT"
 
-# =============================================================================
-# Step 6: Vue Type Check & Build
-# =============================================================================
-print_header "Step 6/6: Vue Type Check & Build"
+# Update step counter for next steps
+NEXT_STEP=$((NEXT_STEP + 1))
 
-cd "$PROJECT_ROOT/packages/gui"
-if pnpm run type-check && pnpm build; then
-    print_success "Vue type check and build passed"
+# =============================================================================
+# Step 6 (or 5 if --check-only): Vue Type Check & Build
+# =============================================================================
+if [ "$CHECK_ONLY" = false ]; then
+    STEP_NUM="6/6"
+    print_header "Step $STEP_NUM: Vue Type Check & Build"
+
+    cd "$PROJECT_ROOT/packages/gui"
+    if pnpm run type-check && pnpm build; then
+        print_success "Vue type check and build passed"
+    else
+        print_error "Vue type check or build failed"
+        exit 1
+    fi
+    cd "$PROJECT_ROOT"
 else
-    print_error "Vue type check or build failed"
-    exit 1
+    STEP_NUM="5/5"
+    print_header "Step $STEP_NUM: Vue Type Check & Build"
+
+    cd "$PROJECT_ROOT/packages/gui"
+    if pnpm run type-check && pnpm build; then
+        print_success "Vue type check and build passed"
+    else
+        print_error "Vue type check or build failed"
+        exit 1
+    fi
+    cd "$PROJECT_ROOT"
 fi
-cd "$PROJECT_ROOT"
 
 # =============================================================================
 # Complete
@@ -164,4 +253,10 @@ echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}  ✓ All checks passed!${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo ""
-echo "Code is ready to commit."
+
+if [ "$CHECK_ONLY" = false ]; then
+    echo "Code is ready to commit."
+else
+    echo "All CI checks passed."
+fi
+echo ""

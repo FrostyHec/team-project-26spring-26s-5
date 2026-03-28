@@ -122,8 +122,8 @@ task dev:gui
 # 开发阶段检查（会自动修复格式问题）
 bash scripts/check.sh
 
-# 或模拟 CI 检查（不自动修复，更严格）
-bash scripts/ci-local.sh
+# 或模拟 CI 检查（不自动修复，提交前验证）
+bash scripts/check.sh --check-only
 ```
 
 #### 4. 提交
@@ -153,40 +153,44 @@ CI 通过且审查通过后，使用 Squash and Merge 合并到 `main`。
 
 ## 本地检查脚本详解
 
-### check.sh（开发时使用）
+### check.sh
 
-`bash scripts/check.sh` 执行 **5 个步骤**：
+`bash scripts/check.sh` 是统一的检查脚本，支持两种模式：
 
-| 步骤 | 名称 | 说明 |
-|------|------|------|
-| 1/5 | Code Formatting | 对所有 Python 包运行 `ruff format`（**自动修复**格式问题） |
-| 2/5 | Lint Check | 对所有 Python 包运行 `ruff check`（检查代码质量） |
-| 3/5 | Language Check | 运行 `check_language.py`（确保源代码中无中文字符） |
-| 4/5 | Python Tests | 对 `core`、`cli`、`poc_frontend` 运行 `pytest` |
-| 5/5 | Vue Tests | 在 `packages/gui` 中运行 `pnpm vitest run` |
-
-**推荐在每次提交前运行**。格式化步骤会自动修改文件，修复后需要重新 `git add`。
-
-### ci-local.sh（提交前使用）
-
-`bash scripts/ci-local.sh` 执行 **4 个步骤**：
+#### 开发模式（默认）
+`bash scripts/check.sh` 执行 **6 个步骤**：
 
 | 步骤 | 名称 | 说明 |
 |------|------|------|
-| 1/4 | Lint & Format Check | `ruff format --check` + `ruff check`（**不自动修复**，仅报告） |
-| 2/4 | Language Check | 运行 `check_language.py` |
-| 3/4 | Python Tests | 对所有 Python 包运行 `pytest` |
-| 4/4 | Vue Tests | 在 `packages/gui` 中运行 `pnpm vitest run` |
+| 1/6 | Code Formatting | 对所有 Python 包运行 `ruff format`（**自动修复**格式问题） |
+| 2/6 | Lint Check | 对所有 Python 包和 Vue 运行格式检查 |
+| 3/6 | Language Check | 运行 `check_language.py`（确保源代码中无中文字符） |
+| 4/6 | Python Tests | 对 `core`、`cli`、`poc_frontend` 运行 `pytest` |
+| 5/6 | Vue Tests | 在 `packages/gui` 中运行 `pnpm vitest run` |
+| 6/6 | Type Check & Build | 运行 `pnpm run type-check` 和 `pnpm build` |
+
+**推荐在每次开发过程中运行**。格式化步骤会自动修改文件，修复后需要重新 `git add`。
+
+#### CI 模式（--check-only）
+`bash scripts/check.sh --check-only` 执行 **5 个步骤**（跳过自动格式化）：
+
+| 步骤 | 名称 | 说明 |
+|------|------|------|
+| 1/5 | Lint Check | `ruff format --check` + `ruff check`（**不自动修复**，仅报告） |
+| 2/5 | Language Check | 运行 `check_language.py` |
+| 3/5 | Python Tests | 对所有 Python 包运行 `pytest` |
+| 4/5 | Vue Tests | 在 `packages/gui` 中运行 `pnpm vitest run` |
+| 5/5 | Type Check | 运行 `pnpm run type-check` |
 
 **模拟 CI 环境**，与 GitHub Actions 行为一致。如果此脚本全部通过，CI 也应该通过。
 
-### 关键区别
+### 推荐工作流
 
-| | `check.sh` | `ci-local.sh` |
-|---|---|---|
-| 格式化 | 自动修复 | 仅检查 |
-| 适用场景 | 开发过程中 | 创建 PR 前 |
-| 失败处理 | 修改文件后继续 | 直接报错退出 |
+| 场景 | 命令 | 说明 |
+|------|------|------|
+| 开发过程中 | `bash scripts/check.sh` | 自动修复问题，快速反馈 |
+| 提交前验证 | `bash scripts/check.sh --check-only` | 验证代码符合 CI 要求 |
+| 显示帮助 | `bash scripts/check.sh --help` | 查看脚本选项 |
 
 ## CI 工作流
 
@@ -242,12 +246,12 @@ language-check ┤
 - [ ] **Commit Message 规范**：遵循约定式提交格式
 - [ ] **PR 标题规范**：格式同 commit message
 - [ ] **新功能有测试**：单元测试 + 必要时的集成/E2E 测试
-- [ ] **ci-local.sh 通过**：`bash scripts/ci-local.sh` 全绿
+- [ ] **CI 检查通过**：`bash scripts/check.sh --check-only` 全绿
 
 快速一键检查：
 
 ```bash
-bash scripts/ci-local.sh
+bash scripts/check.sh --check-only
 ```
 
 ## 常用命令速查
@@ -284,8 +288,8 @@ bash scripts/ci-local.sh
 |------|------|
 | `task format` | 自动格式化所有 Python 代码 |
 | `task lint` | Lint 检查所有 Python 代码 |
-| `bash scripts/check.sh` | 完整开发检查（5 步） |
-| `bash scripts/ci-local.sh` | CI 模拟检查（4 步） |
+| `bash scripts/check.sh` | 完整开发检查（6 步，含自动格式化） |
+| `bash scripts/check.sh --check-only` | CI 模拟检查（5 步，不自动修复） |
 | `python3 scripts/check_language.py --root .` | 语言检查 |
 
 ### 清理

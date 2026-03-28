@@ -45,10 +45,7 @@ async function handleNewChat() {
 <template>
   <div class="flex w-full h-screen bg-white text-gray-800 overflow-hidden">
     <!-- Left sidebar: sessions -->
-    <SessionSidebar
-      :collapsed="chatStore.isSidebarCollapsed"
-      @new-chat="handleNewChat"
-    />
+    <SessionSidebar :collapsed="chatStore.isSidebarCollapsed" @new-chat="handleNewChat" />
 
     <!-- Center: chat panel -->
     <main class="flex-1 flex flex-col min-w-[320px] bg-white relative">
@@ -64,7 +61,7 @@ async function handleNewChat() {
         v-if="chatStore.isWorkspaceOpen"
         class="flex flex-shrink-0 relative border-l border-gray-200 bg-white"
         :style="{ width: `${workspaceWidth}px` }"
-        style="box-shadow: -4px 0 15px -3px rgba(0,0,0,0.05)"
+        style="box-shadow: -4px 0 15px -3px rgba(0, 0, 0, 0.05)"
       >
         <!-- Resizer handle -->
         <div
