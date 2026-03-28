@@ -109,7 +109,7 @@ function handleKeydown(e: KeyboardEvent) {
 
 <template>
   <div class="p-5 bg-white border-t border-gray-100 flex-shrink-0">
-    <div class="relative">
+    <div class="relative mx-auto w-full max-w-[920px]">
       <!-- @mention dropdown -->
       <div
         v-if="showSkillMenu && filteredSkills.length > 0"
@@ -165,7 +165,7 @@ function handleKeydown(e: KeyboardEvent) {
     </div>
 
     <!-- Skill Suggestions -->
-    <div v-if="quickSkills.length > 0" class="mt-2.5 flex items-center gap-2 px-1 flex-wrap">
+    <div v-if="quickSkills.length > 0" class="mt-2.5 flex items-center gap-2 px-1 flex-wrap mx-auto w-full max-w-[920px]">
       <span class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Skills:</span>
       <button
         v-for="skill in quickSkills"

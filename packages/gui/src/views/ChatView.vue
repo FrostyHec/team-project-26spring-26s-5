@@ -45,11 +45,17 @@ async function handleNewChat() {
 <template>
   <div class="flex w-full h-screen bg-white text-gray-800 overflow-hidden">
     <!-- Left sidebar: sessions -->
-    <SessionSidebar @new-chat="handleNewChat" />
+    <SessionSidebar
+      :collapsed="chatStore.isSidebarCollapsed"
+      @new-chat="handleNewChat"
+    />
 
     <!-- Center: chat panel -->
-    <main class="flex-1 flex flex-col min-w-[350px] bg-white relative">
-      <ChatPanel @toggle-workspace="chatStore.toggleWorkspace" />
+    <main class="flex-1 flex flex-col min-w-[320px] bg-white relative">
+      <ChatPanel
+        @toggle-workspace="chatStore.toggleWorkspace"
+        @toggle-sidebar="chatStore.toggleSidebar"
+      />
     </main>
 
     <!-- Right: workspace panel with resizer -->

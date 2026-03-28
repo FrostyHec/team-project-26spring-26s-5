@@ -43,12 +43,12 @@ const showCursor = computed(() => !!props.msg.content && chatStore.isLoading && 
       v-if="msg.traceSteps && msg.traceSteps.length > 0 && msg.role === 'assistant'"
       :steps="msg.traceSteps"
       :loop-active="!!msg.loopActive"
-      class="mb-2 w-full max-w-[80%]"
+      class="mb-2 w-full max-w-[72%]"
     />
 
     <!-- Message bubble -->
     <div
-      class="max-w-[80%] px-6 py-4 text-[15px] leading-7"
+      class="max-w-[72%] px-6 py-4 text-[15px] leading-7"
       :class="
         msg.role === 'user'
           ? 'bg-blue-600 text-white rounded-2xl rounded-tr-sm shadow-sm'

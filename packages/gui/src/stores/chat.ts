@@ -10,7 +10,7 @@ import {
   deleteSession as apiDeleteSession,
   fetchSkills,
 } from '@/api/agent'
-import type { AgentEvent, SessionInfo, SkillInfo } from '@/api/agent'
+import type { AgentEvent, SessionDetail, SessionInfo, SkillInfo } from '@/api/agent'
 import { EVENT_TYPES, WIDGET_TYPES, TOOL_CALL_STATUS, TRACE_STEP_TYPES } from './chatConstants'
 import type {
   ChatMessage,
@@ -43,6 +43,7 @@ export const useChatStore = defineStore('chat', () => {
   // Widget state
   const activeWidget = ref<WidgetState>({ type: WIDGET_TYPES.EMPTY, data: {} })
   const isWorkspaceOpen = ref(true)
+  const isSidebarCollapsed = ref(false)
 
   // Skills
   const skills = ref<SkillInfo[]>([])
@@ -99,9 +100,95 @@ export const useChatStore = defineStore('chat', () => {
           })
         }
       }
+      if (!activeSessionId.value && sessions.value.length > 0) {
+        activeSessionId.value = sessions.value[0]!.id
+      }
     } catch {
       // Fallback: keep local sessions
     }
+  }
+
+  /** Rebuild frontend message model from persisted session detail. */
+  function buildMessagesFromSessionDetail(detail: SessionDetail): ChatMessage[] {
+    const rebuilt: ChatMessage[] = []
+    let currentAssistant: ChatMessage | null = null
+
+    for (const msg of detail.messages) {
+      if (msg.role === 'human') {
+        rebuilt.push({
+          id: generateId(),
+          role: 'user',
+          content: msg.content,
+          timestamp: new Date(msg.created_at),
+        })
+        currentAssistant = null
+        continue
+      }
+
+      if (!currentAssistant) {
+        currentAssistant = {
+          id: generateId(),
+          role: 'assistant',
+          content: '',
+          toolCalls: [],
+          traceSteps: [],
+          loopActive: false,
+          timestamp: new Date(msg.created_at),
+        }
+        rebuilt.push(currentAssistant)
+      }
+
+      if (msg.role === 'ai') {
+        if (msg.content) {
+          currentAssistant.content += (currentAssistant.content ? '\n\n' : '') + msg.content
+        }
+
+        if (msg.tool_calls && Array.isArray(msg.tool_calls)) {
+          for (const toolCall of msg.tool_calls) {
+            const tc = toolCall as Record<string, any>
+            const callName = tc.name || 'unknown'
+            const callArgs = tc.args || {}
+            if (!currentAssistant.toolCalls!.some((t) => t.name === callName)) {
+              currentAssistant.toolCalls!.push({
+                name: callName,
+                input: callArgs,
+                status: TOOL_CALL_STATUS.COMPLETED,
+              })
+              currentAssistant.traceSteps!.push({
+                type: TRACE_STEP_TYPES.TOOL_START,
+                name: callName,
+                input: callArgs,
+              })
+            }
+          }
+        }
+      } else if (msg.role === 'tool') {
+        const tools = currentAssistant.toolCalls || []
+        const callName = tools[tools.length - 1]?.name || 'unknown'
+        currentAssistant.traceSteps!.push({
+          type: TRACE_STEP_TYPES.TOOL_END,
+          name: callName,
+          output: msg.content,
+        })
+        const tc = tools.find((t) => t.name === callName)
+        if (tc) {
+          tc.output = msg.content
+        }
+      }
+    }
+
+    return rebuilt
+  }
+
+  /** Refresh a session from backend persisted messages. */
+  async function refreshSessionFromServer(sessionId: string): Promise<void> {
+    const session = sessions.value.find((s) => s.id === sessionId)
+    if (!session) return
+
+    const detail = await getSession(sessionId)
+    session.messages = buildMessagesFromSessionDetail(detail)
+    session.title = detail.session.title || session.title
+    session.updatedAt = new Date(detail.session.updated_at)
   }
 
   /** Create a new session and switch to it. */
@@ -146,86 +233,7 @@ export const useChatStore = defineStore('chat', () => {
     if (session && session.messages.length === 0) {
       // Load message history from backend
       try {
-        const detail = await getSession(sessionId)
-        let currentAssistant: ChatMessage | null = null
-
-        for (const msg of detail.messages) {
-          if (msg.role === 'human') {
-            session.messages.push({
-              id: generateId(),
-              role: 'user',
-              content: msg.content,
-              timestamp: new Date(msg.created_at),
-            })
-            currentAssistant = null
-          } else {
-            // Reconstruct assistant message with tools
-            if (!currentAssistant) {
-              currentAssistant = {
-                id: generateId(),
-                role: 'assistant',
-                content: '',
-                toolCalls: [],
-                traceSteps: [],
-                loopActive: false,
-                timestamp: new Date(msg.created_at),
-              }
-              session.messages.push(currentAssistant)
-            }
-
-            if (msg.role === 'ai') {
-              if (msg.content) {
-                currentAssistant.content += (currentAssistant.content ? '\n\n' : '') + msg.content
-              }
-              if (msg.tool_calls && Array.isArray(msg.tool_calls)) {
-                for (const toolCall of msg.tool_calls) {
-                  const tc = toolCall as Record<string, any>
-                  const callName = tc.name || 'unknown'
-                  const callArgs = tc.args || {}
-                  // Avoid duplicating if same tool call seen
-                  if (
-                    !currentAssistant.toolCalls!.some(
-                      (t) => t.name === callName && t.status === TOOL_CALL_STATUS.RUNNING,
-                    )
-                  ) {
-                    currentAssistant.toolCalls!.push({
-                      name: callName,
-                      input: callArgs,
-                      status: TOOL_CALL_STATUS.COMPLETED,
-                    })
-                    currentAssistant.traceSteps!.push({
-                      type: 'tool_start',
-                      name: callName,
-                      input: callArgs,
-                    })
-                  }
-                }
-              }
-            } else if (msg.role === 'tool') {
-              // Try to find matching incomplete tool call or just use last
-              let callName = 'unknown'
-              const tools = currentAssistant.toolCalls || []
-              if (tools.length > 0) {
-                const lastTool = tools[tools.length - 1]
-                if (lastTool) {
-                  callName = lastTool.name
-                }
-              }
-
-              currentAssistant.traceSteps!.push({
-                type: 'tool_end',
-                name: callName,
-                output: msg.content,
-              })
-
-              const tc = tools.find((t) => t.name === callName)
-              if (tc) {
-                tc.output = msg.content
-              }
-            }
-          }
-        }
-        session.title = detail.session.title || session.title
+        await refreshSessionFromServer(sessionId)
       } catch {
         // Session might not exist in backend
       }
@@ -258,6 +266,7 @@ export const useChatStore = defineStore('chat', () => {
       await newSession()
     }
 
+    const currentSessionId = activeSessionId.value
     const session = activeSession.value
     if (!session) return
 
@@ -292,7 +301,7 @@ export const useChatStore = defineStore('chat', () => {
     try {
       for await (const event of streamMessage(
         content,
-        activeSessionId.value ?? undefined,
+        currentSessionId ?? undefined,
         session.skill,
       )) {
         handleStreamEvent(event, assistantMsg)
@@ -303,6 +312,13 @@ export const useChatStore = defineStore('chat', () => {
     } finally {
       isLoading.value = false
       session.updatedAt = new Date()
+      if (currentSessionId && !currentSessionId.startsWith('local-')) {
+        try {
+          await refreshSessionFromServer(currentSessionId)
+        } catch {
+          // Best effort reconciliation, keep streamed view on failure
+        }
+      }
     }
   }
 
@@ -398,6 +414,16 @@ export const useChatStore = defineStore('chat', () => {
     isWorkspaceOpen.value = !isWorkspaceOpen.value
   }
 
+  /** Toggle the session sidebar collapse state. */
+  function toggleSidebar(): void {
+    isSidebarCollapsed.value = !isSidebarCollapsed.value
+  }
+
+  /** Set sidebar collapse state explicitly. */
+  function setSidebarCollapsed(collapsed: boolean): void {
+    isSidebarCollapsed.value = collapsed
+  }
+
   /** Clear all messages in active session. */
   function clearMessages(): void {
     if (activeSession.value) {
@@ -428,6 +454,7 @@ export const useChatStore = defineStore('chat', () => {
     pendingApproval,
     activeWidget,
     isWorkspaceOpen,
+    isSidebarCollapsed,
     skills,
     // Computed
     activeSession,
@@ -443,6 +470,8 @@ export const useChatStore = defineStore('chat', () => {
     handleStreamEvent,
     setWidget,
     toggleWorkspace,
+    toggleSidebar,
+    setSidebarCollapsed,
     clearMessages,
     respondToApproval,
   }

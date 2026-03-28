@@ -1,8 +1,27 @@
 import { test, expect } from '@playwright/test'
 
-// See here how to get started:
-// https://playwright.dev/docs/intro
-test('visits the app root url', async ({ page }) => {
+test('renders chat layout and toggles sidebar collapse', async ({ page }) => {
   await page.goto('/')
-  await expect(page.locator('h1')).toHaveText('You did it!')
+
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'New Chat' })).toBeVisible()
+  await expect(page.locator('div[class*="max-w-[920px]"]').first()).toBeVisible()
+
+  const sidebar = page.locator('aside').first()
+  const toggleSidebarBtn = page.getByTitle('Toggle Session Sidebar')
+
+  await expect(sidebar).toHaveClass(/w-64/)
+  await expect(toggleSidebarBtn).toBeVisible()
+
+  await toggleSidebarBtn.click()
+  await expect(sidebar).toHaveClass(/w-16/)
+  await expect(page.locator('span').filter({ hasText: /^New Chat$/ })).toHaveCount(0)
+
+  const collapsedNewChat = page.getByRole('button', { name: 'New Chat' })
+  await expect(collapsedNewChat).toBeVisible()
+  await collapsedNewChat.click()
+
+  await toggleSidebarBtn.click()
+  await expect(sidebar).toHaveClass(/w-64/)
+  await expect(page.getByRole('button', { name: 'New Chat' })).toBeVisible()
 })

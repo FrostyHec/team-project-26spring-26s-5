@@ -10,13 +10,17 @@ const chatStore = useChatStore()
 
 const emit = defineEmits<{
   (e: 'toggleWorkspace'): void
+  (e: 'toggleSidebar'): void
 }>()
 </script>
 
 <template>
   <div class="flex flex-col h-full w-full relative z-0">
     <!-- Header -->
-    <ChatHeader @toggle-workspace="emit('toggleWorkspace')" />
+    <ChatHeader
+      @toggle-workspace="emit('toggleWorkspace')"
+      @toggle-sidebar="emit('toggleSidebar')"
+    />
 
     <!-- Messages -->
     <ChatMessageList />

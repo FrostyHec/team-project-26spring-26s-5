@@ -61,34 +61,36 @@ onUnmounted(() => {
 <template>
   <div
     ref="scrollContainer"
-    class="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50/30"
+    class="flex-1 overflow-y-auto px-5 py-6 bg-gray-50/30"
   >
-    <!-- Empty state -->
-    <div
-      v-if="chatStore.messages.length === 0"
-      class="flex flex-col items-center justify-center h-full text-gray-400"
-    >
+    <div class="mx-auto w-full max-w-[920px]">
+      <!-- Empty state -->
       <div
-        class="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center mb-6 border border-blue-100"
+        v-if="chatStore.messages.length === 0"
+        class="flex flex-col items-center justify-center h-full min-h-[46vh] text-gray-400"
       >
-        <Bot class="w-8 h-8 text-blue-400" />
+        <div
+          class="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center mb-6 border border-blue-100"
+        >
+          <Bot class="w-8 h-8 text-blue-400" />
+        </div>
+        <h3 class="text-lg font-semibold text-gray-600 mb-2">How can I help you today?</h3>
+        <p class="text-sm text-center max-w-sm text-gray-400 leading-relaxed">
+          Ask about courses, deadlines, campus policies, or type
+          <strong class="text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded text-xs">@</strong> to select
+          a specific AI skill.
+        </p>
       </div>
-      <h3 class="text-lg font-semibold text-gray-600 mb-2">How can I help you today?</h3>
-      <p class="text-sm text-center max-w-sm text-gray-400 leading-relaxed">
-        Ask about courses, deadlines, campus policies, or type
-        <strong class="text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded text-xs">@</strong> to select
-        a specific AI skill.
-      </p>
-    </div>
 
-    <!-- Message list -->
-    <div v-else class="space-y-6">
-      <ChatMessageBubble
-        v-for="(msg, i) in chatStore.messages"
-        :key="msg.id"
-        :msg="msg"
-        :is-last="i === chatStore.messages.length - 1"
-      />
+      <!-- Message list -->
+      <div v-else class="space-y-6">
+        <ChatMessageBubble
+          v-for="(msg, i) in chatStore.messages"
+          :key="msg.id"
+          :msg="msg"
+          :is-last="i === chatStore.messages.length - 1"
+        />
+      </div>
     </div>
   </div>
 </template>

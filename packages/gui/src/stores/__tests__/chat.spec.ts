@@ -37,7 +37,7 @@ const mockFetchSkills = vi.mocked(fetchSkills)
 describe('useChatStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
-    vi.clearAllMocks()
+    vi.resetAllMocks()
   })
 
   it('initializes with empty state', () => {
@@ -269,6 +269,52 @@ describe('useChatStore', () => {
       expect(assistantMsg.content).toBe('Hello world')
     })
 
+    it('reconciles final persisted response when stream has no token text', async () => {
+      const now = new Date().toISOString()
+      mockCreateSession.mockResolvedValue({
+        id: 'sess-refresh',
+        title: '',
+        created_at: now,
+        updated_at: now,
+      })
+
+      async function* fakeStream() {
+        yield { type: 'loop_start' as const }
+        yield { type: 'thinking' as const, content: 'Working on it...' }
+        yield { type: 'loop_end' as const }
+      }
+      mockStreamMessage.mockReturnValue(fakeStream())
+      mockGetSession.mockResolvedValue({
+        session: { id: 'sess-refresh', title: 'Recovered Title', created_at: now, updated_at: now },
+        messages: [
+          {
+            id: 1,
+            session_id: 'sess-refresh',
+            role: 'human',
+            content: 'question',
+            created_at: now,
+            ordinal: 0,
+          },
+          {
+            id: 2,
+            session_id: 'sess-refresh',
+            role: 'ai',
+            content: 'Final persisted answer',
+            created_at: now,
+            ordinal: 1,
+          },
+        ],
+      })
+
+      const store = useChatStore()
+      await store.sendMessage('question')
+
+      expect(mockGetSession).toHaveBeenCalledWith('sess-refresh')
+      expect(store.messages).toHaveLength(2)
+      expect(store.messages[1]!.content).toBe('Final persisted answer')
+      expect(store.activeSession?.title).toBe('Recovered Title')
+    })
+
     it('handles tool_start and tool_end events', async () => {
       mockCreateSession.mockResolvedValue({
         id: 'sess-tool',
@@ -347,6 +393,8 @@ describe('useChatStore', () => {
       const thinkingSteps = assistantMsg.traceSteps!.filter((s) => s.type === 'thinking')
       expect(thinkingSteps).toHaveLength(1)
       expect(thinkingSteps[0]!.content).toBe('Let me analyze...')
+      expect(assistantMsg.content).toBe('Done')
+      expect(assistantMsg.content).not.toContain('Let me analyze...')
     })
 
     it('handles widget_display events', async () => {
@@ -532,6 +580,17 @@ describe('useChatStore', () => {
 
       store.toggleWorkspace()
       expect(store.isWorkspaceOpen).toBe(true)
+    })
+
+    it('toggleSidebar flips isSidebarCollapsed', () => {
+      const store = useChatStore()
+      expect(store.isSidebarCollapsed).toBe(false)
+
+      store.toggleSidebar()
+      expect(store.isSidebarCollapsed).toBe(true)
+
+      store.toggleSidebar()
+      expect(store.isSidebarCollapsed).toBe(false)
     })
   })
 
