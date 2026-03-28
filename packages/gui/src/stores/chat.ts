@@ -11,94 +11,20 @@ import {
   fetchSkills,
 } from '@/api/agent'
 import type { AgentEvent, SessionInfo, SkillInfo } from '@/api/agent'
+import { EVENT_TYPES, WIDGET_TYPES, TOOL_CALL_STATUS, TRACE_STEP_TYPES } from './chatConstants'
+import type {
+  ChatMessage,
+  ToolCallInfo,
+  TraceStep,
+  PendingApproval,
+  WidgetState,
+  ChatSession,
+} from './chatTypes'
 
-// ---------- Enums / Constants ----------
-
-/** Event types matching backend EventType StrEnum. */
-export const EVENT_TYPES = {
-  TOKEN: 'token',
-  TOOL_START: 'tool_start',
-  TOOL_END: 'tool_end',
-  THINKING: 'thinking',
-  LOOP_START: 'loop_start',
-  LOOP_END: 'loop_end',
-  APPROVAL_REQUEST: 'approval_request',
-  WIDGET_DISPLAY: 'widget_display',
-  ERROR: 'error',
-} as const
-
-/** Widget types matching backend WidgetType StrEnum. */
-export const WIDGET_TYPES = {
-  CALENDAR: 'calendar',
-  DOCUMENT: 'document',
-  WEB_PREVIEW: 'web_preview',
-  COURSE_CARDS: 'course_cards',
-  SOURCES: 'sources',
-  INBOX: 'inbox',
-  EMPTY: 'empty',
-} as const
-
-// ---------- Interfaces ----------
-
-/** A single message in the chat. */
-export interface ChatMessage {
-  id: string
-  role: 'user' | 'assistant'
-  content: string
-  toolCalls?: ToolCallInfo[]
-  traceSteps?: TraceStep[]
-  loopActive?: boolean
-  timestamp: Date
-}
-
-/** Information about a tool call during agent reasoning. */
-export interface ToolCallInfo {
-  name: string
-  input: Record<string, unknown>
-  output?: string
-  status: 'running' | 'completed' | 'error'
-}
-
-/** A step in the linear ReAct trace. */
-export interface TraceStep {
-  type:
-    | 'loop_start'
-    | 'thinking'
-    | 'tool_start'
-    | 'tool_end'
-    | 'loop_end'
-    | 'approval_request'
-    | 'widget_display'
-  content?: string
-  name?: string
-  input?: Record<string, unknown>
-  output?: string
-  widgetType?: string
-  widgetData?: Record<string, unknown>
-}
-
-/** Pending approval dialog state. */
-export interface PendingApproval {
-  toolName: string
-  toolArgs: Record<string, unknown>
-  toolCallId: string
-}
-
-/** Widget display state for the right panel. */
-export interface WidgetState {
-  type: string
-  data: Record<string, unknown>
-}
-
-/** A chat session with messages. */
-export interface ChatSession {
-  id: string
-  title: string
-  messages: ChatMessage[]
-  skill?: string
-  createdAt: Date
-  updatedAt: Date
-}
+// Re-export constants so consumers can import from '@/stores/chat' as before
+export { EVENT_TYPES, WIDGET_TYPES, TOOL_CALL_STATUS, TRACE_STEP_TYPES }
+// Re-export types
+export type { ChatMessage, ToolCallInfo, TraceStep, PendingApproval, WidgetState, ChatSession }
 
 // ---------- Store ----------
 
@@ -221,13 +147,83 @@ export const useChatStore = defineStore('chat', () => {
       // Load message history from backend
       try {
         const detail = await getSession(sessionId)
+        let currentAssistant: ChatMessage | null = null
+
         for (const msg of detail.messages) {
-          session.messages.push({
-            id: generateId(),
-            role: msg.role === 'human' ? 'user' : 'assistant',
-            content: msg.content,
-            timestamp: new Date(msg.created_at),
-          })
+          if (msg.role === 'human') {
+            session.messages.push({
+              id: generateId(),
+              role: 'user',
+              content: msg.content,
+              timestamp: new Date(msg.created_at),
+            })
+            currentAssistant = null
+          } else {
+            // Reconstruct assistant message with tools
+            if (!currentAssistant) {
+              currentAssistant = {
+                id: generateId(),
+                role: 'assistant',
+                content: '',
+                toolCalls: [],
+                traceSteps: [],
+                loopActive: false,
+                timestamp: new Date(msg.created_at),
+              }
+              session.messages.push(currentAssistant)
+            }
+
+            if (msg.role === 'ai') {
+              if (msg.content) {
+                currentAssistant.content += (currentAssistant.content ? '\n\n' : '') + msg.content
+              }
+              if (msg.tool_calls && Array.isArray(msg.tool_calls)) {
+                for (const toolCall of msg.tool_calls) {
+                  const tc = toolCall as Record<string, any>
+                  const callName = tc.name || 'unknown'
+                  const callArgs = tc.args || {}
+                  // Avoid duplicating if same tool call seen
+                  if (
+                    !currentAssistant.toolCalls!.some(
+                      (t) => t.name === callName && t.status === TOOL_CALL_STATUS.RUNNING,
+                    )
+                  ) {
+                    currentAssistant.toolCalls!.push({
+                      name: callName,
+                      input: callArgs,
+                      status: TOOL_CALL_STATUS.COMPLETED,
+                    })
+                    currentAssistant.traceSteps!.push({
+                      type: 'tool_start',
+                      name: callName,
+                      input: callArgs,
+                    })
+                  }
+                }
+              }
+            } else if (msg.role === 'tool') {
+              // Try to find matching incomplete tool call or just use last
+              let callName = 'unknown'
+              const tools = currentAssistant.toolCalls || []
+              if (tools.length > 0) {
+                const lastTool = tools[tools.length - 1]
+                if (lastTool) {
+                  callName = lastTool.name
+                }
+              }
+
+              currentAssistant.traceSteps!.push({
+                type: 'tool_end',
+                name: callName,
+                output: msg.content,
+              })
+
+              const tc = tools.find((t) => t.name === callName)
+              if (tc) {
+                tc.output = msg.content
+              }
+            }
+          }
         }
         session.title = detail.session.title || session.title
       } catch {
@@ -333,7 +329,7 @@ export const useChatStore = defineStore('chat', () => {
         msg.toolCalls?.push({
           name: event.name || 'unknown',
           input: event.input || {},
-          status: 'running',
+          status: TOOL_CALL_STATUS.RUNNING,
         })
         msg.traceSteps?.push({
           type: 'tool_start',
@@ -343,10 +339,12 @@ export const useChatStore = defineStore('chat', () => {
         break
 
       case EVENT_TYPES.TOOL_END: {
-        const tc = msg.toolCalls?.find((t) => t.name === event.name && t.status === 'running')
+        const tc = msg.toolCalls?.find(
+          (t) => t.name === event.name && t.status === TOOL_CALL_STATUS.RUNNING,
+        )
         if (tc) {
           tc.output = event.output || ''
-          tc.status = 'completed'
+          tc.status = TOOL_CALL_STATUS.COMPLETED
         }
         msg.traceSteps?.push({
           type: 'tool_end',

@@ -1,0 +1,63 @@
+/**
+ * Constants matching backend enums.
+ * These are kept as plain const objects (not TS enums) to allow
+ * easy runtime iteration and type narrowing with `as const`.
+ */
+
+/** Event types matching backend EventType StrEnum. */
+export const EVENT_TYPES = {
+  TOKEN: 'token',
+  TOOL_START: 'tool_start',
+  TOOL_END: 'tool_end',
+  THINKING: 'thinking',
+  LOOP_START: 'loop_start',
+  LOOP_END: 'loop_end',
+  APPROVAL_REQUEST: 'approval_request',
+  WIDGET_DISPLAY: 'widget_display',
+  ERROR: 'error',
+} as const
+
+export type EventType = (typeof EVENT_TYPES)[keyof typeof EVENT_TYPES]
+
+/** Widget types matching backend WidgetType StrEnum. */
+export const WIDGET_TYPES = {
+  CALENDAR: 'calendar',
+  DOCUMENT: 'document',
+  WEB_PREVIEW: 'web_preview',
+  COURSE_CARDS: 'course_cards',
+  SOURCES: 'sources',
+  INBOX: 'inbox',
+  EMPTY: 'empty',
+} as const
+
+export type WidgetType = (typeof WIDGET_TYPES)[keyof typeof WIDGET_TYPES]
+
+/** Message role values used throughout the app. */
+export const MESSAGE_ROLES = {
+  USER: 'user',
+  ASSISTANT: 'assistant',
+} as const
+
+export type MessageRole = (typeof MESSAGE_ROLES)[keyof typeof MESSAGE_ROLES]
+
+/** Trace step type values. */
+export const TRACE_STEP_TYPES = {
+  LOOP_START: 'loop_start',
+  THINKING: 'thinking',
+  TOOL_START: 'tool_start',
+  TOOL_END: 'tool_end',
+  LOOP_END: 'loop_end',
+  APPROVAL_REQUEST: 'approval_request',
+  WIDGET_DISPLAY: 'widget_display',
+} as const
+
+export type TraceStepType = (typeof TRACE_STEP_TYPES)[keyof typeof TRACE_STEP_TYPES]
+
+/** Tool call status values. */
+export const TOOL_CALL_STATUS = {
+  RUNNING: 'running',
+  COMPLETED: 'completed',
+  ERROR: 'error',
+} as const
+
+export type ToolCallStatus = (typeof TOOL_CALL_STATUS)[keyof typeof TOOL_CALL_STATUS]

@@ -34,10 +34,10 @@ function priorityDot(priority?: string): string {
   <div class="p-4">
     <div class="flex items-center gap-2 mb-4">
       <Calendar class="w-5 h-5 text-blue-600" />
-      <h3 class="font-semibold text-gray-800">Upcoming Deadlines</h3>
+      <h3 class="font-semibold text-slate-800">Upcoming Deadlines</h3>
     </div>
 
-    <div v-if="events.length === 0" class="text-center py-8 text-gray-400">
+    <div v-if="events.length === 0" class="text-center py-8 text-slate-400">
       <Calendar class="w-10 h-10 mx-auto mb-2 opacity-50" />
       <p class="text-sm">No upcoming events</p>
     </div>
@@ -46,17 +46,17 @@ function priorityDot(priority?: string): string {
       <div
         v-for="(evt, i) in events"
         :key="i"
-        class="flex items-start gap-3 p-3 bg-white rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-shadow"
+        class="flex items-start gap-3 p-3 bg-white rounded-lg border border-slate-100 shadow-sm hover:shadow-md transition-shadow"
       >
         <!-- Priority indicator -->
         <div class="flex flex-col items-center pt-1">
           <span class="w-2.5 h-2.5 rounded-full" :class="priorityDot(evt.priority)" />
-          <div v-if="i < events.length - 1" class="w-px h-6 bg-gray-200 mt-1" />
+          <div v-if="i < events.length - 1" class="w-px h-6 bg-slate-200 mt-1" />
         </div>
 
         <div class="flex-1 min-w-0">
-          <p class="text-sm font-medium text-gray-800 truncate">{{ evt.title }}</p>
-          <div class="flex items-center gap-3 mt-1 text-xs text-gray-500">
+          <p class="text-sm font-medium text-slate-800 truncate">{{ evt.title }}</p>
+          <div class="flex items-center gap-3 mt-1 text-xs text-slate-500">
             <span v-if="evt.date" class="flex items-center gap-1">
               <Calendar class="w-3 h-3" />
               {{ evt.date }}

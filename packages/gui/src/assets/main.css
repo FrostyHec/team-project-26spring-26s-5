@@ -1,4 +1,9 @@
 @import 'tailwindcss';
+@plugin "@tailwindcss/typography";
+
+@theme {
+  --color-vue: #42b883;
+}
 
 /* Global reset and base styles */
 *,
