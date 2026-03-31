@@ -18,21 +18,9 @@ from agent_core.models.session import (
     SessionRecord,
     SessionSummary,
 )
-from agent_core.tools.widgets import (
-    AnyWidgetData,
-    CalendarWidgetData,
-    CourseCardsWidgetData,
-    DocumentWidgetData,
-    SourcesWidgetData,
-    WebPreviewWidgetData,
-)
 
 __all__ = [
-    "AnyWidgetData",
-    "CalendarWidgetData",
-    "CourseCardsWidgetData",
     "CustomEventName",
-    "DocumentWidgetData",
     "ErrorEvent",
     "EventType",
     "LangGraphEventKind",
@@ -41,11 +29,9 @@ __all__ = [
     "SessionDetail",
     "SessionRecord",
     "SessionSummary",
-    "SourcesWidgetData",
     "TokenEvent",
     "ToolEndEvent",
     "ToolStartEvent",
-    "WebPreviewWidgetData",
     "WidgetData",
     "WidgetType",
 ]

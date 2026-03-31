@@ -26,6 +26,7 @@ export const WIDGET_TYPES = {
   WEB_PREVIEW: 'web_preview',
   COURSE_CARDS: 'course_cards',
   SOURCES: 'sources',
+  NEWS_DIGEST: 'news_digest',
   INBOX: 'inbox',
   EMPTY: 'empty',
 } as const

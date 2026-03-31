@@ -13,10 +13,8 @@ from agent_core.config import AgentConfig
 from agent_core.engine.agent import ReactAgent
 from agent_core.persistence.session_store import SessionStore
 from agent_core.skills import get_system_prompt_for_skill
-from agent_core.tools.calculator import register_calculator_tools
+from agent_core.tools import auto_discover_and_register
 from agent_core.tools.registry import ToolRegistry
-from agent_core.tools.weather import register_weather_tools
-from agent_core.tools.widgets import register_widget_tools
 
 # Module-level singletons (initialized during app lifespan)
 _agent: ReactAgent | None = None
@@ -27,13 +25,15 @@ _config: AgentConfig | None = None
 def _create_tool_registry() -> ToolRegistry:
     """Create a ToolRegistry with all available tools registered.
 
+    Uses :func:`auto_discover_and_register` to scan every module in
+    ``agent_core.tools`` and call any ``register_*_tools`` functions
+    found, so new tool modules are picked up automatically.
+
     Returns:
         Fully populated ToolRegistry.
     """
     registry = ToolRegistry()
-    register_calculator_tools(registry)
-    register_weather_tools(registry)
-    register_widget_tools(registry)
+    auto_discover_and_register(registry)
     return registry
 
 

@@ -1,12 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { X } from 'lucide-vue-next'
-import { useChatStore, WIDGET_TYPES } from '@/stores/chat'
-import CalendarWidget from './widgets/CalendarWidget.vue'
-import DocumentWidget from './widgets/DocumentWidget.vue'
-import CourseCardsWidget from './widgets/CourseCardsWidget.vue'
-import SourcesWidget from './widgets/SourcesWidget.vue'
-import WebPreviewWidget from './widgets/WebPreviewWidget.vue'
+import { useChatStore } from '@/stores/chat'
+import { WIDGET_COMPONENTS, WIDGET_TITLES } from './widgets/index'
+import type { WidgetType } from '@/stores/chatConstants'
 import EmptyWidget from './widgets/EmptyWidget.vue'
 
 const chatStore = useChatStore()
@@ -16,37 +13,13 @@ const emit = defineEmits<{
 }>()
 
 const widgetComponent = computed(() => {
-  switch (chatStore.activeWidget.type) {
-    case WIDGET_TYPES.CALENDAR:
-      return CalendarWidget
-    case WIDGET_TYPES.DOCUMENT:
-      return DocumentWidget
-    case WIDGET_TYPES.COURSE_CARDS:
-      return CourseCardsWidget
-    case WIDGET_TYPES.SOURCES:
-      return SourcesWidget
-    case WIDGET_TYPES.WEB_PREVIEW:
-      return WebPreviewWidget
-    default:
-      return EmptyWidget
-  }
+  const wt = chatStore.activeWidget.type as WidgetType
+  return WIDGET_COMPONENTS[wt] ?? EmptyWidget
 })
 
 const widgetTitle = computed(() => {
-  switch (chatStore.activeWidget.type) {
-    case WIDGET_TYPES.CALENDAR:
-      return 'Calendar'
-    case WIDGET_TYPES.DOCUMENT:
-      return 'Document'
-    case WIDGET_TYPES.COURSE_CARDS:
-      return 'Courses'
-    case WIDGET_TYPES.SOURCES:
-      return 'Sources'
-    case WIDGET_TYPES.WEB_PREVIEW:
-      return 'Web Preview'
-    default:
-      return 'Workspace'
-  }
+  const wt = chatStore.activeWidget.type as WidgetType
+  return WIDGET_TITLES[wt] ?? 'Workspace'
 })
 </script>
 

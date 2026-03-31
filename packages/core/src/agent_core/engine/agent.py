@@ -2,17 +2,16 @@
 
 import uuid
 from collections.abc import AsyncGenerator, Callable
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Annotated, Any, Union
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 from langchain_core.runnables.config import RunnableConfig
 from langgraph.graph import END, StateGraph
-from pydantic import TypeAdapter, ValidationError
+from pydantic import Field, TypeAdapter, ValidationError
 
 from agent_core.engine.state import AgentState
 from agent_core.logging_utils import get_logger
 from agent_core.models.events import (
-    AnyWidgetData,
     ApprovalRequestEvent,
     CustomEventName,
     LangGraphEventKind,
@@ -31,6 +30,25 @@ if TYPE_CHECKING:
     from agent_core.persistence.session_store import SessionStore
 
 logger = get_logger("agent")
+
+
+def _build_widget_adapter() -> TypeAdapter | None:
+    """Build a TypeAdapter for all registered WidgetData subclasses.
+
+    Called at stream-time so that every tool module has already been
+    imported and all ``WidgetData`` subclasses are visible.
+
+    Returns:
+        A ``TypeAdapter`` over the discriminated union, or ``None``
+        if no subclasses have been registered.
+    """
+    subs = WidgetData.__subclasses__()
+    if not subs:
+        return None
+    union = Union[tuple(subs)]  # noqa: UP007 – dynamic union built at runtime
+    annotated = Annotated[union, Field(discriminator="widget_type")]
+    return TypeAdapter(annotated)
+
 
 # Type for the HITL approval handler callback.
 # Signature: (tool_name, tool_args, tool_call_id) -> bool
@@ -453,14 +471,16 @@ class ReactAgent:
                     yield ToolEndEvent(name=tool_name, output=output).model_dump()
 
                     # Check if tool output is a typed widget payload
-                    try:
-                        widget_obj = TypeAdapter(AnyWidgetData).validate_json(output)
-                        if isinstance(widget_obj, WidgetData):
-                            yield WidgetDisplayEvent.from_widget_data(
-                                widget_obj
-                            ).model_dump()
-                    except (ValidationError, ValueError):
-                        pass
+                    adapter = _build_widget_adapter()
+                    if adapter is not None:
+                        try:
+                            widget_obj = adapter.validate_json(output)
+                            if isinstance(widget_obj, WidgetData):
+                                yield WidgetDisplayEvent.from_widget_data(
+                                    widget_obj
+                                ).model_dump()
+                        except (ValidationError, ValueError):
+                            pass
 
                     # Capture tool message for persistence
                     new_messages.append(

@@ -5,9 +5,9 @@ between the agent engine and frontends (API, Chainlit, Vue).
 """
 
 from enum import StrEnum
-from typing import Annotated, Any, Literal
+from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class EventType(StrEnum):
@@ -39,6 +39,7 @@ class WidgetType(StrEnum):
     WEB_PREVIEW = "web_preview"
     COURSE_CARDS = "course_cards"
     SOURCES = "sources"
+    NEWS_DIGEST = "news_digest"
     INBOX = "inbox"
     EMPTY = "empty"
 
@@ -77,60 +78,15 @@ class LangGraphEventKind(StrEnum):
 class WidgetData(BaseModel):
     """Base class for all widget data payloads returned by widget tools.
 
+    Concrete subclasses are defined in their respective tool modules
+    (e.g. ``agent_core.tools.widgets``) and are auto-discovered at
+    runtime via ``WidgetData.__subclasses__()``.
+
     Subclasses are discriminated on ``widget_type`` so Pydantic can
     round-trip them automatically without any magic key.
     """
 
     widget_type: WidgetType
-
-
-class CalendarWidgetData(WidgetData):
-    """Payload for the calendar widget."""
-
-    widget_type: Literal[WidgetType.CALENDAR] = WidgetType.CALENDAR
-    events: list[dict[str, Any]] = []
-
-
-class DocumentWidgetData(WidgetData):
-    """Payload for the document viewer widget."""
-
-    widget_type: Literal[WidgetType.DOCUMENT] = WidgetType.DOCUMENT
-    title: str = ""
-    content: str = ""
-    doc_type: str = "text"
-
-
-class CourseCardsWidgetData(WidgetData):
-    """Payload for the course comparison widget."""
-
-    widget_type: Literal[WidgetType.COURSE_CARDS] = WidgetType.COURSE_CARDS
-    courses: list[dict[str, Any]] = []
-
-
-class WebPreviewWidgetData(WidgetData):
-    """Payload for the web preview widget."""
-
-    widget_type: Literal[WidgetType.WEB_PREVIEW] = WidgetType.WEB_PREVIEW
-    url: str = ""
-    title: str = ""
-
-
-class SourcesWidgetData(WidgetData):
-    """Payload for the sources/references widget."""
-
-    widget_type: Literal[WidgetType.SOURCES] = WidgetType.SOURCES
-    sources: list[dict[str, Any]] = []
-
-
-# Discriminated union — used by TypeAdapter in the agent for isinstance checks.
-AnyWidgetData = Annotated[
-    CalendarWidgetData
-    | DocumentWidgetData
-    | CourseCardsWidgetData
-    | WebPreviewWidgetData
-    | SourcesWidgetData,
-    Field(discriminator="widget_type"),
-]
 
 
 class TokenEvent(BaseModel):
