@@ -61,3 +61,17 @@ export const TOOL_CALL_STATUS = {
 } as const
 
 export type ToolCallStatus = (typeof TOOL_CALL_STATUS)[keyof typeof TOOL_CALL_STATUS]
+
+/**
+ * Persisted message role values from the backend session store.
+ * These match the backend `MessageRole` StrEnum values and are used
+ * when reconstructing messages from the session history API response.
+ */
+export const SESSION_MESSAGE_ROLES = {
+  HUMAN: 'human',
+  AI: 'ai',
+  TOOL: 'tool',
+  SYSTEM: 'system',
+} as const
+
+export type SessionMessageRole = (typeof SESSION_MESSAGE_ROLES)[keyof typeof SESSION_MESSAGE_ROLES]

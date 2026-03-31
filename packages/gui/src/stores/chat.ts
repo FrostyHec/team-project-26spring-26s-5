@@ -11,7 +11,15 @@ import {
   fetchSkills,
 } from '@/api/agent'
 import type { AgentEvent, SessionDetail, SessionInfo, SkillInfo } from '@/api/agent'
-import { EVENT_TYPES, WIDGET_TYPES, TOOL_CALL_STATUS, TRACE_STEP_TYPES } from './chatConstants'
+import {
+  EVENT_TYPES,
+  WIDGET_TYPES,
+  TOOL_CALL_STATUS,
+  TRACE_STEP_TYPES,
+  SESSION_MESSAGE_ROLES,
+  MESSAGE_ROLES,
+} from './chatConstants'
+import type { WidgetType } from './chatConstants'
 import type {
   ChatMessage,
   ToolCallInfo,
@@ -22,7 +30,14 @@ import type {
 } from './chatTypes'
 
 // Re-export constants so consumers can import from '@/stores/chat' as before
-export { EVENT_TYPES, WIDGET_TYPES, TOOL_CALL_STATUS, TRACE_STEP_TYPES }
+export {
+  EVENT_TYPES,
+  WIDGET_TYPES,
+  TOOL_CALL_STATUS,
+  TRACE_STEP_TYPES,
+  SESSION_MESSAGE_ROLES,
+  MESSAGE_ROLES,
+}
 // Re-export types
 export type { ChatMessage, ToolCallInfo, TraceStep, PendingApproval, WidgetState, ChatSession }
 
@@ -114,10 +129,10 @@ export const useChatStore = defineStore('chat', () => {
     let currentAssistant: ChatMessage | null = null
 
     for (const msg of detail.messages) {
-      if (msg.role === 'human') {
+      if (msg.role === SESSION_MESSAGE_ROLES.HUMAN) {
         rebuilt.push({
           id: generateId(),
-          role: 'user',
+          role: MESSAGE_ROLES.USER,
           content: msg.content,
           timestamp: new Date(msg.created_at),
         })
@@ -128,7 +143,7 @@ export const useChatStore = defineStore('chat', () => {
       if (!currentAssistant) {
         currentAssistant = {
           id: generateId(),
-          role: 'assistant',
+          role: MESSAGE_ROLES.ASSISTANT,
           content: '',
           toolCalls: [],
           traceSteps: [],
@@ -138,7 +153,7 @@ export const useChatStore = defineStore('chat', () => {
         rebuilt.push(currentAssistant)
       }
 
-      if (msg.role === 'ai') {
+      if (msg.role === SESSION_MESSAGE_ROLES.AI) {
         if (msg.content) {
           currentAssistant.content += (currentAssistant.content ? '\n\n' : '') + msg.content
         }
@@ -162,7 +177,7 @@ export const useChatStore = defineStore('chat', () => {
             }
           }
         }
-      } else if (msg.role === 'tool') {
+      } else if (msg.role === SESSION_MESSAGE_ROLES.TOOL) {
         const tools = currentAssistant.toolCalls || []
         const callName = tools[tools.length - 1]?.name || 'unknown'
         currentAssistant.traceSteps!.push({
@@ -273,7 +288,7 @@ export const useChatStore = defineStore('chat', () => {
     // Add user message
     const userMsg: ChatMessage = {
       id: generateId(),
-      role: 'user',
+      role: MESSAGE_ROLES.USER,
       content: content.trim(),
       timestamp: new Date(),
     }
@@ -287,7 +302,7 @@ export const useChatStore = defineStore('chat', () => {
     // Create assistant message placeholder
     const assistantMsg: ChatMessage = {
       id: generateId(),
-      role: 'assistant',
+      role: MESSAGE_ROLES.ASSISTANT,
       content: '',
       toolCalls: [],
       traceSteps: [],
@@ -331,12 +346,12 @@ export const useChatStore = defineStore('chat', () => {
 
       case EVENT_TYPES.LOOP_START:
         msg.loopActive = true
-        msg.traceSteps?.push({ type: 'loop_start' })
+        msg.traceSteps?.push({ type: TRACE_STEP_TYPES.LOOP_START })
         break
 
       case EVENT_TYPES.THINKING:
         msg.traceSteps?.push({
-          type: 'thinking',
+          type: TRACE_STEP_TYPES.THINKING,
           content: event.content || '',
         })
         break
@@ -348,7 +363,7 @@ export const useChatStore = defineStore('chat', () => {
           status: TOOL_CALL_STATUS.RUNNING,
         })
         msg.traceSteps?.push({
-          type: 'tool_start',
+          type: TRACE_STEP_TYPES.TOOL_START,
           name: event.name || 'unknown',
           input: event.input || {},
         })
@@ -363,7 +378,7 @@ export const useChatStore = defineStore('chat', () => {
           tc.status = TOOL_CALL_STATUS.COMPLETED
         }
         msg.traceSteps?.push({
-          type: 'tool_end',
+          type: TRACE_STEP_TYPES.TOOL_END,
           name: event.name || 'unknown',
           output: event.output || '',
         })
@@ -372,7 +387,7 @@ export const useChatStore = defineStore('chat', () => {
 
       case EVENT_TYPES.LOOP_END:
         msg.loopActive = false
-        msg.traceSteps?.push({ type: 'loop_end' })
+        msg.traceSteps?.push({ type: TRACE_STEP_TYPES.LOOP_END })
         break
 
       case EVENT_TYPES.APPROVAL_REQUEST:
@@ -382,7 +397,7 @@ export const useChatStore = defineStore('chat', () => {
           toolCallId: event.tool_call_id || '',
         }
         msg.traceSteps?.push({
-          type: 'approval_request',
+          type: TRACE_STEP_TYPES.APPROVAL_REQUEST,
           name: event.tool_name || 'unknown',
           input: event.tool_args || {},
         })
@@ -395,7 +410,7 @@ export const useChatStore = defineStore('chat', () => {
         }
         isWorkspaceOpen.value = true
         msg.traceSteps?.push({
-          type: 'widget_display',
+          type: TRACE_STEP_TYPES.WIDGET_DISPLAY,
           widgetType: event.widget_type,
           widgetData: event.data || {},
         })
@@ -404,7 +419,7 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   /** Switch the active widget manually (e.g., via @mention). */
-  function setWidget(type: string, data: Record<string, unknown> = {}): void {
+  function setWidget(type: WidgetType, data: Record<string, unknown> = {}): void {
     activeWidget.value = { type, data }
     isWorkspaceOpen.value = true
   }

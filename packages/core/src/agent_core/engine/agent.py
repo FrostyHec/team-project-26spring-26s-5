@@ -1,6 +1,5 @@
 """ReAct Agent - Core agent loop using LangGraph."""
 
-import json
 import uuid
 from collections.abc import AsyncGenerator, Callable
 from typing import TYPE_CHECKING, Any
@@ -8,17 +7,22 @@ from typing import TYPE_CHECKING, Any
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 from langchain_core.runnables.config import RunnableConfig
 from langgraph.graph import END, StateGraph
+from pydantic import TypeAdapter, ValidationError
 
 from agent_core.engine.state import AgentState
 from agent_core.logging_utils import get_logger
 from agent_core.models.events import (
+    AnyWidgetData,
     ApprovalRequestEvent,
+    CustomEventName,
+    LangGraphEventKind,
     LoopEndEvent,
     LoopStartEvent,
     ThinkingEvent,
     TokenEvent,
     ToolEndEvent,
     ToolStartEvent,
+    WidgetData,
     WidgetDisplayEvent,
 )
 from agent_core.tools.registry import ToolRegistry
@@ -191,7 +195,7 @@ class ReactAgent:
                     )
                     # Emit approval request event
                     await adispatch_custom_event(
-                        "approval_request",
+                        CustomEventName.APPROVAL_REQUEST,
                         {
                             "tool": tool_name,
                             "args": tool_args,
@@ -223,7 +227,7 @@ class ReactAgent:
                             )
                         )
                         await adispatch_custom_event(
-                            "tool_call_end",
+                            CustomEventName.TOOL_CALL_END,
                             {
                                 "tool": tool_name,
                                 "output": "Tool call cancelled by user.",
@@ -234,7 +238,7 @@ class ReactAgent:
 
                 # Emit a custom event right before execution
                 await adispatch_custom_event(
-                    "tool_call_start",
+                    CustomEventName.TOOL_CALL_START,
                     {"tool": tool_name, "args": tool_args},
                     config=config,
                 )
@@ -267,7 +271,7 @@ class ReactAgent:
 
                 # Emit custom event after execution
                 await adispatch_custom_event(
-                    "tool_call_end",
+                    CustomEventName.TOOL_CALL_END,
                     {
                         "tool": tool_name,
                         "output": tool_messages[-1].content,
@@ -414,12 +418,12 @@ class ReactAgent:
         ):
             kind = event["event"]
 
-            if kind == "on_chat_model_stream":
+            if kind == LangGraphEventKind.CHAT_MODEL_STREAM:
                 content = event["data"]["chunk"].content
                 if content:
                     yield TokenEvent(content=content).model_dump()
 
-            elif kind == "on_chat_model_end":
+            elif kind == LangGraphEventKind.CHAT_MODEL_END:
                 # Capture the full AI message for persistence
                 ai_msg = event["data"]["output"]
                 if isinstance(ai_msg, AIMessage):
@@ -430,37 +434,32 @@ class ReactAgent:
                     if ai_msg.tool_calls and ai_msg.content:
                         yield ThinkingEvent(content=str(ai_msg.content)).model_dump()
 
-            elif kind == "on_custom_event":
+            elif kind == LangGraphEventKind.CUSTOM_EVENT:
                 custom_name = event["name"]
-                if custom_name == "approval_request":
+                if custom_name == CustomEventName.APPROVAL_REQUEST:
                     yield ApprovalRequestEvent(
                         tool_name=event["data"]["tool"],
                         tool_args=event["data"].get("args", {}),
                         tool_call_id=event["data"].get("tool_call_id", ""),
                     ).model_dump()
-                elif custom_name == "tool_call_start":
+                elif custom_name == CustomEventName.TOOL_CALL_START:
                     yield ToolStartEvent(
                         name=event["data"]["tool"],
                         input=event["data"].get("args", {}),
                     ).model_dump()
-                elif custom_name == "tool_call_end":
+                elif custom_name == CustomEventName.TOOL_CALL_END:
                     tool_name = event["data"]["tool"]
                     output = event["data"].get("output", "")
                     yield ToolEndEvent(name=tool_name, output=output).model_dump()
 
-                    # Check if tool output contains a widget display directive
+                    # Check if tool output is a typed widget payload
                     try:
-                        parsed = json.loads(output)
-                        if isinstance(parsed, dict) and "__widget__" in parsed:
-                            widget_type = parsed["__widget__"]
-                            widget_data = {
-                                k: v for k, v in parsed.items() if k != "__widget__"
-                            }
-                            yield WidgetDisplayEvent(
-                                widget_type=widget_type,
-                                data=widget_data,
+                        widget_obj = TypeAdapter(AnyWidgetData).validate_json(output)
+                        if isinstance(widget_obj, WidgetData):
+                            yield WidgetDisplayEvent.from_widget_data(
+                                widget_obj
                             ).model_dump()
-                    except (json.JSONDecodeError, TypeError, ValueError):
+                    except (ValidationError, ValueError):
                         pass
 
                     # Capture tool message for persistence

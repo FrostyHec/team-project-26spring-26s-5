@@ -3,13 +3,75 @@
 These tools are invoked by the agent when it needs to visually present
 structured data in the frontend workspace panel. Each tool returns a
 JSON payload that the streaming layer converts into a WidgetDisplayEvent.
+
+Concrete WidgetData subclasses are defined here alongside the tools that
+produce them, keeping the payload schema and the tool logic co-located.
 """
 
 import json
-from typing import Any
+from typing import Annotated, Any, Literal
 
-from agent_core.models.events import WidgetType
+from pydantic import Field
+
+from agent_core.models.events import WidgetData, WidgetType
 from agent_core.tools.registry import ToolRegistry
+
+# ---------------------------------------------------------------------------
+# Typed widget payload models
+# ---------------------------------------------------------------------------
+
+
+class CalendarWidgetData(WidgetData):
+    """Payload for the calendar widget."""
+
+    widget_type: Literal[WidgetType.CALENDAR] = WidgetType.CALENDAR
+    events: list[dict[str, Any]] = []
+
+
+class DocumentWidgetData(WidgetData):
+    """Payload for the document viewer widget."""
+
+    widget_type: Literal[WidgetType.DOCUMENT] = WidgetType.DOCUMENT
+    title: str = ""
+    content: str = ""
+    doc_type: str = "text"
+
+
+class CourseCardsWidgetData(WidgetData):
+    """Payload for the course comparison widget."""
+
+    widget_type: Literal[WidgetType.COURSE_CARDS] = WidgetType.COURSE_CARDS
+    courses: list[dict[str, Any]] = []
+
+
+class WebPreviewWidgetData(WidgetData):
+    """Payload for the web preview widget."""
+
+    widget_type: Literal[WidgetType.WEB_PREVIEW] = WidgetType.WEB_PREVIEW
+    url: str = ""
+    title: str = ""
+
+
+class SourcesWidgetData(WidgetData):
+    """Payload for the sources/references widget."""
+
+    widget_type: Literal[WidgetType.SOURCES] = WidgetType.SOURCES
+    sources: list[dict[str, Any]] = []
+
+
+# Discriminated union used by TypeAdapter in the agent for isinstance checks.
+AnyWidgetData = Annotated[
+    CalendarWidgetData
+    | DocumentWidgetData
+    | CourseCardsWidgetData
+    | WebPreviewWidgetData
+    | SourcesWidgetData,
+    Field(discriminator="widget_type"),
+]
+
+# ---------------------------------------------------------------------------
+# Tool functions
+# ---------------------------------------------------------------------------
 
 
 def show_calendar(events: str) -> str:
@@ -28,12 +90,8 @@ def show_calendar(events: str) -> str:
     except (json.JSONDecodeError, TypeError):
         parsed = [{"title": events, "date": "TBD", "priority": "medium"}]
 
-    return json.dumps(
-        {
-            "__widget__": WidgetType.CALENDAR,
-            "events": parsed if isinstance(parsed, list) else [parsed],
-        }
-    )
+    events_list = parsed if isinstance(parsed, list) else [parsed]
+    return CalendarWidgetData(events=events_list).model_dump_json()
 
 
 def show_document(title: str, content: str, doc_type: str = "text") -> str:
@@ -47,14 +105,9 @@ def show_document(title: str, content: str, doc_type: str = "text") -> str:
     Returns:
         Confirmation message with widget display instruction.
     """
-    return json.dumps(
-        {
-            "__widget__": WidgetType.DOCUMENT,
-            "title": title,
-            "content": content,
-            "doc_type": doc_type,
-        }
-    )
+    return DocumentWidgetData(
+        title=title, content=content, doc_type=doc_type
+    ).model_dump_json()
 
 
 def show_courses(courses: str) -> str:
@@ -73,12 +126,8 @@ def show_courses(courses: str) -> str:
     except (json.JSONDecodeError, TypeError):
         parsed = [{"code": "N/A", "name": courses, "credits": 0}]
 
-    return json.dumps(
-        {
-            "__widget__": WidgetType.COURSE_CARDS,
-            "courses": parsed if isinstance(parsed, list) else [parsed],
-        }
-    )
+    courses_list = parsed if isinstance(parsed, list) else [parsed]
+    return CourseCardsWidgetData(courses=courses_list).model_dump_json()
 
 
 _ALLOWED_URL_SCHEMES = ("http://", "https://")
@@ -97,13 +146,7 @@ def show_web_preview(url: str, title: str = "") -> str:
     if not url.lower().startswith(_ALLOWED_URL_SCHEMES):
         return json.dumps({"error": "Only http/https URLs are allowed."})
 
-    return json.dumps(
-        {
-            "__widget__": WidgetType.WEB_PREVIEW,
-            "url": url,
-            "title": title or url,
-        }
-    )
+    return WebPreviewWidgetData(url=url, title=title or url).model_dump_json()
 
 
 def show_sources(sources: str) -> str:
@@ -122,12 +165,8 @@ def show_sources(sources: str) -> str:
     except (json.JSONDecodeError, TypeError):
         parsed = [{"title": "Reference", "content": sources, "type": "article"}]
 
-    return json.dumps(
-        {
-            "__widget__": WidgetType.SOURCES,
-            "sources": parsed if isinstance(parsed, list) else [parsed],
-        }
-    )
+    sources_list = parsed if isinstance(parsed, list) else [parsed]
+    return SourcesWidgetData(sources=sources_list).model_dump_json()
 
 
 def register_widget_tools(registry: ToolRegistry) -> None:

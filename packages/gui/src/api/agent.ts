@@ -3,6 +3,8 @@
  * Handles chat requests, SSE streaming, session CRUD, and skills.
  */
 
+import type { EventType, SessionMessageRole, WidgetType } from '@/stores/chatConstants'
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api'
 
 /** Tool information from the API. */
@@ -41,7 +43,7 @@ export interface SessionDetail {
 export interface SessionMessage {
   id: number
   session_id: string
-  role: string
+  role: SessionMessageRole
   content: string
   tool_call_id?: string
   tool_calls?: unknown[]
@@ -51,16 +53,7 @@ export interface SessionMessage {
 
 /** A streaming event from the agent. */
 export interface AgentEvent {
-  type:
-    | 'token'
-    | 'tool_start'
-    | 'tool_end'
-    | 'thinking'
-    | 'loop_start'
-    | 'loop_end'
-    | 'approval_request'
-    | 'widget_display'
-    | 'error'
+  type: EventType
   content?: string
   name?: string
   input?: Record<string, unknown>
@@ -68,7 +61,7 @@ export interface AgentEvent {
   tool_name?: string
   tool_args?: Record<string, unknown>
   tool_call_id?: string
-  widget_type?: string
+  widget_type?: WidgetType
   data?: Record<string, unknown>
 }
 

@@ -1,6 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
-import { useChatStore, EVENT_TYPES, WIDGET_TYPES } from '../chat'
+import {
+  useChatStore,
+  EVENT_TYPES,
+  WIDGET_TYPES,
+  MESSAGE_ROLES,
+  SESSION_MESSAGE_ROLES,
+  TRACE_STEP_TYPES,
+  TOOL_CALL_STATUS,
+} from '../chat'
 
 // Mock the API module
 vi.mock('@/api/agent', () => ({
@@ -148,8 +156,22 @@ describe('useChatStore', () => {
       mockGetSession.mockResolvedValue({
         session: { id: 'sess-1', title: 'Chat', created_at: '', updated_at: '' },
         messages: [
-          { id: 1, session_id: 'sess-1', role: 'human', content: 'hi', created_at: '', ordinal: 0 },
-          { id: 2, session_id: 'sess-1', role: 'ai', content: 'hello', created_at: '', ordinal: 1 },
+          {
+            id: 1,
+            session_id: 'sess-1',
+            role: SESSION_MESSAGE_ROLES.HUMAN,
+            content: 'hi',
+            created_at: '',
+            ordinal: 0,
+          },
+          {
+            id: 2,
+            session_id: 'sess-1',
+            role: SESSION_MESSAGE_ROLES.AI,
+            content: 'hello',
+            created_at: '',
+            ordinal: 1,
+          },
         ],
       })
 
@@ -240,9 +262,9 @@ describe('useChatStore', () => {
       await store.sendMessage('Hi')
 
       expect(store.messages).toHaveLength(2)
-      expect(store.messages[0]!.role).toBe('user')
+      expect(store.messages[0]!.role).toBe(MESSAGE_ROLES.USER)
       expect(store.messages[0]!.content).toBe('Hi')
-      expect(store.messages[1]!.role).toBe('assistant')
+      expect(store.messages[1]!.role).toBe(MESSAGE_ROLES.ASSISTANT)
       expect(store.messages[1]!.content).toBe('Hello!')
     })
 
@@ -290,7 +312,7 @@ describe('useChatStore', () => {
           {
             id: 1,
             session_id: 'sess-refresh',
-            role: 'human',
+            role: SESSION_MESSAGE_ROLES.HUMAN,
             content: 'question',
             created_at: now,
             ordinal: 0,
@@ -298,7 +320,7 @@ describe('useChatStore', () => {
           {
             id: 2,
             session_id: 'sess-refresh',
-            role: 'ai',
+            role: SESSION_MESSAGE_ROLES.AI,
             content: 'Final persisted answer',
             created_at: now,
             ordinal: 1,
@@ -338,7 +360,7 @@ describe('useChatStore', () => {
       const assistantMsg = store.messages[1]!
       expect(assistantMsg.toolCalls).toHaveLength(1)
       expect(assistantMsg.toolCalls![0]!.name).toBe('add')
-      expect(assistantMsg.toolCalls![0]!.status).toBe('completed')
+      expect(assistantMsg.toolCalls![0]!.status).toBe(TOOL_CALL_STATUS.COMPLETED)
       expect(assistantMsg.toolCalls![0]!.output).toBe('3')
       expect(assistantMsg.content).toBe('Result: 3')
     })
@@ -363,8 +385,8 @@ describe('useChatStore', () => {
 
       const assistantMsg = store.messages[1]!
       expect(assistantMsg.traceSteps).toHaveLength(2)
-      expect(assistantMsg.traceSteps![0]!.type).toBe('loop_start')
-      expect(assistantMsg.traceSteps![1]!.type).toBe('loop_end')
+      expect(assistantMsg.traceSteps![0]!.type).toBe(TRACE_STEP_TYPES.LOOP_START)
+      expect(assistantMsg.traceSteps![1]!.type).toBe(TRACE_STEP_TYPES.LOOP_END)
       expect(assistantMsg.loopActive).toBe(false)
     })
 
@@ -390,7 +412,9 @@ describe('useChatStore', () => {
       await store.sendMessage('compute')
 
       const assistantMsg = store.messages[1]!
-      const thinkingSteps = assistantMsg.traceSteps!.filter((s) => s.type === 'thinking')
+      const thinkingSteps = assistantMsg.traceSteps!.filter(
+        (s) => s.type === TRACE_STEP_TYPES.THINKING,
+      )
       expect(thinkingSteps).toHaveLength(1)
       expect(thinkingSteps[0]!.content).toBe('Let me analyze...')
       expect(assistantMsg.content).toBe('Done')
@@ -409,7 +433,7 @@ describe('useChatStore', () => {
         yield { type: 'loop_start' as const }
         yield {
           type: 'widget_display' as const,
-          widget_type: 'calendar',
+          widget_type: 'calendar' as const,
           data: { events: [{ title: 'Exam' }] },
         }
         yield { type: 'token' as const, content: 'Here are your events' }
@@ -420,7 +444,7 @@ describe('useChatStore', () => {
       const store = useChatStore()
       await store.sendMessage('show calendar')
 
-      expect(store.activeWidget.type).toBe('calendar')
+      expect(store.activeWidget.type).toBe(WIDGET_TYPES.CALENDAR)
       expect(store.activeWidget.data).toEqual({ events: [{ title: 'Exam' }] })
       expect(store.isWorkspaceOpen).toBe(true)
     })
@@ -512,7 +536,9 @@ describe('useChatStore', () => {
 
       // Trace should include approval_request step
       const assistantMsg = store.messages[1]!
-      const approvalSteps = assistantMsg.traceSteps!.filter((s) => s.type === 'approval_request')
+      const approvalSteps = assistantMsg.traceSteps!.filter(
+        (s) => s.type === TRACE_STEP_TYPES.APPROVAL_REQUEST,
+      )
       expect(approvalSteps).toHaveLength(1)
       expect(approvalSteps[0]!.name).toBe('get_weather')
     })
@@ -565,9 +591,9 @@ describe('useChatStore', () => {
     it('setWidget updates activeWidget', () => {
       const store = useChatStore()
 
-      store.setWidget('calendar', { events: [] })
+      store.setWidget(WIDGET_TYPES.CALENDAR, { events: [] })
 
-      expect(store.activeWidget.type).toBe('calendar')
+      expect(store.activeWidget.type).toBe(WIDGET_TYPES.CALENDAR)
       expect(store.isWorkspaceOpen).toBe(true)
     })
 

@@ -3,12 +3,12 @@
  * All interfaces are defined here to keep chat.ts focused on store logic.
  */
 
-import type { TraceStepType, ToolCallStatus } from './chatConstants'
+import type { MessageRole, TraceStepType, ToolCallStatus, WidgetType } from './chatConstants'
 
 /** A single message in the chat. */
 export interface ChatMessage {
   id: string
-  role: 'user' | 'assistant'
+  role: MessageRole
   content: string
   toolCalls?: ToolCallInfo[]
   traceSteps?: TraceStep[]
@@ -31,7 +31,8 @@ export interface TraceStep {
   name?: string
   input?: Record<string, unknown>
   output?: string
-  widgetType?: string
+  /** Widget type key — one of the WIDGET_TYPES values. */
+  widgetType?: WidgetType
   widgetData?: Record<string, unknown>
 }
 
@@ -44,7 +45,7 @@ export interface PendingApproval {
 
 /** Widget display state for the right panel. */
 export interface WidgetState {
-  type: string
+  type: WidgetType
   data: Record<string, unknown>
 }
 

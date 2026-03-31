@@ -3,10 +3,18 @@
 import json
 
 import pytest
+from pydantic import TypeAdapter
 
 from agent_core.models.events import WidgetType
 from agent_core.tools.registry import ToolRegistry
 from agent_core.tools.widgets import (
+    AnyWidgetData,
+    CalendarWidgetData,
+    CourseCardsWidgetData,
+    DocumentWidgetData,
+    SourcesWidgetData,
+    WebPreviewWidgetData,
+    WidgetData,
     register_widget_tools,
     show_calendar,
     show_courses,
@@ -14,6 +22,13 @@ from agent_core.tools.widgets import (
     show_sources,
     show_web_preview,
 )
+
+_WIDGET_ADAPTER: TypeAdapter[AnyWidgetData] = TypeAdapter(AnyWidgetData)
+
+
+def _parse_widget(raw: str) -> WidgetData:
+    """Parse a tool's JSON output into a typed WidgetData instance."""
+    return _WIDGET_ADAPTER.validate_json(raw)
 
 
 class TestShowCalendar:
@@ -23,16 +38,18 @@ class TestShowCalendar:
         events = json.dumps(
             [{"title": "Math HW", "date": "2026-03-30", "priority": "high"}]
         )
-        result = json.loads(show_calendar(events))
-        assert result["__widget__"] == WidgetType.CALENDAR
-        assert len(result["events"]) == 1
-        assert result["events"][0]["title"] == "Math HW"
+        result = _parse_widget(show_calendar(events))
+        assert isinstance(result, CalendarWidgetData)
+        assert result.widget_type == WidgetType.CALENDAR
+        assert len(result.events) == 1
+        assert result.events[0]["title"] == "Math HW"
 
     def test_plain_string_fallback(self) -> None:
-        result = json.loads(show_calendar("Math homework due Friday"))
-        assert result["__widget__"] == WidgetType.CALENDAR
-        assert len(result["events"]) == 1
-        assert result["events"][0]["title"] == "Math homework due Friday"
+        result = _parse_widget(show_calendar("Math homework due Friday"))
+        assert isinstance(result, CalendarWidgetData)
+        assert result.widget_type == WidgetType.CALENDAR
+        assert len(result.events) == 1
+        assert result.events[0]["title"] == "Math homework due Friday"
 
     def test_multiple_events(self) -> None:
         events = json.dumps(
@@ -41,23 +58,28 @@ class TestShowCalendar:
                 {"title": "Exam 2", "date": "2026-04-02", "priority": "medium"},
             ]
         )
-        result = json.loads(show_calendar(events))
-        assert len(result["events"]) == 2
+        result = _parse_widget(show_calendar(events))
+        assert isinstance(result, CalendarWidgetData)
+        assert len(result.events) == 2
 
 
 class TestShowDocument:
     """Tests for the show_document tool."""
 
     def test_basic_document(self) -> None:
-        result = json.loads(show_document("Lecture 8", "Recursion concepts..."))
-        assert result["__widget__"] == WidgetType.DOCUMENT
-        assert result["title"] == "Lecture 8"
-        assert result["content"] == "Recursion concepts..."
-        assert result["doc_type"] == "text"
+        result = _parse_widget(show_document("Lecture 8", "Recursion concepts..."))
+        assert isinstance(result, DocumentWidgetData)
+        assert result.widget_type == WidgetType.DOCUMENT
+        assert result.title == "Lecture 8"
+        assert result.content == "Recursion concepts..."
+        assert result.doc_type == "text"
 
     def test_custom_doc_type(self) -> None:
-        result = json.loads(show_document("Notes", "# Markdown", doc_type="markdown"))
-        assert result["doc_type"] == "markdown"
+        result = _parse_widget(
+            show_document("Notes", "# Markdown", doc_type="markdown")
+        )
+        assert isinstance(result, DocumentWidgetData)
+        assert result.doc_type == "markdown"
 
 
 class TestShowCourses:
@@ -70,43 +92,48 @@ class TestShowCourses:
                 {"code": "MATH202", "name": "Linear Algebra", "credits": 4},
             ]
         )
-        result = json.loads(show_courses(courses))
-        assert result["__widget__"] == WidgetType.COURSE_CARDS
-        assert len(result["courses"]) == 2
+        result = _parse_widget(show_courses(courses))
+        assert isinstance(result, CourseCardsWidgetData)
+        assert result.widget_type == WidgetType.COURSE_CARDS
+        assert len(result.courses) == 2
 
     def test_plain_string_fallback(self) -> None:
-        result = json.loads(show_courses("Advanced Biology"))
-        assert result["__widget__"] == WidgetType.COURSE_CARDS
-        assert result["courses"][0]["name"] == "Advanced Biology"
+        result = _parse_widget(show_courses("Advanced Biology"))
+        assert isinstance(result, CourseCardsWidgetData)
+        assert result.courses[0]["name"] == "Advanced Biology"
 
 
 class TestShowWebPreview:
     """Tests for the show_web_preview tool."""
 
     def test_with_title(self) -> None:
-        result = json.loads(
+        result = _parse_widget(
             show_web_preview("https://example.edu/policy", "Housing Policy")
         )
-        assert result["__widget__"] == WidgetType.WEB_PREVIEW
-        assert result["url"] == "https://example.edu/policy"
-        assert result["title"] == "Housing Policy"
+        assert isinstance(result, WebPreviewWidgetData)
+        assert result.widget_type == WidgetType.WEB_PREVIEW
+        assert result.url == "https://example.edu/policy"
+        assert result.title == "Housing Policy"
 
     def test_title_defaults_to_url(self) -> None:
-        result = json.loads(show_web_preview("https://example.edu"))
-        assert result["title"] == "https://example.edu"
+        result = _parse_widget(show_web_preview("https://example.edu"))
+        assert isinstance(result, WebPreviewWidgetData)
+        assert result.title == "https://example.edu"
 
     def test_rejects_javascript_url(self) -> None:
-        result = json.loads(show_web_preview("javascript:alert(1)"))
+        raw = show_web_preview("javascript:alert(1)")
+        result = json.loads(raw)
         assert "error" in result
-        assert "__widget__" not in result
 
     def test_rejects_data_url(self) -> None:
-        result = json.loads(show_web_preview("data:text/html,<h1>Bad</h1>"))
+        raw = show_web_preview("data:text/html,<h1>Bad</h1>")
+        result = json.loads(raw)
         assert "error" in result
 
     def test_accepts_http_url(self) -> None:
-        result = json.loads(show_web_preview("http://example.com"))
-        assert result["__widget__"] == WidgetType.WEB_PREVIEW
+        result = _parse_widget(show_web_preview("http://example.com"))
+        assert isinstance(result, WebPreviewWidgetData)
+        assert result.widget_type == WidgetType.WEB_PREVIEW
 
 
 class TestShowSources:
@@ -122,14 +149,15 @@ class TestShowSources:
                 }
             ]
         )
-        result = json.loads(show_sources(sources))
-        assert result["__widget__"] == WidgetType.SOURCES
-        assert len(result["sources"]) == 1
+        result = _parse_widget(show_sources(sources))
+        assert isinstance(result, SourcesWidgetData)
+        assert result.widget_type == WidgetType.SOURCES
+        assert len(result.sources) == 1
 
     def test_plain_string_fallback(self) -> None:
-        result = json.loads(show_sources("Some reference text"))
-        assert result["__widget__"] == WidgetType.SOURCES
-        assert result["sources"][0]["content"] == "Some reference text"
+        result = _parse_widget(show_sources("Some reference text"))
+        assert isinstance(result, SourcesWidgetData)
+        assert result.sources[0]["content"] == "Some reference text"
 
 
 class TestRegisterWidgetTools:
@@ -156,16 +184,20 @@ class TestRegisterWidgetTools:
         events = json.dumps(
             [{"title": "Test", "date": "2026-04-01", "priority": "low"}]
         )
-        result = await registry.execute("show_calendar", {"events": events})
-        parsed = json.loads(result)
-        assert parsed["__widget__"] == WidgetType.CALENDAR
+        result = _parse_widget(
+            await registry.execute("show_calendar", {"events": events})
+        )
+        assert isinstance(result, CalendarWidgetData)
+        assert result.widget_type == WidgetType.CALENDAR
 
     @pytest.mark.asyncio
     async def test_execute_show_document(self) -> None:
         registry = ToolRegistry()
         register_widget_tools(registry)
-        result = await registry.execute(
-            "show_document", {"title": "Test Doc", "content": "Hello"}
+        result = _parse_widget(
+            await registry.execute(
+                "show_document", {"title": "Test Doc", "content": "Hello"}
+            )
         )
-        parsed = json.loads(result)
-        assert parsed["__widget__"] == WidgetType.DOCUMENT
+        assert isinstance(result, DocumentWidgetData)
+        assert result.widget_type == WidgetType.DOCUMENT
