@@ -128,7 +128,7 @@ Main functions include:
 
 ### 4.2 Tech Stack
 
-- **Frontend:** Streamlit
+- **Frontend:** Vue3 + TypeScript
   Used to build a lightweight and interactive user interface for dashboards, search, and recommendation display.
 - **Backend:** LangGraph
   Used to manage multi-step workflows such as data retrieval, summarization, routing, and task coordination.

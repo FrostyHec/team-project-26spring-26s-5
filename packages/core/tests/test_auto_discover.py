@@ -20,8 +20,8 @@ class TestToolAutoDiscover:
         registry = ToolRegistry()
         auto_discover_and_register(registry)
         tool_names = {t.name for t in registry.list_tools()}
+        # show_calendar removed; deadline_manager uses show_deadline_dashboard
         expected_widgets = {
-            "show_calendar",
             "show_document",
             "show_courses",
             "show_web_preview",
@@ -34,6 +34,21 @@ class TestToolAutoDiscover:
         auto_discover_and_register(registry)
         tool_names = {t.name for t in registry.list_tools()}
         assert "get_weather" in tool_names
+
+    def test_discovers_deadline_tools(self) -> None:
+        registry = ToolRegistry()
+        auto_discover_and_register(registry)
+        tool_names = {t.name for t in registry.list_tools()}
+        expected_deadline = {
+            "get_announcements",
+            "query_email",
+            "get_exams",
+            "save_deadlines",
+            "list_deadlines",
+            "add_deadline",
+            "show_deadline_dashboard",
+        }
+        assert expected_deadline.issubset(tool_names)
 
     def test_no_duplicate_registration(self) -> None:
         registry = ToolRegistry()

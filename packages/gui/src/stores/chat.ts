@@ -311,6 +311,10 @@ export const useChatStore = defineStore('chat', () => {
     }
     session.messages.push(assistantMsg)
 
+    // IMPORTANT: After push, Vue wraps the object in a reactive Proxy inside
+    // the array.  We must mutate through that proxy so changes are tracked.
+    const reactiveMsg = session.messages[session.messages.length - 1]!
+
     isLoading.value = true
 
     try {
@@ -319,11 +323,11 @@ export const useChatStore = defineStore('chat', () => {
         currentSessionId ?? undefined,
         session.skill,
       )) {
-        handleStreamEvent(event, assistantMsg)
+        handleStreamEvent(event, reactiveMsg)
       }
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Unknown error'
-      assistantMsg.content = assistantMsg.content || 'Failed to get response.'
+      reactiveMsg.content = reactiveMsg.content || 'Failed to get response.'
     } finally {
       isLoading.value = false
       session.updatedAt = new Date()
@@ -403,10 +407,14 @@ export const useChatStore = defineStore('chat', () => {
         })
         break
 
-      case EVENT_TYPES.WIDGET_DISPLAY:
+      case EVENT_TYPES.WIDGET_DISPLAY: {
+        const wType = event.widget_type || WIDGET_TYPES.EMPTY
+        // Calendar widget self-fetches deadlines from REST API.
+        // Deadline_manager skill uses show_deadline_dashboard() tool.
+        const SELF_FETCH_WIDGETS: ReadonlySet<string> = new Set([WIDGET_TYPES.CALENDAR])
         activeWidget.value = {
-          type: event.widget_type || WIDGET_TYPES.EMPTY,
-          data: event.data || {},
+          type: wType,
+          data: SELF_FETCH_WIDGETS.has(wType) ? {} : event.data || {},
         }
         isWorkspaceOpen.value = true
         msg.traceSteps?.push({
@@ -415,6 +423,7 @@ export const useChatStore = defineStore('chat', () => {
           widgetData: event.data || {},
         })
         break
+      }
     }
   }
 

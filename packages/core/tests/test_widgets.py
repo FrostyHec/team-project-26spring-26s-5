@@ -9,14 +9,12 @@ from agent_core.models.events import WidgetType
 from agent_core.tools.registry import ToolRegistry
 from agent_core.tools.widgets import (
     AnyWidgetData,
-    CalendarWidgetData,
     CourseCardsWidgetData,
     DocumentWidgetData,
     SourcesWidgetData,
     WebPreviewWidgetData,
     WidgetData,
     register_widget_tools,
-    show_calendar,
     show_courses,
     show_document,
     show_sources,
@@ -29,38 +27,6 @@ _WIDGET_ADAPTER: TypeAdapter[AnyWidgetData] = TypeAdapter(AnyWidgetData)
 def _parse_widget(raw: str) -> WidgetData:
     """Parse a tool's JSON output into a typed WidgetData instance."""
     return _WIDGET_ADAPTER.validate_json(raw)
-
-
-class TestShowCalendar:
-    """Tests for the show_calendar tool."""
-
-    def test_valid_json_events(self) -> None:
-        events = json.dumps(
-            [{"title": "Math HW", "date": "2026-03-30", "priority": "high"}]
-        )
-        result = _parse_widget(show_calendar(events))
-        assert isinstance(result, CalendarWidgetData)
-        assert result.widget_type == WidgetType.CALENDAR
-        assert len(result.events) == 1
-        assert result.events[0]["title"] == "Math HW"
-
-    def test_plain_string_fallback(self) -> None:
-        result = _parse_widget(show_calendar("Math homework due Friday"))
-        assert isinstance(result, CalendarWidgetData)
-        assert result.widget_type == WidgetType.CALENDAR
-        assert len(result.events) == 1
-        assert result.events[0]["title"] == "Math homework due Friday"
-
-    def test_multiple_events(self) -> None:
-        events = json.dumps(
-            [
-                {"title": "Exam 1", "date": "2026-04-01", "priority": "high"},
-                {"title": "Exam 2", "date": "2026-04-02", "priority": "medium"},
-            ]
-        )
-        result = _parse_widget(show_calendar(events))
-        assert isinstance(result, CalendarWidgetData)
-        assert len(result.events) == 2
 
 
 class TestShowDocument:
@@ -168,27 +134,14 @@ class TestRegisterWidgetTools:
         register_widget_tools(registry)
         tools = registry.list_tools()
         tool_names = {t.name for t in tools}
+        # show_calendar removed; deadline_manager uses show_deadline_dashboard
         expected = {
-            "show_calendar",
             "show_document",
             "show_courses",
             "show_web_preview",
             "show_sources",
         }
         assert expected == tool_names
-
-    @pytest.mark.asyncio
-    async def test_execute_show_calendar(self) -> None:
-        registry = ToolRegistry()
-        register_widget_tools(registry)
-        events = json.dumps(
-            [{"title": "Test", "date": "2026-04-01", "priority": "low"}]
-        )
-        result = _parse_widget(
-            await registry.execute("show_calendar", {"events": events})
-        )
-        assert isinstance(result, CalendarWidgetData)
-        assert result.widget_type == WidgetType.CALENDAR
 
     @pytest.mark.asyncio
     async def test_execute_show_document(self) -> None:

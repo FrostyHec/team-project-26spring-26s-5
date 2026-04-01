@@ -15,6 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from agent_core.api.dependencies import init_dependencies, shutdown_dependencies
 from agent_core.api.routes.chat import router as chat_router
+from agent_core.api.routes.deadlines import router as deadlines_router
 from agent_core.api.routes.health import router as health_router
 from agent_core.api.routes.sessions import router as sessions_router
 from agent_core.api.routes.skills import router as skills_router
@@ -62,5 +63,6 @@ def create_app(config: AgentConfig | None = None) -> FastAPI:
     app.include_router(skills_router)
     app.include_router(chat_router)
     app.include_router(sessions_router)
+    app.include_router(deadlines_router)
 
     return app

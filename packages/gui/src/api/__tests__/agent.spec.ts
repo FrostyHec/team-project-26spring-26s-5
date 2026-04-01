@@ -9,6 +9,7 @@ import {
   createSession,
   getSession,
   deleteSession,
+  fetchDeadlines,
 } from '../agent'
 
 // Mock global fetch
@@ -223,6 +224,50 @@ describe('API client', () => {
       mockFetch.mockResolvedValue({ ok: false, status: 404 })
 
       await expect(deleteSession('missing')).rejects.toThrow('API error: 404')
+    })
+  })
+
+  describe('fetchDeadlines', () => {
+    it('returns deadlines from API', async () => {
+      const deadlines = [
+        {
+          id: 'd1',
+          title: 'HW1',
+          course: 'CS302',
+          due_date: '2026-05-01',
+          priority: 'high',
+          source: 'manual',
+          description: '',
+        },
+      ]
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ deadlines }),
+      })
+
+      const result = await fetchDeadlines()
+
+      expect(result).toEqual(deadlines)
+      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/deadlines'))
+    })
+
+    it('passes course and priority query params', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ deadlines: [] }),
+      })
+
+      await fetchDeadlines('CS302', 'high')
+
+      const calledUrl = mockFetch.mock.calls[0]![0] as string
+      expect(calledUrl).toContain('course=CS302')
+      expect(calledUrl).toContain('priority=high')
+    })
+
+    it('throws on API error', async () => {
+      mockFetch.mockResolvedValue({ ok: false, status: 500 })
+
+      await expect(fetchDeadlines()).rejects.toThrow('API error: 500')
     })
   })
 })

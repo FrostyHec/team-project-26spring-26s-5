@@ -74,26 +74,6 @@ AnyWidgetData = Annotated[
 # ---------------------------------------------------------------------------
 
 
-def show_calendar(events: str) -> str:
-    """Display a calendar widget with upcoming events/deadlines.
-
-    Args:
-        events: JSON string of calendar events. Each event should have
-            'title', 'date', 'priority' (high/medium/low), and optional
-            'course' fields.
-
-    Returns:
-        Confirmation message with widget display instruction.
-    """
-    try:
-        parsed = json.loads(events)
-    except (json.JSONDecodeError, TypeError):
-        parsed = [{"title": events, "date": "TBD", "priority": "medium"}]
-
-    events_list = parsed if isinstance(parsed, list) else [parsed]
-    return CalendarWidgetData(events=events_list).model_dump_json()
-
-
 def show_document(title: str, content: str, doc_type: str = "text") -> str:
     """Display a document viewer widget with the given content.
 
@@ -176,12 +156,6 @@ def register_widget_tools(registry: ToolRegistry) -> None:
         registry: The tool registry to register with.
     """
     _tools: list[tuple[Any, str]] = [
-        (
-            show_calendar,
-            "Display a calendar widget showing upcoming deadlines and events. "
-            "Pass a JSON array of events with title, date, priority, course fields. "
-            "Call this after discussing deadlines or schedules.",
-        ),
         (
             show_document,
             "Display a document viewer widget. Use this to show lecture notes, "

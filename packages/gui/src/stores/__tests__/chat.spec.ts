@@ -421,7 +421,7 @@ describe('useChatStore', () => {
       expect(assistantMsg.content).not.toContain('Let me analyze...')
     })
 
-    it('handles widget_display events', async () => {
+    it('handles widget_display events for self-fetch widget', async () => {
       mockCreateSession.mockResolvedValue({
         id: 'sess-widget',
         title: '',
@@ -445,7 +445,37 @@ describe('useChatStore', () => {
       await store.sendMessage('show calendar')
 
       expect(store.activeWidget.type).toBe(WIDGET_TYPES.CALENDAR)
-      expect(store.activeWidget.data).toEqual({ events: [{ title: 'Exam' }] })
+      // Calendar is a self-fetch widget — event data is always ignored.
+      // The widget fetches deadlines from the REST API on mount.
+      expect(store.activeWidget.data).toEqual({})
+      expect(store.isWorkspaceOpen).toBe(true)
+    })
+
+    it('handles widget_display events for non-self-fetch widget', async () => {
+      mockCreateSession.mockResolvedValue({
+        id: 'sess-widget2',
+        title: '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+
+      async function* fakeStream() {
+        yield { type: 'loop_start' as const }
+        yield {
+          type: 'widget_display' as const,
+          widget_type: 'document' as const,
+          data: { content: 'Hello doc' },
+        }
+        yield { type: 'loop_end' as const }
+      }
+      mockStreamMessage.mockReturnValue(fakeStream())
+
+      const store = useChatStore()
+      await store.sendMessage('show doc')
+
+      expect(store.activeWidget.type).toBe(WIDGET_TYPES.DOCUMENT)
+      // Non-self-fetch widget keeps event data
+      expect(store.activeWidget.data).toEqual({ content: 'Hello doc' })
       expect(store.isWorkspaceOpen).toBe(true)
     })
 

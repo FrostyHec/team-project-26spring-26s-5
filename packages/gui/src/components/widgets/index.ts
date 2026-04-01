@@ -33,3 +33,24 @@ export const WIDGET_TITLES: Record<WidgetType, string> = {
   [WIDGET_TYPES.INBOX]: 'Inbox',
   [WIDGET_TYPES.EMPTY]: 'Workspace',
 }
+
+/**
+ * Widget types that should appear in the user-facing selector dropdown.
+ * Excludes stub/empty widgets that have no real implementation yet.
+ */
+const HIDDEN_WIDGET_TYPES: ReadonlySet<WidgetType> = new Set([
+  WIDGET_TYPES.EMPTY,
+  WIDGET_TYPES.NEWS_DIGEST,
+  WIDGET_TYPES.INBOX,
+])
+
+/** A selectable widget entry for the dropdown. */
+export interface SelectableWidget {
+  type: WidgetType
+  title: string
+}
+
+/** Ordered list of widgets available in the selector dropdown. */
+export const SELECTABLE_WIDGETS: SelectableWidget[] = (Object.keys(WIDGET_TITLES) as WidgetType[])
+  .filter((t) => !HIDDEN_WIDGET_TYPES.has(t))
+  .map((t) => ({ type: t, title: WIDGET_TITLES[t] }))

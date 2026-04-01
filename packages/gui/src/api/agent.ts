@@ -242,3 +242,34 @@ export async function checkHealth(): Promise<boolean> {
     return false
   }
 }
+
+// ---------- Deadlines ----------
+
+/** A single deadline record from the backend. */
+export interface DeadlineInfo {
+  id: string
+  title: string
+  course: string
+  due_date: string
+  priority: string
+  source: string
+  description: string
+}
+
+/**
+ * Fetch stored deadlines with optional filters.
+ */
+export async function fetchDeadlines(course?: string, priority?: string): Promise<DeadlineInfo[]> {
+  const params = new URLSearchParams()
+  if (course) params.set('course', course)
+  if (priority) params.set('priority', priority)
+  const qs = params.toString()
+  const url = `${API_BASE}/deadlines${qs ? `?${qs}` : ''}`
+
+  const response = await fetch(url)
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`)
+  }
+  const data = await response.json()
+  return data.deadlines
+}
