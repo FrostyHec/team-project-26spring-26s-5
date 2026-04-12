@@ -7,14 +7,12 @@ are auto-discovered by :func:`agent_core.tools.auto_discover_and_register`.
 
 import json
 import uuid
-from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 from agent_core.logging_utils import get_logger
 from agent_core.models.deadline import DeadlinePriority, DeadlineRecord, DeadlineSource
 from agent_core.persistence.deadline_store import DeadlineStore
-from agent_core.tools.blackboard import get_all_ddls
 from agent_core.tools.registry import ToolRegistry, ToolSensitivity
 from agent_core.tools.widgets import CalendarWidgetData
 
@@ -137,41 +135,12 @@ _MOCK_EXAMS: list[dict[str, str]] = [
 
 
 def get_announcements() -> str:
-    """Fetch course announcements from Blackboard.
+    """Fetch course announcements from Blackboard (mock).
 
     Returns:
         JSON array of announcement objects with course, title, content, date.
     """
-    # Get all deadlines from Blackboard
-    all_ddls = get_all_ddls()
-
-    # Convert to announcements format
-    announcements = []
-    for course, ddls in all_ddls.items():
-        for ddl in ddls:
-            # Parse and convert dueDate to UTC+8
-            due_date_str = ddl.get("dueDate")
-            if due_date_str:
-                # Parse ISO format string
-                utc_time = datetime.fromisoformat(due_date_str.replace("Z", "+00:00"))
-                # Convert to UTC+8
-                utc8_time = utc_time + timedelta(hours=8)
-                # Format as YYYY-MM-DD
-                date = utc8_time.strftime("%Y-%m-%d")
-
-                title = ddl.get("title", "Untitled")
-                content = f"{title} is due on {date}. Please submit via Blackboard."
-
-                announcements.append(
-                    {
-                        "course": course,
-                        "title": title,
-                        "content": content,
-                        "date": date,
-                    }
-                )
-
-    return json.dumps(announcements, ensure_ascii=False)
+    return json.dumps(_MOCK_ANNOUNCEMENTS, ensure_ascii=False)
 
 
 def query_email(since_days: int = _DEFAULT_SINCE_DAYS) -> str:
