@@ -164,7 +164,7 @@ CI 通过且审查通过后，使用 Squash and Merge 合并到 `main`。
 |------|------|------|
 | 1/6 | Code Formatting | 对所有 Python 包运行 `ruff format`（**自动修复**格式问题） |
 | 2/6 | Lint Check | 对所有 Python 包和 Vue 运行格式检查 |
-| 3/6 | Language Check | 运行 `check_language.py`（确保源代码中无中文字符） |
+| 3/6 | Language Check | 运行 Semgrep（`semgrep-rules.yaml`，确保源代码中无 CJK 字符） |
 | 4/6 | Python Tests | 对 `core`、`cli`、`poc_frontend` 运行 `pytest` |
 | 5/6 | Vue Tests | 在 `packages/gui` 中运行 `pnpm vitest run` |
 | 6/6 | Type Check & Build | 运行 `pnpm run type-check` 和 `pnpm build` |
@@ -177,7 +177,7 @@ CI 通过且审查通过后，使用 Squash and Merge 合并到 `main`。
 | 步骤 | 名称 | 说明 |
 |------|------|------|
 | 1/5 | Lint Check | `ruff format --check` + `ruff check`（**不自动修复**，仅报告） |
-| 2/5 | Language Check | 运行 `check_language.py` |
+| 2/5 | Language Check | 运行 Semgrep（`semgrep-rules.yaml`） |
 | 3/5 | Python Tests | 对所有 Python 包运行 `pytest` |
 | 4/5 | Vue Tests | 在 `packages/gui` 中运行 `pnpm vitest run` |
 | 5/5 | Type Check | 运行 `pnpm run type-check` |
@@ -207,7 +207,7 @@ GitHub Actions 工作流（`.github/workflows/ci.yml`）包含 **4 个 Job**：
 | Job | 名称 | 依赖 | 说明 |
 |-----|------|------|------|
 | 1 | `lint` | — | Lint & Format Check：对所有 Python 包检查 `ruff format --check` 和 `ruff check` |
-| 2 | `language-check` | — | Language Check：运行 `check_language.py` 确保无中文 |
+| 2 | `language-check` | — | Language Check：运行 Semgrep（`semgrep-rules.yaml`）确保无 CJK 字符 |
 | 3 | `test-python` | lint, language-check | Python Tests：对 core（含覆盖率）、cli、poc_frontend 运行 pytest |
 | 4 | `test-vue` | lint, language-check | Vue Tests：运行 vitest + type-check + build |
 
@@ -239,7 +239,7 @@ language-check ┤
 
 - [ ] **格式化通过**：`task format` 后无 diff，或 `ruff format --check` 通过
 - [ ] **Lint 通过**：`task lint` 无错误
-- [ ] **语言检查通过**：`python3 scripts/check_language.py --root .` 无中文
+- [ ] **语言检查通过**：`bash scripts/check.sh --check-only` 语言检查步骤绿色（如需豁免特定行，添加 `# nosemgrep`）
 - [ ] **Python 测试通过**：`task test:core && task test:cli && task test:poc`
 - [ ] **Vue 测试通过**：`task test:gui`
 - [ ] **类型检查通过**：`cd packages/gui && pnpm run type-check`
@@ -290,7 +290,7 @@ bash scripts/check.sh --check-only
 | `task lint` | Lint 检查所有 Python 代码 |
 | `bash scripts/check.sh` | 完整开发检查（6 步，含自动格式化） |
 | `bash scripts/check.sh --check-only` | CI 模拟检查（5 步，不自动修复） |
-| `python3 scripts/check_language.py --root .` | 语言检查 |
+| `semgrep --config semgrep-rules.yaml --no-git-ignore --error packages/ .github/ scripts/` | 语言检查 |
 
 ### 清理
 
@@ -313,9 +313,14 @@ bash scripts/check.sh --check-only
 
 **解决方法**：运行 `task format` 自动修复，然后重新 `git add` 修改的文件。
 
-### Q: `check_language.py` 报错有中文
+### Q: Semgrep 报错有 CJK 字符
 
-**解决方法**：检查报错文件和行号，将源代码中的中文改为英文。注意：注释、变量名、字符串、docstring 都不能包含中文。
+**解决方法**：
+
+1. 检查报错文件和行号，将源代码中的 CJK 字符（中文、日文、韩文）改为英文
+2. 注意：注释、变量名、字符串、docstring 都不能包含 CJK 字符
+3. 如果某行确实需要 CJK 字符（如测试数据），在行末添加 `# nosemgrep`（Python）或 `// nosemgrep`（JS/TS）
+4. 推荐将 CJK 字符串抽离到 `.json` / `.yaml` 配置文件中（不在检查范围内）
 
 ### Q: Python 测试找不到模块
 

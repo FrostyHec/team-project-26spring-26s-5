@@ -1,0 +1,47 @@
+# =============================================================================
+# Semgrep Rules — CJK Character Policy
+#
+# Rejects CJK (Chinese / Japanese / Korean) characters in source-code files.
+# Other Unicode (Emoji, special symbols, accented Latin, etc.) is allowed.
+#
+# Inline exemption:  add  # nosemgrep  or  // nosemgrep  at the end of the line.
+#
+# Unicode ranges covered:
+#   U+4E00 – U+9FFF   CJK Unified Ideographs
+#   U+3400 – U+4DBF   CJK Unified Ideographs Extension A
+#   U+3000 – U+303F   CJK Symbols and Punctuation
+#   U+FF00 – U+FFEF   Halfwidth and Fullwidth Forms
+#   U+3040 – U+309F   Hiragana
+#   U+30A0 – U+30FF   Katakana
+#   U+AC00 – U+D7AF   Hangul Syllables
+#
+# Note: Semgrep uses PCRE2 which does not support \u escapes.
+#       Actual Unicode characters are embedded in the regex below.
+# =============================================================================
+
+rules:
+  - id: no-cjk-characters
+    message: >
+      CJK characters detected in source code.
+      Source code must not contain CJK (Chinese / Japanese / Korean) characters.
+      If this line is intentional (e.g. test data), add `# nosemgrep` or
+      `// nosemgrep` at the end of the line to suppress this finding.
+    languages: [regex]
+    # Character class uses actual Unicode code-points (PCRE2 does not support \u escapes).
+    # Ranges: CJK Ideographs | Ext-A | CJK Punct | Fullwidth | Hiragana | Katakana | Hangul
+    pattern-regex: '[\x{3000}-\x{303f}\x{3040}-\x{309f}\x{30a0}-\x{30ff}\x{3400}-\x{4dbf}\x{4e00}-\x{9fff}\x{ff00}-\x{ffef}\x{ac00}-\x{d7af}]'
+    severity: ERROR
+    paths:
+      include:
+        - "/packages/**/*"
+        - "/.github/**/*"
+        - "/scripts/**/*"
+      exclude:
+        - "**/*.json"
+        - "**/*.lock"
+        - "**/node_modules/**"
+        - "**/.venv/**"
+        - "**/dist/**"
+        - "**/build/**"
+        - "**/__pycache__/**"
+        - "**/output/**"

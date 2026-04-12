@@ -155,16 +155,27 @@ fi
 print_success "Lint check passed"
 
 # =============================================================================
-# Step 3 (or 2 if --check-only): Language Check
+# Step 3 (or 2 if --check-only): Language Check (Semgrep)
 # =============================================================================
 STEP_NUM=$((NEXT_STEP))/$(echo "$TOTAL_STEPS")
-print_header "Step $STEP_NUM: Language Check"
+print_header "Step $STEP_NUM: Language Check (Semgrep)"
 
-echo "Checking for Chinese characters in source code..."
-if python3 scripts/check_language.py --root "$PROJECT_ROOT"; then
+echo "Checking for CJK characters in source code via Semgrep..."
+if ! command -v semgrep &>/dev/null; then
+    print_error "semgrep not found. Install with: pip install semgrep"
+    exit 1
+fi
+if semgrep --config "$PROJECT_ROOT/semgrep-rules.yaml" \
+           --no-git-ignore \
+           --error \
+           --quiet \
+           "$PROJECT_ROOT/packages" \
+           "$PROJECT_ROOT/.github" \
+           "$PROJECT_ROOT/scripts"; then
     print_success "Language check passed"
 else
-    print_error "Language check failed"
+    print_error "Language check failed: CJK characters found in source code"
+    print_info "To suppress a single line, add '# nosemgrep' (Python/YAML/Shell) or '// nosemgrep' (JS/TS/Vue) at the end of the line"
     exit 1
 fi
 

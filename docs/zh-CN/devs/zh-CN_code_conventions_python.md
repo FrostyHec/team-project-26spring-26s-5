@@ -162,17 +162,66 @@ Provides a decorator-based tool registration system with:
 
 **文档**（`docs/` 目录）使用中文。
 
-### 自动检查
+### 编码要求
 
-项目提供 `check_language.py` 脚本，自动扫描 `packages/` 下所有源代码文件（`.py`, `.ts`, `.vue` 等），检测是否包含中文字符：
+**所有源代码文件必须使用 UTF-8 编码**。非 UTF-8 编码的文件（如 GBK、Latin-1 等）将被 Semgrep 无法正常读取并标记为异常。这是行业标准，确保跨平台和工具链的一致性。
+
+### 禁止字符范围
+
+CI 使用 Semgrep 检测并拒绝以下 **CJK 字符**：
+
+| 范围 | 说明 |
+|------|------|
+| `U+4E00 – U+9FFF` | CJK 统一表意文字 |
+| `U+3400 – U+4DBF` | CJK 统一表意文字扩展 A |
+| `U+3000 – U+303F` | CJK 符号和标点（如 `、`、`。`、`〇`） |
+| `U+FF00 – U+FFEF` | 全角 / 半角形式（如 `！`、`＂`） |
+| `U+3040 – U+309F` | 平假名 |
+| `U+30A0 – U+30FF` | 片假名 |
+| `U+AC00 – U+D7AF` | 谚文音节（韩文） |
+
+**以下字符不受限制（允许使用）**：Emoji、em-dash（`—`）、degree sign（`°`）、箭头（`→`、`↔`）、项目符号（`•`、`▶`）及其他非 CJK Unicode 字符。
+
+### 自动检查工具：Semgrep
+
+项目使用 **Semgrep** 进行语言检查，规则文件为 `semgrep-rules.yaml`。
+
+扫描范围：
+
+| 目录 | 说明 |
+|------|------|
+| `packages/` | 所有源代码文件 |
+| `.github/` | CI 配置文件 |
+| `scripts/` | 脚本文件 |
+
+排除的目录：`__pycache__`、`.venv`、`node_modules`、`dist`、`build`、`output/` 等（见 `.semgrepignore`）。
 
 ```bash
-# 运行语言检查
-python3 scripts/check_language.py --root .
+# 安装 Semgrep（首次使用）
+pip install semgrep
 
-# 详细输出
-python3 scripts/check_language.py --root . --verbose
+# 运行语言检查（本地开发，等价于 check.sh 的 Language Check 步骤）
+semgrep --config semgrep-rules.yaml --no-git-ignore --error packages/ .github/ scripts/
+
+# 通过 check.sh 运行（推荐）
+bash scripts/check.sh --check-only
 ```
+
+### 行级豁免
+
+如果某行确实需要包含 CJK 字符（例如测试用例中的测试数据），在行末添加 `# nosemgrep`（Python/YAML/Shell）或 `// nosemgrep`（JS/TS/Vue）：
+
+```python
+# Python / YAML / Shell
+test_data = "你好"  # nosemgrep
+```
+
+```typescript
+// JS / TS / Vue
+const data = "你好"; // nosemgrep
+```
+
+> **推荐做法**：如果需要在源代码中包含 CJK 字符串（例如 i18n 翻译），建议将这些字符串抽离到独立的 JSON / YAML 配置文件中（这些文件不在检查范围内），而非在源代码中直接使用行级豁免。
 
 该检查在 CI 中作为独立 Job 执行，不通过则 PR 无法合并。
 

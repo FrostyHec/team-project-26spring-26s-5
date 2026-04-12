@@ -1,0 +1,36 @@
+# Semgrep ignore patterns — mirrors .gitignore for non-git contexts
+# See: https://semgrep.dev/docs/ignoring-files-folders-code/
+
+# Build / dependency artifacts
+node_modules/
+.venv/
+dist/
+build/
+__pycache__/
+*.pyc
+*.pyo
+
+# Runtime output (logs, generated files)
+output/
+
+# Package lock files
+*.lock
+pnpm-lock.yaml
+package-lock.json
+
+# IDE / tooling
+.git/
+.idea/
+.vscode/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.eggs/
+*.egg-info/
+
+# Private / non-public assets
+.nonpublic/
+
+# Playwright reports / test results
+playwright-report/
+test-results/

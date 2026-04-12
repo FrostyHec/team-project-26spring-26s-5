@@ -76,13 +76,16 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
+      - name: Install Semgrep
+        run: pip install semgrep
 
-      - name: Run language check
-        run: python scripts/check_language.py --root .
+      - name: Run language check (Semgrep)
+        run: |
+          semgrep --config semgrep-rules.yaml \
+                  --no-git-ignore \
+                  --error \
+                  --quiet \
+                  packages/ .github/ scripts/
 
   test-python:
     name: Python Tests
