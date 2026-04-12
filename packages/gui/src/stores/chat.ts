@@ -371,6 +371,13 @@ export const useChatStore = defineStore('chat', () => {
           name: event.name || 'unknown',
           input: event.input || {},
         })
+        if (event.name === 'get_announcements') {
+          msg.traceSteps?.push({
+            type: TRACE_STEP_TYPES.THINKING,
+            content:
+              'Blackboard login requires credentials: The system will try to open a browser window, please enter your student ID and CAS password in the popup.',
+          })
+        }
         break
 
       case EVENT_TYPES.TOOL_END: {

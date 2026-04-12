@@ -1,0 +1,544 @@
+{
+    "Algorithm Design and Analysis (H) Spring 2024": [
+        {
+            "title": "Assignment 0: Declaration Form",
+            "dueDate": "2024-06-23T15:59:00.000Z"
+        },
+        {
+            "title": "Assignment 1",
+            "dueDate": "2024-03-12T15:59:00.000Z"
+        },
+        {
+            "title": "Assignment 2",
+            "dueDate": "2024-04-03T06:00:00.000Z"
+        },
+        {
+            "title": "Assignment 3",
+            "dueDate": "2024-04-17T06:00:00.000Z"
+        },
+        {
+            "title": "Assignment 4",
+            "dueDate": "2024-05-11T06:00:00.000Z"
+        },
+        {
+            "title": "Bonus Assignment (optional)",
+            "dueDate": "2024-06-07T15:59:00.000Z"
+        },
+        {
+            "title": "Assignment 5",
+            "dueDate": "2024-05-29T15:59:00.000Z"
+        },
+        {
+            "title": "Assignment 6",
+            "dueDate": "2024-06-05T06:00:00.000Z"
+        }
+    ],
+    "C/C++ Program Design Fall 2023": [
+        {
+            "title": "承诺书",
+            "dueDate": "2023-10-22T15:59:00.000Z"
+        },
+        {
+            "title": "Quiz 3",
+            "dueDate": "2023-09-28T15:30:00.000Z"
+        },
+        {
+            "title": "Quiz 5",
+            "dueDate": "2023-10-19T04:00:00.000Z"
+        },
+        {
+            "title": "Quiz 7",
+            "dueDate": "2023-11-02T04:30:00.000Z"
+        },
+        {
+            "title": "Link to the recording",
+            "dueDate": "2023-11-16T04:30:00.000Z"
+        },
+        {
+            "title": "Project",
+            "dueDate": "2024-01-26T15:00:00.000Z"
+        }
+    ],
+    "CSE All  Students": [],
+    "Computer Networks Fall 2025": [
+        {
+            "title": "Written HW1",
+            "dueDate": "2025-10-26T15:59:00.000Z"
+        },
+        {
+            "title": "Lab assignment1",
+            "dueDate": "2025-10-27T15:30:00.000Z"
+        },
+        {
+            "title": "Course Project",
+            "dueDate": "2025-12-19T15:59:00.000Z"
+        },
+        {
+            "title": "Lab assignment2",
+            "dueDate": "2025-12-19T09:00:00.000Z"
+        },
+        {
+            "title": "Project presentation slides submission",
+            "dueDate": "2025-12-26T15:59:00.000Z"
+        }
+    ],
+    "Computer System Design and Applications A Fall 2024": [
+        {
+            "title": "承诺书提交",
+            "dueDate": "2024-10-07T15:59:00.000Z"
+        },
+        {
+            "title": "Quiz 3 (24F)",
+            "dueDate": "2024-09-30T10:18:00.000Z"
+        },
+        {
+            "title": "Quiz 0",
+            "dueDate": "2024-09-09T11:00:00.000Z"
+        },
+        {
+            "title": "Quiz 2 (24F)",
+            "dueDate": "2024-09-23T10:20:00.000Z"
+        },
+        {
+            "title": "Quiz 1 (24F)",
+            "dueDate": "2024-09-14T10:20:00.000Z"
+        },
+        {
+            "title": "Quiz 4 (24F)",
+            "dueDate": "2024-10-14T10:16:00.000Z"
+        },
+        {
+            "title": "Quiz 5 (24F)",
+            "dueDate": "2024-10-21T10:17:00.000Z"
+        },
+        {
+            "title": "Quiz 6 (24F)",
+            "dueDate": "2024-10-28T10:17:00.000Z"
+        },
+        {
+            "title": "Assignment 2",
+            "dueDate": "2024-11-25T15:59:00.000Z"
+        },
+        {
+            "title": "Quiz 7 (24F)",
+            "dueDate": "2024-11-11T10:17:00.000Z"
+        },
+        {
+            "title": "Quiz 8 (24F)",
+            "dueDate": "2024-11-25T10:17:00.000Z"
+        },
+        {
+            "title": "Quiz 9 (24F)",
+            "dueDate": "2024-12-02T10:18:00.000Z"
+        },
+        {
+            "title": "Quiz 10 (24F)",
+            "dueDate": "2024-12-09T10:18:00.000Z"
+        },
+        {
+            "title": "Final Project",
+            "dueDate": "2024-12-23T15:59:00.000Z"
+        }
+    ],
+    "Data Structures and Algorithm Analysis(H) Fall 2023": [
+        {
+            "title": "Undergraduate Student Declaration Form",
+            "dueDate": "2023-10-10T08:00:00.000Z"
+        },
+        {
+            "title": "Lab 1",
+            "dueDate": "2023-09-19T08:00:00.000Z"
+        },
+        {
+            "title": "Lab 2 Submission link",
+            "dueDate": "2023-09-26T08:00:00.000Z"
+        },
+        {
+            "title": "Lab 3",
+            "dueDate": "2023-10-10T08:00:00.000Z"
+        },
+        {
+            "title": "Lab 4",
+            "dueDate": "2023-10-17T08:00:00.000Z"
+        },
+        {
+            "title": "Lab 5",
+            "dueDate": "2023-10-24T08:00:00.000Z"
+        },
+        {
+            "title": "Lab 6",
+            "dueDate": "2023-10-31T08:00:00.000Z"
+        },
+        {
+            "title": "Lab 7",
+            "dueDate": "2023-11-07T08:00:00.000Z"
+        },
+        {
+            "title": "Lab 8",
+            "dueDate": "2023-11-14T08:00:00.000Z"
+        },
+        {
+            "title": "Lab 9",
+            "dueDate": "2023-11-28T08:00:00.000Z"
+        },
+        {
+            "title": "Lab 10",
+            "dueDate": "2023-12-05T08:00:00.000Z"
+        },
+        {
+            "title": "Lab 11",
+            "dueDate": "2023-12-05T08:00:00.000Z"
+        },
+        {
+            "title": "Lab 12",
+            "dueDate": "2023-12-12T08:00:00.000Z"
+        },
+        {
+            "title": "Lab 13",
+            "dueDate": "2023-12-19T08:00:00.000Z"
+        },
+        {
+            "title": "Lab 14",
+            "dueDate": "2023-12-26T08:00:00.000Z"
+        },
+        {
+            "title": "Lab 15",
+            "dueDate": "2024-01-02T08:00:00.000Z"
+        }
+    ],
+    "Discrete Mathematics (H) Fall 2023": [
+        {
+            "title": "Project (optional)",
+            "dueDate": "2024-01-22T00:00:00.000Z"
+        }
+    ],
+    "English for Academic Purposes Fall 2023": [
+        {
+            "title": "Argumentative Research Paper",
+            "dueDate": "2024-01-07T15:59:00.000Z"
+        }
+    ],
+    "Frontier Seminars in Computer Science and Technology IV Fall 2024": [],
+    "Frontier Seminars in Computer Science and Technology III Fall 2025": [],
+    "Introduction to Computer Programming Fall 2022": [
+        {
+            "title": "Week 1 Group research topic",
+            "dueDate": "2020-06-26T03:00:00.000Z"
+        }
+    ],
+    "Listening & Reading: Tips for Continued Improvement": [
+        {
+            "title": "Week1 Case Assignment",
+            "dueDate": "2019-09-04T03:06:00.000Z"
+        }
+    ],
+    "Machine Learning (H) Fall 2024": [
+        {
+            "title": "Sign \"Undergraduate Students Declaration Form\"",
+            "dueDate": "2024-10-31T15:59:00.000Z"
+        },
+        {
+            "title": "Homework 1",
+            "dueDate": "2024-10-15T15:55:00.000Z"
+        },
+        {
+            "title": "Final Project",
+            "dueDate": "2025-01-11T03:30:00.000Z"
+        },
+        {
+            "title": "Homework 2",
+            "dueDate": "2024-10-29T14:00:00.000Z"
+        },
+        {
+            "title": "Homework 3",
+            "dueDate": "2024-11-19T15:50:00.000Z"
+        },
+        {
+            "title": "Science Introduction Essay",
+            "dueDate": "2024-12-29T14:00:00.000Z"
+        },
+        {
+            "title": "Homework 4",
+            "dueDate": "2024-12-03T14:00:00.000Z"
+        },
+        {
+            "title": "Research Proposal and PPT for Final Project",
+            "dueDate": "2024-12-08T15:59:00.000Z"
+        },
+        {
+            "title": "Midterm",
+            "dueDate": "2024-12-02T02:00:00.000Z"
+        },
+        {
+            "title": "HW5",
+            "dueDate": "2024-12-17T14:00:00.000Z"
+        },
+        {
+            "title": "Midterm 重新提交",
+            "dueDate": "2024-12-09T15:50:00.000Z"
+        }
+    ],
+    "Operating Systems (H) Fall 2024": [
+        {
+            "title": "Assignment1",
+            "dueDate": "2024-09-29T09:00:00.000Z"
+        },
+        {
+            "title": "Undergraduate Students Declaration Form",
+            "dueDate": "2024-10-08T14:00:00.000Z"
+        },
+        {
+            "title": "Assignment2",
+            "dueDate": "2024-10-27T15:59:00.000Z"
+        },
+        {
+            "title": "Assignment3",
+            "dueDate": "2024-11-24T15:59:00.000Z"
+        },
+        {
+            "title": "Assignment4",
+            "dueDate": "2024-12-01T15:59:00.000Z"
+        },
+        {
+            "title": "Assignment5",
+            "dueDate": "2024-12-08T15:59:00.000Z"
+        },
+        {
+            "title": "Assignment6",
+            "dueDate": "2024-12-15T15:59:00.000Z"
+        },
+        {
+            "title": "Assignment7",
+            "dueDate": "2024-12-29T15:59:00.000Z"
+        },
+        {
+            "title": "Project报告",
+            "dueDate": "2025-01-15T15:59:00.000Z"
+        }
+    ],
+    "Principles of Database Systems (H) Fall 2023": [
+        {
+            "title": "Project 1, DBMS Performance Evaluation",
+            "dueDate": "2023-10-15T15:59:00.000Z"
+        },
+        {
+            "title": "Assignment 1: Proposal for Mitigating Malicious Database Deletion",
+            "dueDate": "2023-11-19T15:59:00.000Z"
+        },
+        {
+            "title": "诚信承诺书提交入口",
+            "dueDate": "2023-11-27T04:00:00.000Z"
+        },
+        {
+            "title": "Project 2",
+            "dueDate": "2024-01-04T15:30:00.000Z"
+        },
+        {
+            "title": "Assignment 2: deadline 23:59 December 17th",
+            "dueDate": "2023-12-17T15:59:00.000Z"
+        },
+        {
+            "title": "Bonus essay",
+            "dueDate": "2024-01-21T12:00:00.000Z"
+        }
+    ],
+    "SUSTech English II SE6 Fall 2022": [
+        {
+            "title": "Week 4",
+            "dueDate": "2020-10-11T15:59:00.000Z"
+        },
+        {
+            "title": "Week 2 Intonation 1",
+            "dueDate": "2021-09-22T15:59:00.000Z"
+        },
+        {
+            "title": "TASK 2 APPRENTICE TALK SHOW",
+            "dueDate": "2021-10-07T15:59:00.000Z"
+        },
+        {
+            "title": "Task 3 A paragraph writing",
+            "dueDate": "2021-10-07T15:59:00.000Z"
+        },
+        {
+            "title": "Task 4 Critical Thinking problem set",
+            "dueDate": "2021-11-23T15:59:00.000Z"
+        },
+        {
+            "title": "Technology and reflect on its significance",
+            "dueDate": "2021-12-08T15:59:00.000Z"
+        },
+        {
+            "title": "Writing Project 3（Final Draft）",
+            "dueDate": "2022-12-28T03:30:00.000Z"
+        },
+        {
+            "title": "Homework #1",
+            "dueDate": "2022-03-18T15:59:00.000Z"
+        },
+        {
+            "title": "Pre Video",
+            "dueDate": "2022-03-27T04:00:00.000Z"
+        },
+        {
+            "title": "Pronunciation Exercise one",
+            "dueDate": "2022-05-12T16:00:00.000Z"
+        },
+        {
+            "title": "Writing Project - 1. draft writing",
+            "dueDate": "2022-12-11T03:30:00.000Z"
+        },
+        {
+            "title": "HW#1 Intonation Practice",
+            "dueDate": "2022-09-20T16:00:00.000Z"
+        },
+        {
+            "title": "Vocabulary Quiz 1",
+            "dueDate": "2022-09-28T04:10:00.000Z"
+        },
+        {
+            "title": "sublist 1",
+            "dueDate": "2022-10-12T04:30:00.000Z"
+        },
+        {
+            "title": "Sublist 2",
+            "dueDate": "2022-10-12T04:30:00.000Z"
+        },
+        {
+            "title": "Writing: Summarization",
+            "dueDate": "2022-11-06T16:00:00.000Z"
+        },
+        {
+            "title": "Quiz 3 (Sublist 7)",
+            "dueDate": "2022-11-21T01:30:00.000Z"
+        },
+        {
+            "title": "HW 3 - Writing a brief analysis on an academic report",
+            "dueDate": "2022-12-04T04:00:00.000Z"
+        },
+        {
+            "title": "BUS or WIFI",
+            "dueDate": "2022-11-28T02:00:00.000Z"
+        },
+        {
+            "title": "Writing Project 2 - Peer editing",
+            "dueDate": "2022-12-18T03:30:00.000Z"
+        },
+        {
+            "title": "Quiz 5 sublist 10",
+            "dueDate": "2022-12-30T04:06:00.000Z"
+        },
+        {
+            "title": "Quiz 7",
+            "dueDate": "2023-01-08T09:24:00.000Z"
+        }
+    ],
+    "SUSTech English III Spring 2023": [
+        {
+            "title": "Reading practice (based on completion)",
+            "dueDate": "2023-05-28T15:59:00.000Z"
+        },
+        {
+            "title": "Listening practice (based on completion)",
+            "dueDate": "2023-04-09T15:59:00.000Z"
+        }
+    ],
+    "Software Engineering Spring 2026": [
+        {
+            "title": "Quiz 1",
+            "dueDate": "2026-03-10T04:16:00.000Z"
+        },
+        {
+            "title": "Quiz 3",
+            "dueDate": "2026-03-24T04:20:00.000Z"
+        },
+        {
+            "title": "Open Source PR",
+            "dueDate": "2026-05-20T06:00:00.000Z"
+        },
+        {
+            "title": "Quiz 4",
+            "dueDate": "2026-03-31T04:20:00.000Z"
+        },
+        {
+            "title": "Quiz 5",
+            "dueDate": "2026-04-07T04:18:00.000Z"
+        },
+        {
+            "title": "Quiz 6",
+            "dueDate": "2026-04-13T04:20:00.000Z"
+        },
+        {
+            "title": "Quiz 7",
+            "dueDate": "2025-04-07T07:55:00.000Z"
+        },
+        {
+            "title": "Quiz 8",
+            "dueDate": "2025-04-14T07:56:00.000Z"
+        },
+        {
+            "title": "Quiz 9",
+            "dueDate": "2025-04-28T07:57:00.000Z"
+        },
+        {
+            "title": "Quiz 10",
+            "dueDate": "2025-05-12T07:56:00.000Z"
+        },
+        {
+            "title": "Quiz 11",
+            "dueDate": "2025-05-19T07:56:00.000Z"
+        },
+        {
+            "title": "AI as a Silver Bullet?",
+            "dueDate": "2026-03-22T15:59:00.000Z"
+        },
+        {
+            "title": "Academic Integrity",
+            "dueDate": "2026-03-22T15:59:00.000Z"
+        },
+        {
+            "title": "Quiz 2",
+            "dueDate": "2026-03-17T04:20:00.000Z"
+        }
+    ],
+    "Verilog+FPGA混合实验平台": [],
+    "中华经典导读（2026春）": [],
+    "写作与交流9班（2023春）": [
+        {
+            "title": "第一次书面作业：计划书",
+            "dueDate": "2023-03-17T15:59:00.000Z"
+        },
+        {
+            "title": "第二次书面作业：项目申请书",
+            "dueDate": "2023-05-06T15:59:00.000Z"
+        },
+        {
+            "title": "第三次书面作业：电子邮件写作",
+            "dueDate": "2023-05-15T15:59:00.000Z"
+        },
+        {
+            "title": "第四次书面作业（论文初稿）",
+            "dueDate": "2023-06-04T15:59:00.000Z"
+        },
+        {
+            "title": "第五次书面作业（期末论文终稿）",
+            "dueDate": "2023-06-12T15:59:00.000Z"
+        }
+    ],
+    "大学化学 2023春-余沛源": [],
+    "大学物理（上） (2022秋）5班": [],
+    "大学物理（下）（2023春）刘畅": [],
+    "概率论与数理统计（2023秋）": [],
+    "计算机系2022级学生站点": [],
+    "阿拉伯城市与文化（2024秋）": [
+        {
+            "title": "Group Project_Public Space",
+            "dueDate": "2024-12-19T15:59:00.000Z"
+        },
+        {
+            "title": "Exam 1_Oct 17",
+            "dueDate": "2025-01-16T15:59:00.000Z"
+        }
+    ],
+    "高等数学（上）10班（2022秋）": [],
+    "高等数学（下）2班（2023春）": []
+}

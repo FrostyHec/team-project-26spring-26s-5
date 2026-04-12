@@ -11,7 +11,7 @@ import sys
 from agent_core.api.server import create_app
 from agent_core.config import AgentConfig
 from agent_core.engine.agent import ReactAgent
-from agent_core.tools.calculator import register_calculator_tools
+from agent_core.tools import auto_discover_and_register
 from agent_core.tools.registry import ToolRegistry
 
 
@@ -38,7 +38,7 @@ def _create_agent_from_config() -> ReactAgent:
 
     llm = ChatOpenAI(**llm_kwargs)
     registry = ToolRegistry()
-    register_calculator_tools(registry)
+    auto_discover_and_register(registry)
 
     return ReactAgent(
         llm=llm,

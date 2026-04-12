@@ -8,7 +8,6 @@ from agent_core.models.deadline import DeadlinePriority, DeadlineRecord, Deadlin
 from agent_core.persistence.deadline_store import DeadlineStore
 from agent_core.tools.deadline import (
     add_deadline,
-    get_announcements,
     get_exams,
     list_deadlines,
     query_email,
@@ -163,13 +162,6 @@ class TestDeadlineStore:
 
 class TestMockDataTools:
     """Tests for mock external data source tools."""
-
-    def test_get_announcements_returns_json(self) -> None:
-        result = json.loads(get_announcements())
-        assert isinstance(result, list)
-        assert len(result) > 0
-        assert "course" in result[0]
-        assert "title" in result[0]
 
     def test_query_email_returns_json(self) -> None:
         result = json.loads(query_email())
