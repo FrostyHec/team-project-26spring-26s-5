@@ -27,7 +27,6 @@ packages/
   core/          # Python — 后端引擎 + API + tools + models
   gui/           # TypeScript/Vue — 前端 SPA
   cli/           # Python — 命令行入口
-  poc_frontend/  # Python — Chainlit 原型前端（保留但不活跃）
 ```
 
 ### 1.2 Core 后端模块
@@ -575,7 +574,7 @@ main (protected)
 | Step 1 | `ruff format` + `prettier` — 代码格式化 |
 | Step 2 | `ruff check` + `prettier --check` — Lint 检查 |
 | Step 3 | Language check — 源代码中无中文硬编码 |
-| Step 4 | `pytest` — Python 单元测试（core + cli + poc_frontend） |
+| Step 4 | `pytest` — Python 单元测试（core + cli） |
 | Step 5 | `vitest` — Vue 单元测试 |
 | Step 6 | `vue-tsc --build` + `vite build` — 类型检查 + 构建 |
 

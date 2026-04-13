@@ -245,6 +245,16 @@ export async function checkHealth(): Promise<boolean> {
 
 // ---------- Deadlines ----------
 
+/** Date classification for a deadline task (mirrors backend DateType). */
+export const DateType = {
+  NO_DATE: 'no_date',
+  MOMENT_DAY: 'moment_day',
+  MOMENT_HM: 'moment_hm',
+  PERIOD_DAY: 'period_day',
+  PERIOD_HM: 'period_hm',
+} as const
+export type DateTypeValue = (typeof DateType)[keyof typeof DateType]
+
 /** A single deadline record from the backend. */
 export interface DeadlineInfo {
   id: string
@@ -254,6 +264,26 @@ export interface DeadlineInfo {
   priority: string
   source: string
   description: string
+  date_type: DateTypeValue
+  start_date: string
+  completed: boolean
+}
+
+/** A candidate that duplicates an existing record (from sync-preview). */
+export interface DuplicateEntry {
+  candidate: DeadlineInfo
+  existing_id: string
+}
+
+/** Response from the sync-preview endpoint. */
+export interface SyncPreviewResult {
+  new_tasks: DeadlineInfo[]
+  duplicate_tasks: DuplicateEntry[]
+}
+
+/** Response from the sync-commit endpoint. */
+export interface SyncCommitResult {
+  added: DeadlineInfo[]
 }
 
 /**
@@ -272,4 +302,121 @@ export async function fetchDeadlines(course?: string, priority?: string): Promis
   }
   const data = await response.json()
   return data.deadlines
+}
+
+/**
+ * Toggle the completed status of a deadline.
+ */
+export async function toggleDeadlineComplete(
+  id: string,
+  completed: boolean,
+): Promise<{ id: string; completed: boolean }> {
+  const response = await fetch(`${API_BASE}/deadlines/${id}/complete`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ completed }),
+  })
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`)
+  }
+  return response.json()
+}
+
+/**
+ * Preview sync results — separate new tasks from duplicates.
+ */
+export async function syncPreview(deadlines: DeadlineInfo[]): Promise<SyncPreviewResult> {
+  const response = await fetch(`${API_BASE}/deadlines/sync-preview`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ deadlines }),
+  })
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`)
+  }
+  return response.json()
+}
+
+/**
+ * Commit confirmed tasks from the sync preview.
+ */
+export async function syncCommit(tasks: DeadlineInfo[]): Promise<SyncCommitResult> {
+  const response = await fetch(`${API_BASE}/deadlines/sync-commit`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tasks }),
+  })
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`)
+  }
+  return response.json()
+}
+
+/**
+ * Delete a deadline by ID.
+ */
+export async function deleteDeadline(id: string): Promise<{ status: string; id: string }> {
+  const response = await fetch(`${API_BASE}/deadlines/${id}`, {
+    method: 'DELETE',
+  })
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`)
+  }
+  return response.json()
+}
+
+/** Fields for creating a new deadline (title is required). */
+export interface CreateDeadlineFields {
+  title: string
+  course?: string
+  due_date?: string
+  priority?: string
+  description?: string
+  date_type?: DateTypeValue
+  start_date?: string
+}
+
+/**
+ * Create a new deadline via POST.
+ */
+export async function createDeadline(fields: CreateDeadlineFields): Promise<DeadlineInfo> {
+  const response = await fetch(`${API_BASE}/deadlines`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(fields),
+  })
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`)
+  }
+  return response.json()
+}
+
+/** Fields that can be updated on a deadline (all optional). */
+export interface UpdateDeadlineFields {
+  title?: string
+  course?: string
+  due_date?: string
+  priority?: string
+  description?: string
+  date_type?: DateTypeValue
+  start_date?: string
+  completed?: boolean
+}
+
+/**
+ * Update one or more fields of a deadline.
+ */
+export async function updateDeadline(
+  id: string,
+  fields: UpdateDeadlineFields,
+): Promise<DeadlineInfo> {
+  const response = await fetch(`${API_BASE}/deadlines/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(fields),
+  })
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`)
+  }
+  return response.json()
 }

@@ -94,7 +94,7 @@ export PATH="$HOME/.local/bin:$PATH"
 if [ "$CHECK_ONLY" = false ]; then
     print_header "Step 1/6: Code Formatting (ruff + prettier)"
 
-    for pkg in packages/core packages/cli packages/poc_frontend; do
+    for pkg in packages/core packages/cli; do
         if [ -d "$pkg/src" ]; then
             echo "Formatting $pkg..."
             cd "$PROJECT_ROOT/$pkg"
@@ -130,7 +130,7 @@ fi
 print_header "Step $STEP_NUM: Lint Check (ruff + prettier)"
 
 LINT_FAILED=0
-for pkg in packages/core packages/cli packages/poc_frontend; do
+for pkg in packages/core packages/cli; do
     if [ -d "$pkg/src" ]; then
         echo "Linting $pkg..."
         cd "$PROJECT_ROOT/$pkg"
@@ -189,7 +189,7 @@ STEP_NUM=$((NEXT_STEP))/$TOTAL_STEPS
 print_header "Step $STEP_NUM: Run Python Tests (pytest)"
 
 TEST_FAILED=0
-for pkg in packages/core packages/cli packages/poc_frontend; do
+for pkg in packages/core packages/cli; do
     if [ -d "$pkg/tests" ]; then
         echo "Testing $pkg..."
         cd "$PROJECT_ROOT/$pkg"

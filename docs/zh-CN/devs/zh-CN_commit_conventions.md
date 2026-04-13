@@ -36,7 +36,6 @@
 
 - `core` — packages/core
 - `cli` — packages/cli
-- `poc` — packages/poc_frontend
 - `gui` — packages/gui
 - `docs` — 文档
 - `scripts` — 脚本

@@ -64,14 +64,6 @@ team-project-26spring-26s-5/
 │   │   │   └── main.py        # CLI 入口（argparse: chat/serve）
 │   │   └── tests/
 │   │       └── test_cli.py
-│   ├── poc_frontend/          # 🎨 Chainlit POC 前端（Python）
-│   │   ├── pyproject.toml
-│   │   ├── README.md
-│   │   ├── .venv/             # 独立虚拟环境
-│   │   ├── src/poc_frontend/
-│   │   │   └── app.py         # Chainlit 应用
-│   │   └── tests/
-│   │       └── test_poc.py
 │   └── gui/                   # 🖥️ Vue3+TS 前端
 │       ├── package.json       # Node.js 依赖和脚本
 │       ├── pnpm-lock.yaml     # pnpm 锁文件
@@ -117,9 +109,7 @@ team-project-26spring-26s-5/
 ```
 packages/core          ← 核心引擎，不依赖其他包
     ↑
-    ├── packages/cli   ← 依赖 core（通过 uv.sources path reference）
-    │
-    └── packages/poc_frontend ← 依赖 core（通过 uv.sources path reference）
+    └── packages/cli   ← 依赖 core（通过 uv.sources path reference）
 
 packages/gui           ← 独立的 Node.js 项目，通过 HTTP API 与 core 通信
 ```
@@ -130,7 +120,6 @@ packages/gui           ← 独立的 Node.js 项目，通过 HTTP API 与 core �
 |------|------|------|----------|
 | `core` | Python | ReAct 引擎、工具系统、FastAPI 服务 | REST API（HTTP） |
 | `cli` | Python | 命令行交互界面 | 终端命令 |
-| `poc_frontend` | Python | Chainlit 浏览器聊天界面 | Web UI（Chainlit） |
 | `gui` | TypeScript/Vue | 生产级 Web 聊天界面 | Web UI（Vue SPA） |
 
 ## 依赖管理
@@ -142,7 +131,6 @@ packages/gui           ← 独立的 Node.js 项目，通过 HTTP API 与 core �
 ```bash
 packages/core/.venv/         # core 的虚拟环境
 packages/cli/.venv/          # cli 的虚拟环境
-packages/poc_frontend/.venv/ # poc_frontend 的虚拟环境
 ```
 
 安装命令：
@@ -157,7 +145,7 @@ task init:python
 
 ### 跨包依赖（tool.uv.sources）
 
-`cli` 和 `poc_frontend` 依赖 `core`，通过 `[tool.uv.sources]` 配置本地路径引用：
+`cli` 依赖 `core`，通过 `[tool.uv.sources]` 配置本地路径引用：
 
 ```toml
 # packages/cli/pyproject.toml
@@ -213,7 +201,7 @@ pnpm 使用 `pnpm-lock.yaml` 锁定依赖版本。
 [tool.mypy]          # MyPy 类型检查配置（仅 core）
 [tool.pytest.ini_options]  # pytest 配置
 [tool.hatch.build]   # Hatchling 构建配置
-[tool.uv.sources]    # 跨包依赖路径（仅 cli / poc_frontend）
+[tool.uv.sources]    # 跨包依赖路径（仅 cli）
 ```
 
 ### Vue 前端配置
@@ -233,7 +221,7 @@ pnpm 使用 `pnpm-lock.yaml` 锁定依赖版本。
 
 ### Python 包间通信
 
-`cli` 和 `poc_frontend` 通过 Python 导入直接调用 `core` 的 API：
+`cli` 通过 Python 导入直接调用 `core` 的 API：
 
 ```python
 # packages/cli/src/agent_cli/main.py

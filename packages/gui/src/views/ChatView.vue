@@ -10,10 +10,14 @@ const chatStore = useChatStore()
 const isDragging = ref(false)
 const workspaceWidth = ref(320) // Default right panel width
 
+/** Right panel can be dragged up to 75% of window width. */
+const MAX_PANEL_RATIO = 0.75
+const MIN_PANEL_WIDTH = 300
+
 useEventListener(window, 'mousemove', (e) => {
   if (!isDragging.value) return
   const newWidth = window.innerWidth - e.clientX
-  if (newWidth > 300 && newWidth < 800) {
+  if (newWidth > MIN_PANEL_WIDTH && newWidth < window.innerWidth * MAX_PANEL_RATIO) {
     workspaceWidth.value = newWidth
   }
 })

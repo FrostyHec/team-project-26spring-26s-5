@@ -10,7 +10,6 @@ A ReAct (Reasoning + Acting) AI Agent POC built with LangChain/LangGraph, featur
 packages/
 ├── core/           # ReAct engine (LangGraph + FastAPI)
 ├── cli/            # Command-line interface
-├── poc_frontend/   # Chainlit POC frontend
 └── gui/            # Vue3 + TypeScript frontend
 ```
 
@@ -44,9 +43,6 @@ task test
 # Start backend API server
 task dev:server
 
-# Start Chainlit POC (separate terminal)
-task dev:poc
-
 # Start Vue frontend (separate terminal)
 task dev:gui
 ```
@@ -71,7 +67,6 @@ task test
 | Agent Engine | LangChain + LangGraph |
 | Web API | FastAPI + Uvicorn |
 | CLI | argparse |
-| POC Frontend | Chainlit |
 | GUI Frontend | Vue3 + TypeScript + Pinia |
 | Python Tooling | uv, Ruff, pytest |
 | Node Tooling | pnpm, Vite, Vitest |

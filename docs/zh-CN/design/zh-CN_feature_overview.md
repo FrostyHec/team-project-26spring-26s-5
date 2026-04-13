@@ -1,6 +1,6 @@
 # 已实现功能模块概览
 
-本文档概述 ReAct Agent 项目中所有已实现的功能模块，涵盖核心引擎、工具系统、API 层、CLI 前端、Chainlit POC 前端及 Vue3 前端。
+本文档概述 ReAct Agent 项目中所有已实现的功能模块，涵盖核心引擎、工具系统、API 层、CLI 前端及 Vue3 前端。
 
 ---
 
@@ -190,31 +190,7 @@ __all__ = ["ReactAgent", "ToolRegistry", "tool"]
 
 ---
 
-## 5. Chainlit POC 前端
-
-**相关文件：**
-- `packages/poc_frontend/src/poc_frontend/app.py`
-
-### 5.1 功能概述
-
-基于 **Chainlit** 框架的概念验证前端，提供带有思维链可视化的对话 GUI。
-
-### 5.2 核心处理器
-
-| 处理器 | 说明 |
-|--------|------|
-| `@cl.on_chat_start` | 会话初始化，创建 `ReactAgent` 并存入 `cl.user_session` |
-| `@cl.on_message` | 消息处理，流式接收 agent 事件并渲染 |
-
-### 5.3 思维链可视化
-
-- **工具调用显示**：`tool_start` 事件创建 `cl.Step`（类型为 `"tool"`），显示工具名称和输入参数。
-- **工具结果显示**：`tool_end` 事件更新对应 `cl.Step` 的 `output` 字段。
-- **Token 流式输出**：`token` 事件通过 `cl.Message.stream_token()` 实时追加到响应消息。
-
----
-
-## 6. Vue3 前端
+## 5. Vue3 前端
 
 **相关文件：**
 - `packages/gui/src/api/agent.ts`
@@ -274,14 +250,14 @@ SSE 解析实现：使用 `ReadableStream` 的 `getReader()` 逐块读取，按 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                      前端层                                  │
-│  ┌──────────┐  ┌──────────────┐  ┌───────────────────────┐  │
-│  │ CLI      │  │ Chainlit POC │  │ Vue3 GUI              │  │
-│  │ (chat/   │  │ (app.py)     │  │ (agent.ts/chat.ts/    │  │
-│  │  serve)  │  │              │  │  ChatView.vue)        │  │
-│  └────┬─────┘  └──────┬───────┘  └──────────┬────────────┘  │
-│       │               │                     │               │
-│       │   直接调用     │   直接调用          │ HTTP /api     │
-│       ▼               ▼                     ▼               │
+│  ┌──────────┐  ┌───────────────────────┐  │
+│  │ CLI      │  │ Vue3 GUI              │  │
+│  │ (chat/   │  │ (agent.ts/chat.ts/    │  │
+│  │  serve)  │  │  ChatView.vue)        │  │
+│  └────┬─────┘  └──────────┬────────────┘  │
+│       │                   │               │
+│       │   直接调用        │ HTTP /api     │
+│       ▼                   ▼               │
 │  ┌──────────────────────────────────────────────────────┐   │
 │  │              API 层 (server.py)                       │   │
 │  │  /health  /tools  /chat  /chat/stream                │   │

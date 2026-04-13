@@ -48,7 +48,7 @@ task init
 ```
 
 该命令会执行：
-- `task init:python` — 为 `core`、`cli`、`poc_frontend` 三个 Python 包各自运行 `uv sync --all-extras`，创建独立的 `.venv` 并安装所有依赖（含开发依赖）
+- `task init:python` — 为 `core`、`cli` 两个 Python 包各自运行 `uv sync --all-extras`，创建独立的 `.venv` 并安装所有依赖（含开发依赖）
 - `task init:gui` — 在 `packages/gui` 下运行 `pnpm install`
 
 ### 3. 配置环境变量
@@ -76,6 +76,24 @@ SYSTEM_PROMPT=You are a helpful AI assistant with calculator tools.
 ```bash
 task test    # 运行所有测试，确认环境正常
 ```
+
+## 后端架构参考
+
+后端采用 **Controller – Service – Store** 三层架构。新增或修改 CRUD 功能前，请务必阅读以下文档：
+
+| 文档 | 内容 |
+|------|------|
+| [Python 代码规范](zh-CN_code_conventions_python.md) | 分层架构规范、数据校验要求、枚举/类型安全 |
+| [CRUD 开发指南](../design/zh-CN_crud_development_guide.md) | SQLModel ORM 模式、三层校验分工、常见陷阱 |
+| [Deadline 管理设计](../design/zh-CN_deadline_management.md) | Deadline 模块作为三层架构的参考实现 |
+
+### 关键原则
+
+1. **Service 层是唯一的业务逻辑层**——REST Controller 和 Tool 函数都委托给同一个 Service
+2. **层间传递强类型对象**（`DeadlineRecord` 等），禁止裸 `dict`
+3. **Store 层只做 DB 操作**——不做格式校验，只接收 `date`、`Enum` 等强类型
+4. **Pydantic 自动拦截格式错误**——Controller 层利用类型注解自动返回 422
+5. **状态字符串使用 `StrEnum`**——消除散落的 magic string
 
 ## 开发工作流
 
@@ -106,9 +124,6 @@ git checkout -b feature/add-new-tool
 ```bash
 # 启动后端 API（端口 8000）
 task dev:server
-
-# 启动 Chainlit POC（端口 8001）
-task dev:poc
 
 # 启动 Vue 前端开发服务器（端口 5173）
 task dev:gui
@@ -165,7 +180,7 @@ CI 通过且审查通过后，使用 Squash and Merge 合并到 `main`。
 | 1/6 | Code Formatting | 对所有 Python 包运行 `ruff format`（**自动修复**格式问题） |
 | 2/6 | Lint Check | 对所有 Python 包和 Vue 运行格式检查 |
 | 3/6 | Language Check | 运行 Semgrep（`semgrep-rules.yaml`，确保源代码中无 CJK 字符） |
-| 4/6 | Python Tests | 对 `core`、`cli`、`poc_frontend` 运行 `pytest` |
+| 4/6 | Python Tests | 对 `core`、`cli` 运行 `pytest` |
 | 5/6 | Vue Tests | 在 `packages/gui` 中运行 `pnpm vitest run` |
 | 6/6 | Type Check & Build | 运行 `pnpm run type-check` 和 `pnpm build` |
 
@@ -208,7 +223,7 @@ GitHub Actions 工作流（`.github/workflows/ci.yml`）包含 **4 个 Job**：
 |-----|------|------|------|
 | 1 | `lint` | — | Lint & Format Check：对所有 Python 包检查 `ruff format --check` 和 `ruff check` |
 | 2 | `language-check` | — | Language Check：运行 Semgrep（`semgrep-rules.yaml`）确保无 CJK 字符 |
-| 3 | `test-python` | lint, language-check | Python Tests：对 core（含覆盖率）、cli、poc_frontend 运行 pytest |
+| 3 | `test-python` | lint, language-check | Python Tests：对 core（含覆盖率）、cli 运行 pytest |
 | 4 | `test-vue` | lint, language-check | Vue Tests：运行 vitest + type-check + build |
 
 ```
@@ -269,7 +284,6 @@ bash scripts/check.sh --check-only
 | 命令 | 说明 | 端口 |
 |------|------|------|
 | `task dev:server` | 启动 FastAPI 后端 | 8000 |
-| `task dev:poc` | 启动 Chainlit POC | 8001 |
 | `task dev:gui` | 启动 Vue 开发服务器 | 5173 |
 
 ### 测试
@@ -279,7 +293,6 @@ bash scripts/check.sh --check-only
 | `task test` | 运行所有测试 |
 | `task test:core` | Core 包测试（含覆盖率） |
 | `task test:cli` | CLI 包测试 |
-| `task test:poc` | POC 前端测试 |
 | `task test:gui` | Vue 前端测试 |
 
 ### 代码质量

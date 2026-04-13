@@ -1,7 +1,7 @@
 """Structured event models for the agent streaming protocol.
 
 Defines the event types and Pydantic models used for communication
-between the agent engine and frontends (API, Chainlit, Vue).
+between the agent engine and frontends (API, CLI, Vue).
 """
 
 from enum import StrEnum

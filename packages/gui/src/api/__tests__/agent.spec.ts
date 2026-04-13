@@ -10,6 +10,12 @@ import {
   getSession,
   deleteSession,
   fetchDeadlines,
+  toggleDeadlineComplete,
+  syncPreview,
+  syncCommit,
+  deleteDeadline,
+  updateDeadline,
+  createDeadline,
 } from '../agent'
 
 // Mock global fetch
@@ -268,6 +274,189 @@ describe('API client', () => {
       mockFetch.mockResolvedValue({ ok: false, status: 500 })
 
       await expect(fetchDeadlines()).rejects.toThrow('API error: 500')
+    })
+  })
+
+  describe('toggleDeadlineComplete', () => {
+    it('sends PATCH request with completed flag', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ id: 'd1', completed: true }),
+      })
+
+      const result = await toggleDeadlineComplete('d1', true)
+
+      expect(result).toEqual({ id: 'd1', completed: true })
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/deadlines/d1/complete'),
+        expect.objectContaining({
+          method: 'PATCH',
+          body: JSON.stringify({ completed: true }),
+        }),
+      )
+    })
+
+    it('throws on API error', async () => {
+      mockFetch.mockResolvedValue({ ok: false, status: 404 })
+
+      await expect(toggleDeadlineComplete('missing', true)).rejects.toThrow('API error: 404')
+    })
+  })
+
+  describe('syncPreview', () => {
+    it('posts candidates and returns new/duplicate split', async () => {
+      const previewResult = {
+        new_tasks: [{ id: '', title: 'New', due_date: '2026-04-20' }],
+        duplicate_tasks: [{ candidate: { title: 'Dup' }, existing_id: 'e1' }],
+      }
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(previewResult),
+      })
+
+      const result = await syncPreview([])
+
+      expect(result.new_tasks).toHaveLength(1)
+      expect(result.duplicate_tasks).toHaveLength(1)
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/deadlines/sync-preview'),
+        expect.objectContaining({ method: 'POST' }),
+      )
+    })
+
+    it('throws on API error', async () => {
+      mockFetch.mockResolvedValue({ ok: false, status: 500 })
+
+      await expect(syncPreview([])).rejects.toThrow('API error: 500')
+    })
+  })
+
+  describe('syncCommit', () => {
+    it('posts confirmed tasks and returns added list', async () => {
+      const commitResult = {
+        added: [{ id: 'x1', title: 'Task A' }],
+      }
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(commitResult),
+      })
+
+      const result = await syncCommit([])
+
+      expect(result.added).toHaveLength(1)
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/deadlines/sync-commit'),
+        expect.objectContaining({ method: 'POST' }),
+      )
+    })
+
+    it('throws on API error', async () => {
+      mockFetch.mockResolvedValue({ ok: false, status: 500 })
+
+      await expect(syncCommit([])).rejects.toThrow('API error: 500')
+    })
+  })
+
+  describe('deleteDeadline', () => {
+    it('sends DELETE and returns status + id', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ status: 'deleted', id: 'abc-123' }),
+      })
+
+      const result = await deleteDeadline('abc-123')
+
+      expect(result).toEqual({ status: 'deleted', id: 'abc-123' })
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/deadlines/abc-123'),
+        expect.objectContaining({ method: 'DELETE' }),
+      )
+    })
+
+    it('throws on API error', async () => {
+      mockFetch.mockResolvedValue({ ok: false, status: 404 })
+
+      await expect(deleteDeadline('bad-id')).rejects.toThrow('API error: 404')
+    })
+  })
+
+  // ── A007: updateDeadline ───────────────────────────────────────
+
+  describe('updateDeadline', () => {
+    it('sends PATCH and returns updated deadline', async () => {
+      const updated = {
+        id: 'd1',
+        title: 'Updated',
+        course: 'CS302',
+        due_date: '2026-04-15',
+        priority: 'high',
+        source: 'manual',
+        description: '',
+        date_type: 'moment_day',
+        start_date: '',
+        completed: false,
+      }
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(updated),
+      })
+
+      const result = await updateDeadline('d1', { title: 'Updated', priority: 'high' })
+
+      expect(result).toEqual(updated)
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/deadlines/d1'),
+        expect.objectContaining({
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+    })
+
+    it('throws on API error', async () => {
+      mockFetch.mockResolvedValue({ ok: false, status: 422 })
+
+      await expect(updateDeadline('d1', { priority: 'bogus' })).rejects.toThrow('API error: 422')
+    })
+  })
+
+  // ── A008: createDeadline ───────────────────────────────────────
+
+  describe('createDeadline', () => {
+    it('sends POST and returns created deadline', async () => {
+      const created = {
+        id: 'new-1',
+        title: 'My Task',
+        course: 'CS302',
+        due_date: '2026-05-01',
+        priority: 'medium',
+        source: 'manual',
+        description: '',
+        date_type: 'moment_day',
+        start_date: '',
+        completed: false,
+      }
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(created),
+      })
+
+      const result = await createDeadline({ title: 'My Task', due_date: '2026-05-01' })
+
+      expect(result).toEqual(created)
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/deadlines'),
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+    })
+
+    it('throws on API error', async () => {
+      mockFetch.mockResolvedValue({ ok: false, status: 422 })
+
+      await expect(createDeadline({ title: '' })).rejects.toThrow('API error: 422')
     })
   })
 })

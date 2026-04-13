@@ -12,7 +12,7 @@ import { WIDGET_TYPES, type WidgetType } from '@/stores/chatConstants'
 
 /** Lazy-loaded Vue component per widget type. */
 export const WIDGET_COMPONENTS: Record<WidgetType, Component> = {
-  [WIDGET_TYPES.CALENDAR]: defineAsyncComponent(() => import('./CalendarWidget.vue')),
+  [WIDGET_TYPES.CALENDAR]: defineAsyncComponent(() => import('./DeadlinePanelWidget.vue')),
   [WIDGET_TYPES.DOCUMENT]: defineAsyncComponent(() => import('./DocumentWidget.vue')),
   [WIDGET_TYPES.COURSE_CARDS]: defineAsyncComponent(() => import('./CourseCardsWidget.vue')),
   [WIDGET_TYPES.SOURCES]: defineAsyncComponent(() => import('./SourcesWidget.vue')),
@@ -24,7 +24,7 @@ export const WIDGET_COMPONENTS: Record<WidgetType, Component> = {
 
 /** Human-readable titles shown in the WorkspacePanel header. */
 export const WIDGET_TITLES: Record<WidgetType, string> = {
-  [WIDGET_TYPES.CALENDAR]: 'Calendar',
+  [WIDGET_TYPES.CALENDAR]: 'Deadlines',
   [WIDGET_TYPES.DOCUMENT]: 'Document',
   [WIDGET_TYPES.COURSE_CARDS]: 'Courses',
   [WIDGET_TYPES.SOURCES]: 'Sources',

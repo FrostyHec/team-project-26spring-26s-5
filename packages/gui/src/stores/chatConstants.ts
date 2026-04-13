@@ -76,3 +76,16 @@ export const SESSION_MESSAGE_ROLES = {
 } as const
 
 export type SessionMessageRole = (typeof SESSION_MESSAGE_ROLES)[keyof typeof SESSION_MESSAGE_ROLES]
+
+/**
+ * Tool names whose completion should trigger a deadline panel refresh.
+ * When a TOOL_END event fires for any of these tools, the deadline
+ * version counter is incremented so the widget auto-fetches fresh data.
+ */
+export const DEADLINE_MUTATING_TOOLS: ReadonlySet<string> = new Set([
+  'add_deadline',
+  'save_deadlines',
+  'show_deadline_dashboard',
+  'delete_deadline',
+  'update_deadline',
+])

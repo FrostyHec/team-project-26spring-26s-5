@@ -9,6 +9,7 @@ import {
   TRACE_STEP_TYPES,
   TOOL_CALL_STATUS,
 } from '../chat'
+import { DEADLINE_MUTATING_TOOLS } from '../chatConstants'
 
 // Mock the API module
 vi.mock('@/api/agent', () => ({
@@ -65,6 +66,22 @@ describe('useChatStore', () => {
     expect(EVENT_TYPES.WIDGET_DISPLAY).toBe('widget_display')
     expect(WIDGET_TYPES.CALENDAR).toBe('calendar')
     expect(WIDGET_TYPES.COURSE_CARDS).toBe('course_cards')
+  })
+
+  // ── A007: DEADLINE_MUTATING_TOOLS & deadlineVersion ────────────
+
+  it('exports DEADLINE_MUTATING_TOOLS with expected tool names', () => {
+    expect(DEADLINE_MUTATING_TOOLS.has('add_deadline')).toBe(true)
+    expect(DEADLINE_MUTATING_TOOLS.has('save_deadlines')).toBe(true)
+    expect(DEADLINE_MUTATING_TOOLS.has('show_deadline_dashboard')).toBe(true)
+    expect(DEADLINE_MUTATING_TOOLS.has('delete_deadline')).toBe(true)
+    expect(DEADLINE_MUTATING_TOOLS.has('update_deadline')).toBe(true)
+    expect(DEADLINE_MUTATING_TOOLS.has('list_deadlines')).toBe(false)
+  })
+
+  it('initialises deadlineVersion to 0', () => {
+    const store = useChatStore()
+    expect(store.deadlineVersion).toBe(0)
   })
 
   describe('checkConnection', () => {

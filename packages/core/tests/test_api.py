@@ -40,7 +40,7 @@ class TestToolsEndpoint:
         assert response.status_code == 200
         tools = response.json()
         assert isinstance(tools, list)
-        assert len(tools) == 16  # 4 calculator + 1 weather + 4 widget + 7 deadline
+        assert len(tools) == 18  # 4 calculator + 1 weather + 4 widget + 9 deadline
         names = {t["name"] for t in tools}
         assert "add" in names
         assert "subtract" in names

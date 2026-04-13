@@ -6,7 +6,7 @@
 
 ### 构建系统：Hatchling
 
-所有 Python 包（`core`、`cli`、`poc_frontend`）使用 [Hatchling](https://hatch.pypa.io/) 作为构建后端：
+所有 Python 包（`core`、`cli`）使用 [Hatchling](https://hatch.pypa.io/) 作为构建后端：
 
 ```toml
 [build-system]
@@ -35,7 +35,6 @@ uv build
 |------|-----------|------|------|
 | `agent-core` | `agent-core` | `agent_core` | 核心引擎，无外部包依赖 |
 | `agent-cli` | `agent-cli` | `agent_cli.main:main` | CLI 工具，依赖 `agent-core` |
-| `agent-poc-frontend` | `agent-poc-frontend` | `poc_frontend` | Chainlit POC，依赖 `agent-core` |
 
 ### CLI 入口点
 

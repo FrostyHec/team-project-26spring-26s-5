@@ -4,7 +4,7 @@
 
 ## 格式化工具：Ruff
 
-项目使用 [Ruff](https://docs.astral.sh/ruff/) 进行代码格式化和 Lint 检查。所有 Python 包（`core`、`cli`、`poc_frontend`）共享统一配置。
+项目使用 [Ruff](https://docs.astral.sh/ruff/) 进行代码格式化和 Lint 检查。所有 Python 包（`core`、`cli`）共享统一配置。
 
 ### 格式化规则
 
@@ -224,6 +224,99 @@ const data = "你好"; // nosemgrep
 > **推荐做法**：如果需要在源代码中包含 CJK 字符串（例如 i18n 翻译），建议将这些字符串抽离到独立的 JSON / YAML 配置文件中（这些文件不在检查范围内），而非在源代码中直接使用行级豁免。
 
 该检查在 CI 中作为独立 Job 执行，不通过则 PR 无法合并。
+
+## 后端分层架构
+
+项目后端采用 **Controller – Service – Store** 三层架构。每一层有明确的职责边界和校验分工。
+
+### 架构概览
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  入口：REST API Controller  /  LLM Tool Function        │
+│  （Pydantic 自动拦截格式错误 → HTTP 422）               │
+├──────────────────────┬──────────────────────────────────┤
+│                      │                                  │
+│  Controller / DTO    │  Tool layer                      │
+│  date / Enum 类型    │  字符串 → 强类型 (parse_date_field)│
+│  Pydantic 422        │  无效值 → fallback + warning      │
+├──────────────────────┴──────────────────────────────────┤
+│  Service 层（唯一的业务逻辑层）                           │
+│  业务校验（日期范围、状态机、权限等）                      │
+│  date_type 自动降级、start_date 矫正                     │
+├─────────────────────────────────────────────────────────┤
+│  Store 层（纯粹的执行者）                                │
+│  SQLModel async ORM — 只接收强类型对象，不做校验          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 校验分工口诀
+
+| 层 | 职责 | 比喻 |
+|----|------|------|
+| **Controller / DTO** | "长得对不对"——日期格式、枚举值、字符串长度 | 防君子 |
+| **Service** | "道理上通不通"——日期范围、状态冲突、权限 | 防小人 |
+| **Store** | "翻译和搬运"——接收强类型对象，纯 DB 操作 | 绝对执行者 |
+
+### 关键约束
+
+1. **层间传输强类型**：各层之间传递 `DeadlineRecord` 等 Pydantic/SQLModel 对象，**禁止传递裸 `dict` 或 JSON 字符串**。
+2. **Store 层不做格式校验**：数据到达 Store 时必须已经是 `date`、`Enum` 等强类型值。
+3. **Service 层是唯一的业务逻辑层**：REST Controller 和 Tool 函数都委托给同一个 Service，避免重复逻辑。
+
+## 数据校验与类型安全
+
+### Pydantic 自动格式校验
+
+利用 Pydantic v2 的类型系统替代手写正则：
+
+```python
+# ✅ 声明 datetime 类型，Pydantic 自动校验 ISO-8601 格式
+class CreateDeadlineRequest(BaseModel):
+    title: str
+    due_date: datetime | None = None      # 自动 422 如果格式不对
+    priority: DeadlinePriority = ...      # 自动 422 如果不在枚举范围
+```
+
+### 枚举替代字符串常量
+
+状态类字符串**必须**使用 `Enum`，禁止硬编码散落：
+
+```python
+# ✅ 正确
+class DeadlinePriority(StrEnum):
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+
+record.priority = DeadlinePriority.HIGH
+
+# ❌ 错误——magic string
+record.priority = "high"
+```
+
+### SQLModel ORM
+
+持久层使用 SQLModel 代替手写 SQL：
+
+```python
+# ✅ SQLModel table model
+class DeadlineRecord(SQLModel, table=True):
+    __tablename__ = "deadlines"
+    id: str = Field(default="", primary_key=True)
+    title: str
+    due_date: datetime | None = Field(default=None)
+
+# Store 层 CRUD（无手写 SQL）
+async def add(self, record: DeadlineRecord) -> DeadlineRecord:
+    async with self._session() as session:
+        session.add(record)
+        await session.commit()
+        await session.refresh(record)
+    return record
+```
+
+更多 SQLModel CRUD 模式请参考 [CRUD 开发指南](../design/zh-CN_crud_development_guide.md)。
 
 ## 代码示例
 

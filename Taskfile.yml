@@ -9,7 +9,6 @@ version: '3'
 vars:
   CORE_DIR: ./packages/core
   CLI_DIR: ./packages/cli
-  POC_DIR: ./packages/poc_frontend
   GUI_DIR: ./packages/gui
 
 tasks:
@@ -21,11 +20,10 @@ tasks:
       - task: init:gui
 
   init:python:
-    desc: "Install Python dependencies for core, cli, and poc_frontend"
+    desc: "Install Python dependencies for core and cli"
     cmds:
       - cd {{.CORE_DIR}} && uv sync --all-extras
       - cd {{.CLI_DIR}} && uv sync --all-extras
-      - cd {{.POC_DIR}} && uv sync --all-extras
 
   init:gui:
     desc: "Install Vue frontend dependencies"
@@ -35,20 +33,14 @@ tasks:
 
   # ===== Development =====
   dev:
-    desc: "Start all dev services (backend API + Chainlit)"
-    deps: [dev:server, dev:poc]
+    desc: "Start all dev services (backend API + Vue GUI)"
+    deps: [dev:server, dev:gui]
 
   dev:server:
     desc: "Start the FastAPI backend server"
     dir: "{{.CLI_DIR}}"
     cmds:
       - uv run agent-cli serve --port 8000
-
-  dev:poc:
-    desc: "Start the Chainlit POC frontend"
-    dir: "{{.POC_DIR}}"
-    cmds:
-      - uv run chainlit run src/poc_frontend/app.py --port 8001
 
   dev:gui:
     desc: "Start the Vue frontend dev server"
@@ -62,7 +54,6 @@ tasks:
     cmds:
       - task: test:core
       - task: test:cli
-      - task: test:poc
       - task: test:gui
 
   test:core:
@@ -74,12 +65,6 @@ tasks:
   test:cli:
     desc: "Run CLI package tests"
     dir: "{{.CLI_DIR}}"
-    cmds:
-      - uv run pytest tests/ -v
-
-  test:poc:
-    desc: "Run POC frontend tests"
-    dir: "{{.POC_DIR}}"
     cmds:
       - uv run pytest tests/ -v
 
@@ -95,7 +80,6 @@ tasks:
     cmds:
       - task: lint:core
       - task: lint:cli
-      - task: lint:poc
       - task: lint:gui
 
   lint:core:
@@ -112,13 +96,6 @@ tasks:
       - uv run ruff check src/ tests/
       - uv run ruff format --check src/ tests/
 
-  lint:poc:
-    desc: "Lint POC frontend"
-    dir: "{{.POC_DIR}}"
-    cmds:
-      - uv run ruff check src/ tests/
-      - uv run ruff format --check src/ tests/
-
   lint:gui:
     desc: "Lint Vue frontend"
     dir: "{{.GUI_DIR}}"
@@ -130,7 +107,6 @@ tasks:
     cmds:
       - task: format:core
       - task: format:cli
-      - task: format:poc
       - task: format:gui
 
   format:core:
@@ -141,12 +117,6 @@ tasks:
 
   format:cli:
     dir: "{{.CLI_DIR}}"
-    cmds:
-      - uv run ruff format src/ tests/
-      - uv run ruff check --fix src/ tests/
-
-  format:poc:
-    dir: "{{.POC_DIR}}"
     cmds:
       - uv run ruff format src/ tests/
       - uv run ruff check --fix src/ tests/

@@ -31,34 +31,35 @@
 ┌──────────────────────────────────────────────────────┐
 │                      Frontend                         │
 │  CalendarWidget.vue ◄── show_deadline_dashboard()     │
-│  REST Client        ◄── GET/DELETE /api/deadlines     │
+│  REST Client        ◄── GET/PATCH/POST/DELETE         │
 └──────────────┬───────────────────────┬───────────────┘
                │  Chat SSE            │  REST
 ┌──────────────▼───────────────────────▼───────────────┐
-│                   FastAPI Server                      │
-│  chat_router  │  deadlines_router  │  tools_router    │
-└──────┬────────┴────────┬───────────┴────────┬────────┘
-       │                 │                    │
-┌──────▼─────┐  ┌────────▼──────┐  ┌─────────▼────────┐
-│  LangGraph │  │ DeadlineStore │  │  ToolRegistry    │
-│  Agent     │  │ (SQLite)      │  │  (auto-discover) │
-└──────┬─────┘  └───────────────┘  └──────────────────┘
-       │
-┌──────▼──────────────────────────────────────────────┐
-│              tools/deadline.py (7 tools)             │
-│  get_announcements | query_email | get_exams         │
-│  save_deadlines (HITL) | list_deadlines              │
-│  add_deadline | show_deadline_dashboard               │
-└─────────────────────────────────────────────────────┘
+│             Controller Layer (FastAPI)                 │
+│  deadlines_router (Pydantic DTOs: datetime|None)      │
+│  tools/deadline.py (7 tools)                          │
+└──────────────┬───────────────────────┬───────────────┘
+               │                      │
+┌──────────────▼──────────────────────▼────────────────┐
+│              Service Layer                            │
+│  DeadlineService: business logic, date range          │
+│  validation, sanitisation, build_record_from_dict     │
+└──────────────────────────┬───────────────────────────┘
+                           │
+┌──────────────────────────▼───────────────────────────┐
+│              Store Layer (SQLModel async ORM)          │
+│  DeadlineStore: CRUD via SQLModel + aiosqlite         │
+│  DeadlineRecord(SQLModel, table=True)                 │
+└──────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 3. 数据模型
+## 3. Data Model
 
-### 3.1 枚举定义
+### 3.1 Enum Definitions
 
-文件：`models/deadline.py`
+File: `models/deadline.py`
 
 ```python
 class DeadlinePriority(StrEnum):
@@ -71,61 +72,131 @@ class DeadlineSource(StrEnum):
     EMAIL = "email"
     TAS = "tas"
     MANUAL = "manual"
+
+class DateType(StrEnum):
+    NO_DATE = "no_date"
+    MOMENT_DAY = "moment_day"
+    MOMENT_HM = "moment_hm"
+    PERIOD_DAY = "period_day"
+    PERIOD_HM = "period_hm"
 ```
 
-- 使用 `StrEnum` 确保序列化值为小写字符串，与 JSON/SQLite 交互一致
-- 完全消除 magic string
+- `StrEnum` ensures serialised values are lowercase strings
+- Eliminates all magic strings
 
-### 3.2 DeadlineRecord
+### 3.2 DeadlineRecord (SQLModel table)
 
 ```python
-class DeadlineRecord(BaseModel):
-    id: str = ""
+class DeadlineRecord(SQLModel, table=True):
+    __tablename__ = "deadlines"
+    id: str = Field(default="", primary_key=True)
     title: str
-    course: str
-    due_date: str          # ISO-8601 格式 YYYY-MM-DD
-    priority: DeadlinePriority = DeadlinePriority.MEDIUM
-    source: DeadlineSource = DeadlineSource.MANUAL
-    description: str = ""
+    course: str = Field(default="")
+    due_date: datetime | None = Field(default=None)
+    priority: DeadlinePriority = Field(default=DeadlinePriority.MEDIUM)
+    source: DeadlineSource = Field(default=DeadlineSource.MANUAL)
+    description: str = Field(default="")
+    date_type: DateType = Field(default=DateType.MOMENT_DAY)
+    start_date: datetime | None = Field(default=None)
+    completed: bool = Field(default=False)
 ```
 
-- 默认 `priority=MEDIUM`、`source=MANUAL` 降低创建门槛
-- `id` 在持久化层自动生成（UUID4）
+- **SQLModel table=True**: serves as both ORM table and Pydantic schema
+- **`datetime | None`** for date/time fields: supports both day precision (MOMENT_DAY/PERIOD_DAY, time=00:00) and hour:minute precision (MOMENT_HM/PERIOD_HM)
+- `date_type` acts as a *type discriminator* — determines how to interpret the stored `datetime` value
+- `id` is auto-generated (UUID4) by the Store layer if empty
+
+### 3.3 DeadlineRecordCreate (non-table DTO)
+
+```python
+class DeadlineRecordCreate(SQLModel):
+    title: str
+    course: str = ""
+    due_date: datetime | None = None
+    ...
+```
+
+- Used for API request bodies where `id` is not needed
+- Non-table SQLModel ensures proper Pydantic validation when nested
+
+### 3.4 parse_datetime_field helper
+
+```python
+def parse_datetime_field(value: str | date | datetime | None) -> datetime | None
+```
+
+- Converts string / date / datetime / None to `datetime | None`
+- Empty string and None map to None
+- ISO-8601 date string `"YYYY-MM-DD"` → `datetime` at midnight
+- ISO-8601 datetime string `"YYYY-MM-DDTHH:MM"` → `datetime` with time
+- `date` object → `datetime` at midnight
+
+> **Backward compatibility**: `parse_date_field` is kept as a thin wrapper
+> that calls `parse_datetime_field` and returns `date | None` (day precision only).
 
 ---
 
-## 4. 持久化层
+## 4. Three-Layer Architecture
 
-### 4.1 DeadlineStore
+### 4.1 Layer Responsibilities
 
-文件：`persistence/deadline_store.py`
+| Layer | File | Responsibility |
+|-------|------|----------------|
+| **Controller** (Routes/Tools) | `api/routes/deadlines.py`, `tools/deadline.py` | Format validation via Pydantic typed DTOs |
+| **Service** | `services/deadline_service.py` | Business logic, date range validation, sanitisation |
+| **Store** | `persistence/deadline_store.py` | Pure data executor, SQLModel async ORM |
 
-| 方法            | 描述                                    |
-|-----------------|-----------------------------------------|
-| `initialize()`  | 创建 `deadlines` 表（IF NOT EXISTS）      |
-| `add(record)`   | 插入一条 DDL，自动生成 ID               |
-| `list_all(course?, priority?)` | 带过滤的查询，按 `due_date ASC` 排序 |
-| `get(id)`       | 按 ID 查询单条                          |
-| `delete(id)`    | 按 ID 删除，返回是否成功                 |
-| `close()`       | 关闭数据库连接                          |
+### 4.2 DeadlineStore (Store Layer)
 
-### 4.2 模块级单例
+File: `persistence/deadline_store.py`
 
-`tools/deadline.py` 使用模块级 `_store` 变量实现懒初始化：
+Uses **SQLModel + SQLAlchemy async engine** (no hand-written SQL):
+
+| Method | Description |
+|--------|-------------|
+| `initialize()` | Create async engine, ensure schema exists |
+| `add(record)` | Insert record, auto-generate UUID if id is empty |
+| `list_all(course?, priority?)` | Filtered query, ordered by `due_date ASC` (nulls last) |
+| `get(id)` | Get single record by ID |
+| `delete(id)` | Delete by ID, return success boolean |
+| `find_duplicate(title, due_date)` | Check for existing record with same title+date |
+| `toggle_completed(id, completed)` | Toggle completion status |
+| `update(id, fields)` | Partial update with whitelisted fields |
+| `close()` | Dispose engine and release connections |
+
+### 4.3 DeadlineService (Service Layer)
+
+File: `services/deadline_service.py`
+
+Business logic layer between Controller and Store:
+
+| Method | Description |
+|--------|-------------|
+| `create(title, due_date, ...)` | Validate + build record + persist |
+| `create_from_dict(data)` | Parse loose dict (from LLM) into record |
+| `update(id, fields)` | Typed field update with date range validation |
+| `update_from_tool(id, ...)` | String-based update from LLM tools |
+| `delete(id)` | Delete with not-found check |
+| `list_deadlines(course?, priority?)` | Delegate to store |
+| `get_deadline(id)` | Get with not-found check |
+| `toggle_completed(id, flag)` | Toggle with not-found check |
+| `sync_preview(candidates)` | Preview new vs duplicate detection |
+| `sync_commit(tasks)` | Batch persist confirmed tasks |
+| `save_batch(items)` | Parse + persist loose dicts |
+
+### 4.4 Provider (Singleton)
+
+File: `persistence/deadline_provider.py`
 
 ```python
-_store: DeadlineStore | None = None
-
-async def _get_store() -> DeadlineStore:
-    global _store
-    if _store is None:
-        _store = DeadlineStore(":memory:")
-        await _store.initialize()
-    return _store
+async def get_deadline_store() -> DeadlineStore:
+    ...
+async def set_deadline_store(store: DeadlineStore | None) -> None:
+    ...
 ```
 
-- 提供 `set_deadline_store()` 用于测试依赖注入
-- 默认使用 `:memory:` 数据库（可配置为文件路径）
+- Module-level singleton with lazy initialisation
+- `set_deadline_store()` for test dependency injection
 
 ---
 
@@ -184,23 +255,44 @@ def register_deadline_tools(registry: ToolRegistry) -> None:
 
 ## 7. REST API
 
-### 7.1 端点
+### 7.1 Endpoints
 
-文件：`api/routes/deadlines.py`
+File: `api/routes/deadlines.py`
 
-| 方法     | 路径                        | 描述               |
-|----------|-----------------------------|--------------------|
-| `GET`    | `/api/deadlines`            | 列出所有 DDL        |
-| `GET`    | `/api/deadlines?course=CS302` | 按课程过滤          |
-| `GET`    | `/api/deadlines?priority=high` | 按优先级过滤       |
-| `DELETE` | `/api/deadlines/{id}`       | 删除指定 DDL        |
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/deadlines` | List all deadlines |
+| `GET` | `/api/deadlines?course=CS302` | Filter by course |
+| `GET` | `/api/deadlines?priority=high` | Filter by priority |
+| `POST` | `/api/deadlines` | Create a new deadline |
+| `PATCH` | `/api/deadlines/{id}` | Partial update |
+| `DELETE` | `/api/deadlines/{id}` | Delete deadline |
+| `PATCH` | `/api/deadlines/{id}/complete` | Toggle completed |
+| `POST` | `/api/deadlines/sync-preview` | Preview new vs duplicates |
+| `POST` | `/api/deadlines/sync-commit` | Persist confirmed tasks |
 
-### 7.2 响应模型
+### 7.2 Request/Response DTOs
 
 ```python
+class CreateDeadlineRequest(BaseModel):
+    title: str
+    course: str = ""
+    due_date: datetime | None = None     # Pydantic validates ISO format
+    priority: DeadlinePriority = DeadlinePriority.MEDIUM
+    ...
+
+class UpdateDeadlineRequest(BaseModel):
+    title: str | None = None
+    due_date: datetime | None = None     # Only set fields are updated
+    ...
+
 class DeadlineListResponse(BaseModel):
     deadlines: list[DeadlineRecord]
 ```
+
+- Request DTOs use `datetime | None` for automatic format validation (422 for bad dates)
+- Accepts both `"YYYY-MM-DD"` (→ midnight) and `"YYYY-MM-DDTHH:MM"` (→ datetime with time)
+- `SyncPreviewRequest` / `SyncCommitRequest` use `DeadlineRecordCreate` (non-table DTO) to ensure proper datetime coercion
 
 ---
 
@@ -270,11 +362,12 @@ show_deadline_dashboard()
 
 ---
 
-## 10. 代码质量保障
+## 10. Code Quality
 
-- **无 magic string**: 所有状态值使用 `DeadlinePriority` / `DeadlineSource` 枚举
-- **Pydantic 建模**: `DeadlineRecord` 提供类型安全和自动序列化
-- **KISS 原则**: 模块级单例 + 懒初始化，避免过度工程
-- **自动发现**: 无需手动注册，`register_deadline_tools` 被 `auto_discover_and_register` 自动发现
-- **测试完整**: 27+ 单元测试 + 6 API 测试 + E2E 验证
-- **Pipeline 绿灯**: `check.sh` 全部通过（181 Python + 59 Vue）
+- **No magic strings**: all values use `DeadlinePriority` / `DeadlineSource` / `DateType` enums
+- **SQLModel ORM**: `DeadlineRecord(SQLModel, table=True)` replaces raw SQL, serves as both DB table and Pydantic schema
+- **Typed datetime**: `datetime | None` fields with `date_type` discriminator for day/HM precision (no hand-written regex)
+- **Layered validation**: Controller (format) + Service (business) + Store (executor)
+- **Auto-discovery**: `register_deadline_tools` found by `auto_discover_and_register`
+- **Test coverage**: 88 unit + 67 service + 33 API tests = 188 deadline tests
+- **Pipeline green**: `check.sh --check-only` passes

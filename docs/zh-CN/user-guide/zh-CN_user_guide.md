@@ -48,10 +48,7 @@ SYSTEM_PROMPT=You are a helpful AI assistant with calculator tools.
 task dev:server               # 先启动后端（终端 1）
 cd packages/cli && uv run agent-cli chat  # 启动 CLI（终端 2）
 
-# 方式二：Chainlit 浏览器界面
-task dev:poc                  # 打开 http://localhost:8001
-
-# 方式三：Vue 前端
+# 方式二：Vue 前端
 task dev:server               # 先启动后端（终端 1）
 task dev:gui                  # 启动前端（终端 2），打开 http://localhost:5173
 ```
@@ -93,28 +90,7 @@ Agent: 3.14 × 2.5 = 7.85
 | `agent-cli serve` | 启动 FastAPI 服务器（同 `task dev:server`） |
 | `agent-cli serve --port 9000` | 指定端口启动服务器 |
 
-### 方式二：Chainlit POC 浏览器界面
-
-在浏览器中使用 Chainlit 提供的聊天界面。
-
-**启动步骤**：
-
-```bash
-task dev:poc
-```
-
-**使用方式**：
-
-1. 打开浏览器访问 `http://localhost:8001`
-2. 在聊天框中输入消息
-3. Agent 会实时显示推理过程和工具调用结果
-
-Chainlit 界面特点：
-- 自动展示推理步骤
-- 可视化工具调用过程
-- 支持流式输出
-
-### 方式三：Vue 前端
+### 方式二：Vue 前端
 
 生产级 Web 聊天界面，基于 Vue3 + TypeScript。
 

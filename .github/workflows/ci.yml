@@ -46,14 +46,13 @@ jobs:
         run: |
           cd packages/core && uv sync --all-extras
           cd ../cli && uv sync --all-extras
-          cd ../poc_frontend && uv sync --all-extras
 
       - name: Install Vue dependencies
         run: cd packages/gui && pnpm install
 
       - name: Check Python formatting
         run: |
-          for pkg in packages/core packages/cli packages/poc_frontend; do
+          for pkg in packages/core packages/cli; do
             cd $pkg
             uv run ruff format --check src/ tests/
             cd ${{ github.workspace }}
@@ -61,7 +60,7 @@ jobs:
 
       - name: Check Python linting
         run: |
-          for pkg in packages/core packages/cli packages/poc_frontend; do
+          for pkg in packages/core packages/cli; do
             cd $pkg
             uv run ruff check src/ tests/
             cd ${{ github.workspace }}
@@ -106,16 +105,12 @@ jobs:
         run: |
           cd packages/core && uv sync --all-extras
           cd ../cli && uv sync --all-extras
-          cd ../poc_frontend && uv sync --all-extras
 
       - name: Test core
         run: cd packages/core && uv run pytest tests/ -v --cov=agent_core --cov-report=term-missing --junitxml=pytest-report.xml
 
       - name: Test CLI
         run: cd packages/cli && uv run pytest tests/ -v --junitxml=pytest-report.xml
-
-      - name: Test POC frontend
-        run: cd packages/poc_frontend && uv run pytest tests/ -v --junitxml=pytest-report.xml
 
       - name: Merge test reports
         if: always()

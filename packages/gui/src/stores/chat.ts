@@ -18,6 +18,7 @@ import {
   TRACE_STEP_TYPES,
   SESSION_MESSAGE_ROLES,
   MESSAGE_ROLES,
+  DEADLINE_MUTATING_TOOLS,
 } from './chatConstants'
 import type { WidgetType } from './chatConstants'
 import type {
@@ -59,6 +60,12 @@ export const useChatStore = defineStore('chat', () => {
   const activeWidget = ref<WidgetState>({ type: WIDGET_TYPES.EMPTY, data: {} })
   const isWorkspaceOpen = ref(true)
   const isSidebarCollapsed = ref(false)
+
+  /**
+   * Monotonically increasing counter bumped whenever a deadline-mutating
+   * tool completes.  The DeadlinePanelWidget watches this to auto-refresh.
+   */
+  const deadlineVersion = ref(0)
 
   // Skills
   const skills = ref<SkillInfo[]>([])
@@ -381,6 +388,10 @@ export const useChatStore = defineStore('chat', () => {
           tc.output = event.output || ''
           tc.status = TOOL_CALL_STATUS.COMPLETED
         }
+        // Bump deadline version so the panel auto-refreshes
+        if (event.name && DEADLINE_MUTATING_TOOLS.has(event.name)) {
+          deadlineVersion.value++
+        }
         msg.traceSteps?.push({
           type: TRACE_STEP_TYPES.TOOL_END,
           name: event.name || 'unknown',
@@ -480,6 +491,7 @@ export const useChatStore = defineStore('chat', () => {
     isWorkspaceOpen,
     isSidebarCollapsed,
     skills,
+    deadlineVersion,
     // Computed
     activeSession,
     messages,

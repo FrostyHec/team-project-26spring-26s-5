@@ -38,11 +38,6 @@ team-project-26spring-26s-5/
 │   │   ├── src/agent_cli/
 │   │   │   └── main.py       # argparse CLI
 │   │   └── tests/
-│   ├── poc_frontend/         # Chainlit POC（Python）
-│   │   ├── pyproject.toml
-│   │   ├── src/poc_frontend/
-│   │   │   └── app.py        # Chainlit 应用
-│   │   └── tests/
 │   └── gui/                  # Vue3+TS 前端
 │       ├── package.json
 │       ├── vite.config.ts
@@ -65,7 +60,6 @@ team-project-26spring-26s-5/
 | 任务编排 | Taskfile（go-task） | v3 |
 | LLM 框架 | LangChain + LangGraph | ≥0.3.0 / ≥0.4.0 |
 | Web 框架 | FastAPI + Uvicorn | ≥0.115.0 / ≥0.34.0 |
-| POC 前端 | Chainlit | ≥2.0.0 |
 | GUI 前端 | Vue3 + TypeScript | 最新 |
 | 状态管理 | Pinia | 最新 |
 | 构建工具 | Vite | 最新 |

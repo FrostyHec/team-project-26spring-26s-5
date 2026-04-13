@@ -72,7 +72,7 @@ def _create_agent_from_config() -> ReactAgent:
 
 - **延迟导入**：`ChatOpenAI` 和 `Any` 在函数内部导入，避免顶层导入 `langchain_openai` 可能带来的启动时间开销
 - **条件参数**：`api_key` 和 `base_url` 仅在配置中非空时传入 `llm_kwargs`，兼容纯环境变量配置和自定义 API 代理场景
-- **与 `server.py` 的 `_create_agent()` 模式一致**：相同的工厂函数模式保证了所有入口（CLI、Server、Chainlit）创建的 Agent 行为一致
+- **与 `server.py` 的 `_create_agent()` 模式一致**：相同的工厂函数模式保证了所有入口（CLI、Server、Vue GUI）创建的 Agent 行为一致
 
 ---
 
