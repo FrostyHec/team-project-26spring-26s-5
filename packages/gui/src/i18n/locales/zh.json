@@ -1,0 +1,124 @@
+{
+  "common": {
+    "save": "保存",
+    "saving": "保存中...",
+    "reset": "重置",
+    "resetting": "重置中...",
+    "close": "关闭",
+    "approve": "批准",
+    "reject": "拒绝",
+    "loading": "加载中...",
+    "retry": "重试"
+  },
+  "settings": {
+    "title": "设置",
+    "closeTitle": "关闭设置",
+    "settingsSaved": "设置已保存",
+    "settingsReset": "设置已重置",
+    "sections": {
+      "casService": "校内系统服务",
+      "emailService": "邮件服务",
+      "extensionService": "扩展服务",
+      "language": "语言"
+    },
+    "language": {
+      "title": "语言",
+      "description": "选择界面显示语言。",
+      "english": "English",
+      "chinese": "中文（简体）"
+    },
+    "cas": {
+      "title": "校内系统服务",
+      "description": "配置南科大 CAS 统一身份认证账户，用于访问校内系统服务。",
+      "accountLabel": "CAS 账户",
+      "accountPlaceholder": "请输入南科大 CAS 账户（学号）",
+      "passwordLabel": "CAS 密码",
+      "passwordPlaceholderSet": "●●●●●●●● （已设置，点击修改）",
+      "passwordPlaceholderEmpty": "请输入密码",
+      "passwordConfigured": "密码已配置（点击输入框以修改）",
+      "showPassword": "显示密码",
+      "hidePassword": "隐藏密码",
+      "securityNote": "安全提示：",
+      "securityDescription": "密码将使用 AES 加密后存储于本地数据库，不会以明文形式保存。",
+      "resetConfirmTitle": "重置 CAS 凭据",
+      "resetConfirmMessage": "这将清除您的 CAS 账户和密码。确定吗？"
+    },
+    "email": {
+      "title": "邮件服务",
+      "description": "配置南科大企业邮箱账户，用于邮件相关功能。",
+      "accountLabel": "企业邮箱账户",
+      "accountPlaceholder": "例：12345678{'@'}mail.sustech.edu.cn",
+      "passwordLabel": "邮箱密码",
+      "passwordPlaceholderSet": "●●●●●●●● （已设置，点击修改）",
+      "passwordPlaceholderEmpty": "请输入邮箱密码",
+      "passwordConfigured": "密码已配置（点击输入框以修改）",
+      "showPassword": "显示密码",
+      "hidePassword": "隐藏密码",
+      "securityNote": "安全提示：",
+      "securityDescription": "密码将使用 AES 加密后存储于本地数据库，不会以明文形式保存。",
+      "resetConfirmTitle": "重置邮箱凭据",
+      "resetConfirmMessage": "这将清除您的邮箱账户和密码。确定吗？"
+    },
+    "extension": {
+      "title": "扩展服务",
+      "description": "第三方服务集成配置。",
+      "comingSoon": "敬请期待",
+      "comingSoonDescription": "更多扩展服务集成正在开发中，敬请期待。"
+    }
+  },
+  "sidebar": {
+    "newChat": "新对话",
+    "noConversations": "暂无对话",
+    "deleteChat": "删除对话",
+    "userProfile": "用户信息",
+    "settings": "设置",
+    "dateGroups": {
+      "today": "今天",
+      "yesterday": "昨天",
+      "previous7Days": "近七天",
+      "older": "更早"
+    }
+  },
+  "chat": {
+    "defaultTitle": "学生管理助手",
+    "toggleSidebar": "切换会话侧边栏",
+    "toggleWorkspace": "切换工作区面板",
+    "inputPlaceholder": "给 Agent 发消息...（输入 '{at}' 调用技能）",
+    "attachFile": "附加文件",
+    "skills": "技能",
+    "toolApprovalRequired": "工具审批请求",
+    "trace": {
+      "running": "ReAct 思维过程（运行中...)",
+      "completed": "ReAct 思维过程（{count} 步）",
+      "call": "调用",
+      "result": "结果",
+      "loopStarted": "循环开始",
+      "loopFinished": "循环结束",
+      "awaitingApproval": "等待审批 {name}",
+      "widgetTriggered": "组件触发：{type}"
+    }
+  },
+  "workspace": {
+    "title": "工作区",
+    "refresh": "刷新"
+  },
+  "widgets": {
+    "calendar": "日历",
+    "calendarUpcoming": "即将到期",
+    "calendarLoading": "加载截止日期中...",
+    "calendarEmpty": "暂无即将到期的截止日期",
+    "document": "文档",
+    "courses": "课程",
+    "sources": "来源",
+    "webPreview": "网页预览",
+    "newsDigest": "新闻摘要",
+    "inbox": "收件箱",
+    "empty": "工作区"
+  },
+  "errors": {
+    "loadSettings": "加载设置失败",
+    "saveSettings": "保存设置失败",
+    "resetSettings": "重置设置失败",
+    "loadDeadlines": "加载截止日期失败"
+  }
+}

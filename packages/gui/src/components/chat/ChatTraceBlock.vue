@@ -1,7 +1,10 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { ChevronDown } from 'lucide-vue-next'
 import type { TraceStep } from '@/stores/chatTypes'
 import { TRACE_STEP_TYPES } from '@/stores/chatConstants'
+
+const { t } = useI18n()
 
 defineProps<{
   steps: TraceStep[]
@@ -43,9 +46,7 @@ function traceIcon(step: TraceStep): string {
         class="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform duration-200"
       />
       {{
-        loopActive
-          ? 'ReAct Thought Process (Running...)'
-          : `ReAct Thought Process (${steps.length} steps)`
+        loopActive ? t('chat.trace.running') : t('chat.trace.completed', { count: steps.length })
       }}
     </summary>
 
@@ -59,7 +60,7 @@ function traceIcon(step: TraceStep): string {
             <span class="text-gray-600 break-words">{{ step.content }}</span>
           </template>
           <template v-else-if="step.type === TRACE_STEP_TYPES.TOOL_START">
-            <span class="font-bold text-gray-700">call </span>
+            <span class="font-bold text-gray-700">{{ t('chat.trace.call') }} </span>
             <span class="text-blue-600 font-semibold">{{ step.name }}</span>
             <pre
               class="mt-1 text-xs text-green-700 bg-gray-50 p-2 rounded-md border border-gray-100 overflow-x-auto"
@@ -67,7 +68,7 @@ function traceIcon(step: TraceStep): string {
             >
           </template>
           <template v-else-if="step.type === TRACE_STEP_TYPES.TOOL_END">
-            <span class="font-bold text-gray-700">result </span>
+            <span class="font-bold text-gray-700">{{ t('chat.trace.result') }} </span>
             <div
               class="mt-1 text-xs text-gray-600 bg-gray-50 p-2 rounded-md border border-gray-100 max-h-32 overflow-y-auto whitespace-pre-wrap"
             >
@@ -75,20 +76,24 @@ function traceIcon(step: TraceStep): string {
             </div>
           </template>
           <template v-else-if="step.type === TRACE_STEP_TYPES.LOOP_START">
-            <span class="text-blue-500 font-bold tracking-wider text-xs uppercase"
-              >Loop Started</span
-            >
+            <span class="text-blue-500 font-bold tracking-wider text-xs uppercase">{{
+              t('chat.trace.loopStarted')
+            }}</span>
           </template>
           <template v-else-if="step.type === TRACE_STEP_TYPES.LOOP_END">
-            <span class="text-emerald-500 font-bold tracking-wider text-xs uppercase"
-              >Loop Finished</span
-            >
+            <span class="text-emerald-500 font-bold tracking-wider text-xs uppercase">{{
+              t('chat.trace.loopFinished')
+            }}</span>
           </template>
           <template v-else-if="step.type === TRACE_STEP_TYPES.APPROVAL_REQUEST">
-            <span class="text-amber-600 font-bold">Awaiting Approval for {{ step.name }}</span>
+            <span class="text-amber-600 font-bold">{{
+              t('chat.trace.awaitingApproval', { name: step.name })
+            }}</span>
           </template>
           <template v-else-if="step.type === TRACE_STEP_TYPES.WIDGET_DISPLAY">
-            <span class="text-purple-600 font-bold">Widget Triggered: {{ step.widgetType }}</span>
+            <span class="text-purple-600 font-bold">{{
+              t('chat.trace.widgetTriggered', { type: step.widgetType })
+            }}</span>
           </template>
         </div>
       </div>

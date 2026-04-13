@@ -6,6 +6,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from agent_core.security.encryption import ENV_KEY as _ENCRYPTION_ENV_KEY
+
 
 @dataclass
 class AgentConfig:
@@ -30,6 +32,7 @@ class AgentConfig:
     log_level: str = "INFO"
     log_file: str = "./output/logs/agent.log"
     db_path: str = "./output/sessions.db"
+    encryption_key: str = ""
     system_prompt: str = field(
         default=(
             "You are a helpful AI assistant. You can use tools to help "
@@ -62,6 +65,7 @@ class AgentConfig:
             log_level=os.getenv("LOG_LEVEL", "INFO"),
             log_file=os.getenv("LOG_FILE", "agent.log"),
             db_path=os.getenv("DB_PATH", "./output/sessions.db"),
+            encryption_key=os.getenv(_ENCRYPTION_ENV_KEY, ""),
             system_prompt=os.getenv(
                 "SYSTEM_PROMPT",
                 cls.system_prompt,

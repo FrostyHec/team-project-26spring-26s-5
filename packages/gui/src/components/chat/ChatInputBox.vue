@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Send, Paperclip } from 'lucide-vue-next'
 import { useChatStore } from '@/stores/chat'
 
+const { t } = useI18n()
 const chatStore = useChatStore()
 
 const inputText = ref('')
@@ -136,7 +138,7 @@ function handleKeydown(e: KeyboardEvent) {
         <!-- Paperclip / Attach -->
         <button
           class="p-3.5 text-gray-400 hover:text-blue-500 transition-colors duration-150 flex-shrink-0 cursor-pointer"
-          title="Attach file"
+          :title="t('chat.attachFile')"
         >
           <Paperclip class="w-5 h-5" />
         </button>
@@ -145,7 +147,7 @@ function handleKeydown(e: KeyboardEvent) {
         <textarea
           ref="inputRef"
           v-model="inputText"
-          placeholder="Message Agent... (Type '@' to invoke a skill)"
+          :placeholder="t('chat.inputPlaceholder', { at: '@' })"
           rows="1"
           class="flex-1 py-4 bg-transparent border-none focus:ring-0 resize-none outline-none text-[15px] leading-7 min-h-[52px] max-h-36 text-gray-800 placeholder:text-gray-400"
           :disabled="chatStore.isLoading"
@@ -169,7 +171,9 @@ function handleKeydown(e: KeyboardEvent) {
       v-if="quickSkills.length > 0"
       class="mt-2.5 flex items-center gap-2 px-1 flex-wrap mx-auto w-full max-w-[920px]"
     >
-      <span class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Skills:</span>
+      <span class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider"
+        >{{ t('chat.skills') }}:</span
+      >
       <button
         v-for="skill in quickSkills"
         :key="skill.id"

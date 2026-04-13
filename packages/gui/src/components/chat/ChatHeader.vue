@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import {
   MessageSquare,
   MoreHorizontal,
@@ -9,6 +10,7 @@ import {
 } from 'lucide-vue-next'
 import { useChatStore } from '@/stores/chat'
 
+const { t } = useI18n()
 const chatStore = useChatStore()
 
 const emit = defineEmits<{
@@ -24,7 +26,7 @@ const emit = defineEmits<{
     <div class="flex items-center gap-3">
       <MessageSquare class="w-5 h-5 text-gray-400" />
       <h1 class="font-semibold text-gray-800 text-base">
-        {{ chatStore.activeSession?.title || 'Student Management Agent' }}
+        {{ chatStore.activeSession?.title || t('chat.defaultTitle') }}
       </h1>
       <span
         class="w-2 h-2 rounded-full ml-1"
@@ -40,7 +42,7 @@ const emit = defineEmits<{
             ? 'bg-blue-50 text-blue-600'
             : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
         "
-        title="Toggle Session Sidebar"
+        :title="t('chat.toggleSidebar')"
         @click="emit('toggleSidebar')"
       >
         <PanelLeftOpen v-if="chatStore.isSidebarCollapsed" class="w-5 h-5" />
@@ -60,7 +62,7 @@ const emit = defineEmits<{
             ? 'bg-blue-50 text-blue-600'
             : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
         "
-        title="Toggle Workspace Panel"
+        :title="t('chat.toggleWorkspace')"
         @click="emit('toggleWorkspace')"
       >
         <PanelRightClose v-if="chatStore.isWorkspaceOpen" class="w-5 h-5" />

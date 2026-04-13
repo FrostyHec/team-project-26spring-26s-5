@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Plus, MessageSquare, Settings, Trash2 } from 'lucide-vue-next'
 import { useChatStore, type ChatSession } from '@/stores/chat'
+import { useSettingsStore } from '@/stores/settings'
 
+const { t } = useI18n()
 const chatStore = useChatStore()
+const settingsStore = useSettingsStore()
 
 const props = withDefaults(
   defineProps<{
@@ -26,10 +30,10 @@ const groupedSessions = computed(() => {
   const weekAgo = new Date(today.getTime() - 7 * 86400000)
 
   const groups: { label: string; sessions: ChatSession[] }[] = [
-    { label: 'Today', sessions: [] },
-    { label: 'Yesterday', sessions: [] },
-    { label: 'Previous 7 Days', sessions: [] },
-    { label: 'Older', sessions: [] },
+    { label: t('sidebar.dateGroups.today'), sessions: [] },
+    { label: t('sidebar.dateGroups.yesterday'), sessions: [] },
+    { label: t('sidebar.dateGroups.previous7Days'), sessions: [] },
+    { label: t('sidebar.dateGroups.older'), sessions: [] },
   ]
 
   for (const s of chatStore.sessions) {
@@ -62,7 +66,7 @@ function handleDeleteSession(id: string, event: Event) {
 }
 
 function openSettings() {
-  alert('Settings panel coming soon! Stay tuned.')
+  settingsStore.openSettings()
 }
 </script>
 
@@ -77,10 +81,10 @@ function openSettings() {
         class="w-full flex items-center justify-center gap-2 bg-blue-600 text-white rounded-lg text-sm font-medium shadow-sm hover:bg-blue-700 transition-colors duration-150 cursor-pointer"
         :class="props.collapsed ? 'h-10 px-0' : 'py-2.5 px-4'"
         @click="handleNewChat"
-        :title="props.collapsed ? 'New Chat' : undefined"
+        :title="props.collapsed ? t('sidebar.newChat') : undefined"
       >
         <Plus class="w-4 h-4" />
-        <span v-if="!props.collapsed">New Chat</span>
+        <span v-if="!props.collapsed">{{ t('sidebar.newChat') }}</span>
       </button>
     </div>
 
@@ -91,7 +95,7 @@ function openSettings() {
       "
     >
       <div v-if="groupedSessions.length === 0" class="text-center text-gray-400 text-sm mt-8">
-        <span v-if="!props.collapsed">No conversations yet</span>
+        <span v-if="!props.collapsed">{{ t('sidebar.noConversations') }}</span>
       </div>
 
       <div v-for="group in groupedSessions" :key="group.label" class="mb-4">
@@ -106,7 +110,7 @@ function openSettings() {
             v-for="session in group.sessions"
             :key="session.id"
             class="w-full flex items-center rounded-lg text-left text-sm transition-all duration-150 group cursor-pointer"
-            :title="props.collapsed ? session.title || 'New Chat' : undefined"
+            :title="props.collapsed ? session.title || t('sidebar.newChat') : undefined"
             :class="
               chatStore.activeSessionId === session.id
                 ? 'bg-white shadow-sm border border-gray-200 text-blue-600 font-medium'
@@ -122,14 +126,14 @@ function openSettings() {
               :class="chatStore.activeSessionId === session.id ? 'text-blue-500' : 'text-gray-400'"
             />
             <span v-if="!props.collapsed" class="flex-1 truncate font-medium text-sm">{{
-              session.title || 'New Chat'
+              session.title || t('sidebar.newChat')
             }}</span>
             <button
               v-if="!props.collapsed"
               type="button"
               class="opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-red-100 hover:text-red-600 transition-all"
               @click="handleDeleteSession(session.id, $event)"
-              title="Delete Chat"
+              :title="t('sidebar.deleteChat')"
             >
               <Trash2 class="w-3.5 h-3.5" />
             </button>
@@ -148,13 +152,14 @@ function openSettings() {
         >
           U
         </div>
-        <span v-if="!props.collapsed" class="text-sm font-medium text-gray-700 flex-1"
-          >User Profile</span
-        >
+        <span v-if="!props.collapsed" class="text-sm font-medium text-gray-700 flex-1">{{
+          t('sidebar.userProfile')
+        }}</span>
         <button
+          data-testid="settings-btn"
           @click="openSettings"
           class="text-gray-400 hover:text-gray-600 transition-colors duration-150 cursor-pointer"
-          :title="props.collapsed ? 'Settings' : undefined"
+          :title="props.collapsed ? t('sidebar.settings') : undefined"
         >
           <Settings class="w-[18px] h-[18px]" />
         </button>

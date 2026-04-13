@@ -11,7 +11,10 @@ from langchain_openai import ChatOpenAI
 from agent_core.api.approval import make_api_approval_handler
 from agent_core.config import AgentConfig
 from agent_core.engine.agent import ReactAgent
+from agent_core.persistence.profile_store import ProfileStore
 from agent_core.persistence.session_store import SessionStore
+from agent_core.security.encryption import reset_fernet
+from agent_core.services.profile_service import ProfileService
 from agent_core.skills import get_system_prompt_for_skill
 from agent_core.tools import auto_discover_and_register
 from agent_core.tools.registry import ToolRegistry
@@ -19,6 +22,8 @@ from agent_core.tools.registry import ToolRegistry
 # Module-level singletons (initialized during app lifespan)
 _agent: ReactAgent | None = None
 _store: SessionStore | None = None
+_profile_store: ProfileStore | None = None
+_profile_service: ProfileService | None = None
 _config: AgentConfig | None = None
 
 
@@ -81,11 +86,19 @@ async def init_dependencies(config: AgentConfig | None = None) -> None:
     Args:
         config: Optional configuration.
     """
-    global _agent, _store, _config
+    global _agent, _store, _profile_store, _profile_service, _config
     _config = config or AgentConfig.from_env()
+
+    # Configure encryption key if provided
+    if _config.encryption_key:
+        reset_fernet(_config.encryption_key)
 
     _store = SessionStore(_config.db_path)
     await _store.initialize()
+
+    _profile_store = ProfileStore(_config.db_path)
+    await _profile_store.initialize()
+    _profile_service = ProfileService(_profile_store)
 
     _agent = create_agent(_config)
     _agent.session_store = _store
@@ -94,10 +107,14 @@ async def init_dependencies(config: AgentConfig | None = None) -> None:
 
 async def shutdown_dependencies() -> None:
     """Release all singletons (called during lifespan shutdown)."""
-    global _agent, _store, _config
+    global _agent, _store, _profile_store, _profile_service, _config
     if _store:
         await _store.close()
         _store = None
+    if _profile_store:
+        await _profile_store.close()
+        _profile_store = None
+    _profile_service = None
     _agent = None
     _config = None
 
@@ -151,3 +168,31 @@ def get_store() -> SessionStore:
     if _store is None:
         raise RuntimeError("SessionStore not initialized")
     return _store
+
+
+def get_profile_store() -> ProfileStore:
+    """FastAPI dependency that provides the ProfileStore.
+
+    Returns:
+        The initialized ProfileStore.
+
+    Raises:
+        RuntimeError: If the store has not been initialized.
+    """
+    if _profile_store is None:
+        raise RuntimeError("ProfileStore not initialized")
+    return _profile_store
+
+
+def get_profile_service() -> ProfileService:
+    """FastAPI dependency that provides the ProfileService.
+
+    Returns:
+        The initialized ProfileService.
+
+    Raises:
+        RuntimeError: If the service has not been initialized.
+    """
+    if _profile_service is None:
+        raise RuntimeError("ProfileService not initialized")
+    return _profile_service

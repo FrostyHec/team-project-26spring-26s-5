@@ -222,16 +222,60 @@ export const useChatStore = defineStore('chat', () => {
 })
 ```
 
+## 国际化 (i18n) 规范
+
+所有用户可见的 UI 文本必须通过 Vue I18n 进行国际化。详见 [`zh-CN_i18n.md`](zh-CN_i18n.md)。
+
+### i18n 快速要点
+
+1. **禁止硬编码字符串**：组件中的所有用户可见文本必须从语言包读取
+2. **使用 `useI18n()` Composition API**：
+
+```vue
+<script setup lang="ts">
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
+</script>
+
+<template>
+  <button>{{ t('common.save') }}</button>
+</template>
+```
+
+3. **i18n key 命名规范**：`模块.功能.字段` (camelCase)
+   - 例：`settings.sections.casService`、`common.save`、`errors.networkError`
+
+4. **同步维护两个语言包**：修改 `en.json` 时必须同步修改 `zh.json`
+   - 位置：`src/i18n/locales/`
+   - `zh.json` 使用 UTF-8 中文字符（不是 Unicode 转义 `\uXXXX`）
+
+5. **Vitest 中 Mock vue-i18n**：
+
+```typescript
+import { vi } from 'vitest'
+
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({
+    t: (key: string) => key, // 测试中返回 key 本身（语言无关）
+  }),
+}))
+```
+
+详细规范见 [`zh-CN_i18n.md`](zh-CN_i18n.md)。
+
+---
+
 ## 语言策略
 
 **所有源代码必须使用英文**，包括：
 
 - 变量名、函数名、组件名
 - 注释和 JSDoc
-- 字符串字面值（用户可见的 UI 文本除外）
-- 模板中的静态文本（可考虑 i18n）
+- 字符串字面值（用户可见的 UI 文本由 i18n 管理，见上文）
+- 常量名和类型名
 
-语言检查工具 `check_language.py` 同样扫描 `.ts`、`.vue`、`.tsx` 文件，CI 中自动执行。
+语言检查工具 `check_language.py` 扫描 `.ts`、`.vue`、`.tsx` 文件，CI 中自动执行。
 
 ## 测试规范
 

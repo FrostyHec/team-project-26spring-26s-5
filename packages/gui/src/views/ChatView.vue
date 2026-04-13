@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useChatStore } from '@/stores/chat'
+import { useSettingsStore } from '@/stores/settings'
 import { useEventListener } from '@vueuse/core'
 import SessionSidebar from '@/components/SessionSidebar.vue'
 import ChatPanel from '@/components/ChatPanel.vue'
 import WorkspacePanel from '@/components/WorkspacePanel.vue'
+import SettingsPanel from '@/components/settings/SettingsPanel.vue'
 
 const chatStore = useChatStore()
+const settingsStore = useSettingsStore()
 const isDragging = ref(false)
 const workspaceWidth = ref(320) // Default right panel width
 
@@ -78,6 +81,20 @@ async function handleNewChat() {
       </aside>
     </Transition>
   </div>
+
+  <!-- Settings panel overlay -->
+  <Transition name="settings-fade">
+    <div v-if="settingsStore.isOpen" class="fixed inset-0 z-50 flex">
+      <!-- Backdrop -->
+      <div class="absolute inset-0 bg-black/20" @click="settingsStore.closeSettings" />
+      <!-- Panel -->
+      <div
+        class="relative z-10 m-auto w-full max-w-3xl h-[80vh] bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-200"
+      >
+        <SettingsPanel />
+      </div>
+    </div>
+  </Transition>
 </template>
 
 <style scoped>
@@ -89,5 +106,18 @@ async function handleNewChat() {
 .slide-leave-to {
   opacity: 0;
   transform: translateX(20px);
+}
+
+.settings-fade-enter-active,
+.settings-fade-leave-active {
+  transition: all 0.2s ease;
+}
+.settings-fade-enter-from,
+.settings-fade-leave-to {
+  opacity: 0;
+}
+.settings-fade-enter-from .relative,
+.settings-fade-leave-to .relative {
+  transform: scale(0.96);
 }
 </style>

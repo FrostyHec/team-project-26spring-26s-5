@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Calendar, Clock, AlertCircle, Loader2, RefreshCw } from 'lucide-vue-next'
 import { fetchDeadlines, type DeadlineInfo } from '@/api/agent'
+
+const { t } = useI18n()
 
 // Accept (and ignore) the generic :data prop passed by WorkspacePanel so
 // Vue does not fall back to setting a raw DOM attribute on the root element.
@@ -17,7 +20,7 @@ async function loadDeadlines(): Promise<void> {
   try {
     deadlines.value = await fetchDeadlines()
   } catch (e) {
-    errorMsg.value = e instanceof Error ? e.message : 'Failed to load deadlines'
+    errorMsg.value = e instanceof Error ? e.message : t('errors.loadDeadlines')
   } finally {
     isLoading.value = false
   }
@@ -41,10 +44,10 @@ onMounted(loadDeadlines)
   <div class="p-4">
     <div class="flex items-center gap-2 mb-4">
       <Calendar class="w-5 h-5 text-blue-600" />
-      <h3 class="font-semibold text-slate-800">Upcoming Deadlines</h3>
+      <h3 class="font-semibold text-slate-800">{{ t('widgets.calendarUpcoming') }}</h3>
       <button
         class="ml-auto p-1 rounded hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-colors"
-        title="Refresh"
+        :title="t('workspace.refresh')"
         @click="loadDeadlines"
       >
         <RefreshCw class="w-4 h-4" />
@@ -54,7 +57,7 @@ onMounted(loadDeadlines)
     <!-- Loading state -->
     <div v-if="isLoading" class="flex items-center justify-center py-8 text-slate-400">
       <Loader2 class="w-6 h-6 animate-spin" />
-      <span class="ml-2 text-sm">Loading deadlines…</span>
+      <span class="ml-2 text-sm">{{ t('widgets.calendarLoading') }}</span>
     </div>
 
     <!-- Error state -->
@@ -62,14 +65,14 @@ onMounted(loadDeadlines)
       <AlertCircle class="w-8 h-8 mx-auto mb-2 text-red-400" />
       <p class="text-sm text-red-500">{{ errorMsg }}</p>
       <button class="mt-2 text-xs text-blue-500 hover:underline" @click="loadDeadlines">
-        Retry
+        {{ t('common.retry') }}
       </button>
     </div>
 
     <!-- Empty state -->
     <div v-else-if="deadlines.length === 0" class="text-center py-8 text-slate-400">
       <Calendar class="w-10 h-10 mx-auto mb-2 opacity-50" />
-      <p class="text-sm">No upcoming deadlines</p>
+      <p class="text-sm">{{ t('widgets.calendarEmpty') }}</p>
     </div>
 
     <!-- Deadline list -->

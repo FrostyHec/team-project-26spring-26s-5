@@ -1,0 +1,124 @@
+{
+  "common": {
+    "save": "Save",
+    "saving": "Saving...",
+    "reset": "Reset",
+    "resetting": "Resetting...",
+    "close": "Close",
+    "approve": "Approve",
+    "reject": "Reject",
+    "loading": "Loading...",
+    "retry": "Retry"
+  },
+  "settings": {
+    "title": "Settings",
+    "closeTitle": "Close Settings",
+    "settingsSaved": "Settings saved",
+    "settingsReset": "Settings reset",
+    "sections": {
+      "casService": "Campus System Service",
+      "emailService": "Email Service",
+      "extensionService": "Extension Service",
+      "language": "Language"
+    },
+    "language": {
+      "title": "Language",
+      "description": "Select the display language for the interface.",
+      "english": "English",
+      "chinese": "Chinese (Simplified)"
+    },
+    "cas": {
+      "title": "Campus System Service",
+      "description": "Configure SUSTech CAS (Central Authentication Service) account for accessing campus systems.",
+      "accountLabel": "CAS Account",
+      "accountPlaceholder": "Enter SUSTech CAS account (student ID)",
+      "passwordLabel": "CAS Password",
+      "passwordPlaceholderSet": "●●●●●●●● (configured, click to edit)",
+      "passwordPlaceholderEmpty": "Enter password",
+      "passwordConfigured": "Password configured (click the input to edit)",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
+      "securityNote": "Security Note:",
+      "securityDescription": "Passwords are encrypted with AES before being stored in the local database and are never saved in plaintext.",
+      "resetConfirmTitle": "Reset CAS Credentials",
+      "resetConfirmMessage": "This will clear your CAS account and password. Are you sure?"
+    },
+    "email": {
+      "title": "Email Service",
+      "description": "Configure SUSTech enterprise email account for email-related features.",
+      "accountLabel": "Email Account",
+      "accountPlaceholder": "e.g. 12345678{'@'}mail.sustech.edu.cn",
+      "passwordLabel": "Email Password",
+      "passwordPlaceholderSet": "●●●●●●●● (configured, click to edit)",
+      "passwordPlaceholderEmpty": "Enter email password",
+      "passwordConfigured": "Password configured (click the input to edit)",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
+      "securityNote": "Security Note:",
+      "securityDescription": "Passwords are encrypted with AES before being stored in the local database and are never saved in plaintext.",
+      "resetConfirmTitle": "Reset Email Credentials",
+      "resetConfirmMessage": "This will clear your email account and password. Are you sure?"
+    },
+    "extension": {
+      "title": "Extension Service",
+      "description": "Third-party service integration settings.",
+      "comingSoon": "Coming Soon",
+      "comingSoonDescription": "More extension service integrations are under development. Stay tuned."
+    }
+  },
+  "sidebar": {
+    "newChat": "New Chat",
+    "noConversations": "No conversations yet",
+    "deleteChat": "Delete Chat",
+    "userProfile": "User Profile",
+    "settings": "Settings",
+    "dateGroups": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "previous7Days": "Previous 7 Days",
+      "older": "Older"
+    }
+  },
+  "chat": {
+    "defaultTitle": "Student Management Agent",
+    "toggleSidebar": "Toggle Session Sidebar",
+    "toggleWorkspace": "Toggle Workspace Panel",
+    "inputPlaceholder": "Message Agent... (Type '{at}' to invoke a skill)",
+    "attachFile": "Attach file",
+    "skills": "Skills",
+    "toolApprovalRequired": "Tool Approval Required",
+    "trace": {
+      "running": "ReAct Thought Process (Running...)",
+      "completed": "ReAct Thought Process ({count} steps)",
+      "call": "call",
+      "result": "result",
+      "loopStarted": "Loop Started",
+      "loopFinished": "Loop Finished",
+      "awaitingApproval": "Awaiting Approval for {name}",
+      "widgetTriggered": "Widget Triggered: {type}"
+    }
+  },
+  "workspace": {
+    "title": "Workspace",
+    "refresh": "Refresh"
+  },
+  "widgets": {
+    "calendar": "Calendar",
+    "calendarUpcoming": "Upcoming Deadlines",
+    "calendarLoading": "Loading deadlines...",
+    "calendarEmpty": "No upcoming deadlines",
+    "document": "Document",
+    "courses": "Courses",
+    "sources": "Sources",
+    "webPreview": "Web Preview",
+    "newsDigest": "News Digest",
+    "inbox": "Inbox",
+    "empty": "Workspace"
+  },
+  "errors": {
+    "loadSettings": "Failed to load settings",
+    "saveSettings": "Failed to save settings",
+    "resetSettings": "Failed to reset settings",
+    "loadDeadlines": "Failed to load deadlines"
+  }
+}

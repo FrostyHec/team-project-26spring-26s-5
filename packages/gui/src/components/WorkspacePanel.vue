@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { X, ChevronDown } from 'lucide-vue-next'
 import { useChatStore } from '@/stores/chat'
-import { WIDGET_COMPONENTS, WIDGET_TITLES, SELECTABLE_WIDGETS } from './widgets/index'
+import { WIDGET_COMPONENTS, WIDGET_TITLE_I18N_KEYS, SELECTABLE_WIDGETS } from './widgets/index'
 import type { WidgetType } from '@/stores/chatConstants'
 import EmptyWidget from './widgets/EmptyWidget.vue'
 
+const { t } = useI18n()
 const chatStore = useChatStore()
 
 const emit = defineEmits<{
@@ -22,7 +24,8 @@ const widgetComponent = computed(() => {
 
 const widgetTitle = computed(() => {
   const wt = chatStore.activeWidget.type as WidgetType
-  return WIDGET_TITLES[wt] ?? 'Workspace'
+  const key = WIDGET_TITLE_I18N_KEYS[wt]
+  return key ? t(key) : t('workspace.title')
 })
 
 function selectWidget(type: WidgetType): void {
@@ -86,7 +89,7 @@ onBeforeUnmount(() => {
             "
             @click="selectWidget(w.type)"
           >
-            {{ w.title }}
+            {{ t(w.titleKey) }}
           </button>
         </div>
       </div>
