@@ -505,6 +505,35 @@ class TestDeadlineEndpoints:
         assert response.json()["start_date"] == "2026-04-12T00:00:00"
 
     @pytest.mark.asyncio
+    async def test_update_empty_string_start_date_coerced_to_none(
+        self, client: TestClient, deadline_store
+    ) -> None:
+        """Test that empty strings for date fields are coerced to None during update.
+
+        This scenario occurs when the frontend sends "" to clear a date field.
+        The update should succeed with empty strings being treated as None.
+        """
+        from agent_core.models.deadline import DeadlineRecord
+
+        await deadline_store.add(
+            DeadlineRecord(
+                id="d1",
+                title="Period Task",
+                due_date=datetime(2026, 4, 15),
+                start_date=datetime(2026, 4, 10),
+                date_type="period_day",
+            )
+        )
+        # Send empty string for start_date to clear it
+        response = client.patch(
+            "/deadlines/d1",
+            json={"start_date": ""},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["start_date"] is None  # Empty string was coerced to None
+
+    @pytest.mark.asyncio
     async def test_update_due_date_before_existing_start(
         self, client: TestClient, deadline_store
     ) -> None:
@@ -568,6 +597,34 @@ class TestDeadlineEndpoints:
         assert response.status_code == 201
 
     @pytest.mark.asyncio
+    async def test_create_deadline_empty_string_dates_coerced_to_none(
+        self, client: TestClient, deadline_store
+    ) -> None:
+        """Test that empty strings for date fields are coerced to None.
+
+        This scenario occurs when the frontend sends "" for unset dates.
+        The request should succeed with empty strings being treated as None.
+        """
+        response = client.post(
+            "/deadlines",
+            json={
+                "title": "启动元神",  # nosemgrep
+                "course": "",
+                "due_date": "2026-04-14T18:42",
+                "priority": "medium",
+                "description": "",
+                "date_type": "moment_hm",
+                "start_date": "",  # Empty string should be coerced to None
+            },
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert data["title"] == "启动元神"  # nosemgrep
+        assert data["due_date"] == "2026-04-14T18:42:00"
+        assert data["start_date"] is None  # Empty string was coerced to None
+        assert data["priority"] == "medium"
+
+    @pytest.mark.asyncio
     async def test_update_invalid_iso_due_date(
         self, client: TestClient, deadline_store
     ) -> None:
@@ -598,3 +655,58 @@ class TestDeadlineEndpoints:
         )
         assert response.status_code == 422
         assert "start_date" in str(response.json()["detail"])
+
+    # ------------------------------------------------------------------
+    # A017: Exact frontend scenario — empty string start_date on create
+    # ------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_create_deadline_frontend_exact_payload(
+        self, client: TestClient, deadline_store
+    ) -> None:
+        """Reproduce the exact frontend request that triggered 500.
+
+        The frontend sends start_date="" with a valid due_date.
+        Expected: 201 with start_date=None (not 422, not 500).
+        """
+        response = client.post(
+            "/deadlines",
+            json={
+                "title": "龙志一飞！",  # nosemgrep
+                "course": "",
+                "due_date": "2026-04-14T18:55",
+                "priority": "medium",
+                "description": "",
+                "date_type": "moment_hm",
+                "start_date": "",
+            },
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert data["title"] == "龙志一飞！"  # nosemgrep
+        assert data["due_date"] == "2026-04-14T18:55:00"
+        assert data["start_date"] is None
+        assert data["date_type"] == "moment_hm"
+        assert data["priority"] == "medium"
+
+    @pytest.mark.asyncio
+    async def test_create_deadline_both_dates_empty_string(
+        self, client: TestClient, deadline_store
+    ) -> None:
+        """Both due_date and start_date as empty strings should succeed.
+
+        date_type should be auto-downgraded to no_date since due_date is None.
+        """
+        response = client.post(
+            "/deadlines",
+            json={
+                "title": "Backlog item",
+                "due_date": "",
+                "start_date": "",
+            },
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert data["due_date"] is None
+        assert data["start_date"] is None
+        assert data["date_type"] == "no_date"

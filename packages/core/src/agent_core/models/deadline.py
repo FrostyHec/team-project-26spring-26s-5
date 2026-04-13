@@ -17,7 +17,67 @@ from __future__ import annotations
 from datetime import date, datetime
 from enum import StrEnum
 
+import sqlalchemy as sa
+from pydantic import field_validator
+from sqlalchemy import String, event
 from sqlmodel import Field, SQLModel
+
+# ---------------------------------------------------------------------------
+# Custom SQLAlchemy type for lenient datetime storage
+# ---------------------------------------------------------------------------
+
+
+class LenientDateTime(sa.TypeDecorator[datetime | None]):
+    """SQLAlchemy type that tolerates legacy non-ISO strings in SQLite.
+
+    SQLite stores ``DATETIME`` as plain ``TEXT``.  Older data may contain
+    empty strings ``''``, localised placeholders (e.g. ``'TBD'``), or
+    other non-ISO values.  The default ``DateTime`` type processor calls
+    ``datetime.fromisoformat()`` which raises ``ValueError`` on anything
+    that is not a valid ISO-8601 string.
+
+    This decorator:
+
+    - **bind** (Python → DB): stores ``datetime`` as ISO-8601 text, or
+      ``NULL`` for ``None``.
+    - **result** (DB → Python): parses valid ISO-8601 strings to
+      ``datetime``; returns ``None`` for ``NULL``, empty strings, or
+      any unparseable text.
+    """
+
+    impl = sa.Text
+    cache_ok = True
+
+    def process_bind_param(
+        self,
+        value: datetime | None,
+        dialect: sa.Dialect,
+    ) -> str | None:
+        if value is None:
+            return None
+        if isinstance(value, datetime):
+            return value.isoformat()
+        if isinstance(value, date):
+            return datetime(value.year, value.month, value.day).isoformat()
+        # Safety net: if somehow a raw string slips through, store as-is
+        return str(value) if value else None  # type: ignore[unreachable]
+
+    def process_result_value(
+        self,
+        value: str | None,
+        dialect: sa.Dialect,
+    ) -> datetime | None:
+        if value is None:
+            return None
+        if isinstance(value, datetime):
+            return value
+        text = str(value).strip()
+        if not text:
+            return None
+        try:
+            return datetime.fromisoformat(text)
+        except (ValueError, TypeError):
+            return None
 
 
 class DeadlinePriority(StrEnum):
@@ -91,20 +151,50 @@ class DeadlineRecord(SQLModel, table=True):
     id: str = Field(default="", primary_key=True)
     title: str
     course: str = Field(default="")
-    due_date: datetime | None = Field(default=None)
-    priority: DeadlinePriority = Field(default=DeadlinePriority.MEDIUM)
-    source: DeadlineSource = Field(default=DeadlineSource.MANUAL)
+    due_date: datetime | None = Field(default=None, sa_type=LenientDateTime())
+    priority: DeadlinePriority = Field(
+        default=DeadlinePriority.MEDIUM, sa_type=String()
+    )
+    source: DeadlineSource = Field(default=DeadlineSource.MANUAL, sa_type=String())
     description: str = Field(default="")
-    date_type: DateType = Field(default=DateType.MOMENT_DAY)
-    start_date: datetime | None = Field(default=None)
+    date_type: DateType = Field(default=DateType.MOMENT_DAY, sa_type=String())
+    start_date: datetime | None = Field(default=None, sa_type=LenientDateTime())
     completed: bool = Field(default=False)
+
+
+def _coerce_deadline_enums(target: DeadlineRecord, _context: object) -> None:
+    """Coerce raw DB strings back to StrEnum members after ORM load or refresh.
+
+    SQLAlchemy maps ``sa_type=String()`` columns as plain ``str`` values.
+    This listener runs immediately after each row is materialised (``load``
+    event) or after ``session.refresh()`` (``refresh`` event) and converts
+    those strings to the correct ``StrEnum`` types so the rest of the
+    codebase always sees typed enum members.
+    """
+    if isinstance(target.priority, str):
+        target.priority = DeadlinePriority(target.priority)
+    if isinstance(target.source, str):
+        target.source = DeadlineSource(target.source)
+    if isinstance(target.date_type, str):
+        target.date_type = DateType(target.date_type)
+
+
+event.listen(DeadlineRecord, "load", _coerce_deadline_enums)
+event.listen(
+    DeadlineRecord,
+    "refresh",
+    lambda t, ctx, attrs: _coerce_deadline_enums(t, ctx),
+)
 
 
 class DeadlineRecordCreate(SQLModel):
     """DTO for creating a deadline (no table, no id required).
 
     Used internally by the service layer to construct new records before
-    assigning an ID and persisting them.
+    assigning an ID and persisting them. Also used in API batch import.
+
+    Empty strings for date fields are coerced to None to handle frontend
+    scenarios where unset dates are transmitted as "".
     """
 
     title: str
@@ -116,6 +206,18 @@ class DeadlineRecordCreate(SQLModel):
     date_type: DateType = DateType.MOMENT_DAY
     start_date: datetime | None = None
     completed: bool = False
+
+    @field_validator("due_date", "start_date", mode="before")
+    @classmethod
+    def coerce_empty_string_to_none(cls, v: object) -> object:
+        """Convert empty string to None for datetime fields.
+
+        This allows frontend to send "" for unset dates without triggering
+        a validation error. Valid ISO-8601 strings are parsed normally.
+        """
+        if v == "":
+            return None
+        return v
 
 
 def parse_datetime_field(

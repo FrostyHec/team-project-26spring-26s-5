@@ -1122,3 +1122,298 @@ class TestToolRegistrationA008:
         names = {t.name for t in registry.list_tools()}
         assert "delete_deadline" in names
         assert "update_deadline" in names
+
+
+# ---------------------------------------------------------------------------
+# A013: Legacy / dirty DB data resilience
+# ---------------------------------------------------------------------------
+
+
+class TestLegacyDirtyDB:
+    """Ensure the ORM handles legacy DB rows containing non-ISO date strings.
+
+    Older code (or manual edits) may have stored empty strings ``''``,
+    localised placeholders like ``'TBD'``, or other non-parseable text in
+    the ``due_date`` / ``start_date`` TEXT columns.  The
+    ``LenientDateTime`` type decorator must silently coerce these to
+    ``None`` so that ``list_all()`` never crashes.
+    """
+
+    @pytest.fixture
+    async def store(self):
+        s = DeadlineStore(":memory:")
+        await s.initialize()
+        yield s
+        await s.close()
+
+    @pytest.mark.asyncio
+    async def test_list_all_with_empty_string_dates(self, store: DeadlineStore) -> None:
+        """Empty-string start_date must be read as None, not crash."""
+        # Insert via raw SQL to simulate legacy data
+        async with store._engine.begin() as conn:
+            await conn.exec_driver_sql(
+                "INSERT INTO deadlines "
+                "(id, title, course, due_date, start_date, priority, "
+                " source, description, date_type, completed) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    "dirty-1",
+                    "Legacy HW",
+                    "CS101",
+                    "2026-04-15",  # valid
+                    "",  # empty string — must not crash
+                    "high",
+                    "manual",
+                    "",
+                    "moment_day",
+                    0,
+                ),
+            )
+        items = await store.list_all()
+        assert len(items) == 1
+        assert items[0].due_date == datetime(2026, 4, 15)
+        assert items[0].start_date is None
+
+    @pytest.mark.asyncio
+    async def test_list_all_with_non_iso_due_date(self, store: DeadlineStore) -> None:
+        """Non-ISO text (e.g. 'TBD') in due_date must become None."""
+        async with store._engine.begin() as conn:
+            await conn.exec_driver_sql(
+                "INSERT INTO deadlines "
+                "(id, title, course, due_date, start_date, priority, "
+                " source, description, date_type, completed) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    "dirty-2",
+                    "TBD Task",
+                    "CS202",
+                    "TBD",  # non-ISO — must not crash
+                    "",
+                    "medium",
+                    "manual",
+                    "",
+                    "no_date",
+                    0,
+                ),
+            )
+        items = await store.list_all()
+        assert len(items) == 1
+        assert items[0].due_date is None
+        assert items[0].start_date is None
+
+    @pytest.mark.asyncio
+    async def test_list_all_mixed_clean_and_dirty(self, store: DeadlineStore) -> None:
+        """Mix of clean and dirty rows — all must load without error."""
+        await store.add(
+            DeadlineRecord(
+                id="clean-1",
+                title="Clean HW",
+                course="CS101",
+                due_date=datetime(2026, 5, 1),
+            )
+        )
+        # Dirty row via raw SQL
+        async with store._engine.begin() as conn:
+            await conn.exec_driver_sql(
+                "INSERT INTO deadlines "
+                "(id, title, course, due_date, start_date, priority, "
+                " source, description, date_type, completed) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    "dirty-3",
+                    "Dirty Task",
+                    "CS202",
+                    "TBD",
+                    "",
+                    "low",
+                    "email",
+                    "notes",
+                    "no_date",
+                    0,
+                ),
+            )
+        items = await store.list_all()
+        assert len(items) == 2
+        titles = {r.title for r in items}
+        assert titles == {"Clean HW", "Dirty Task"}
+
+    @pytest.mark.asyncio
+    async def test_get_single_dirty_row(self, store: DeadlineStore) -> None:
+        """get() on a single dirty row must also succeed."""
+        async with store._engine.begin() as conn:
+            await conn.exec_driver_sql(
+                "INSERT INTO deadlines "
+                "(id, title, course, due_date, start_date, priority, "
+                " source, description, date_type, completed) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    "dirty-4",
+                    "Single Dirty",
+                    "CS303",
+                    "",
+                    "not-a-date",
+                    "medium",
+                    "manual",
+                    "",
+                    "moment_day",
+                    0,
+                ),
+            )
+        record = await store.get("dirty-4")
+        assert record is not None
+        assert record.due_date is None
+        assert record.start_date is None
+
+
+# ---------------------------------------------------------------------------
+# A017: Old-schema database migration — NOT NULL → nullable
+# ---------------------------------------------------------------------------
+
+
+class TestOldSchemaMigration:
+    """Ensure DeadlineStore handles old DB schemas with NOT NULL date columns.
+
+    Older databases were created with:
+        start_date TEXT NOT NULL DEFAULT ''
+        due_date   TEXT NOT NULL DEFAULT ''
+
+    The current model defines these as nullable.  SQLModel's create_all()
+    does NOT alter existing tables, so the store must handle this mismatch
+    by migrating the schema on initialize().
+    """
+
+    @pytest.fixture
+    async def old_schema_store(self, tmp_path):
+        """Create a store backed by a DB file with the old NOT NULL schema."""
+        import aiosqlite
+
+        db_file = str(tmp_path / "old_deadlines.db")
+
+        # Create the old schema manually (NOT NULL DEFAULT '' on date cols)
+        async with aiosqlite.connect(db_file) as db:
+            await db.execute(
+                """
+                CREATE TABLE deadlines (
+                    id         TEXT PRIMARY KEY,
+                    title      TEXT NOT NULL,
+                    course     TEXT NOT NULL DEFAULT '',
+                    due_date   TEXT NOT NULL DEFAULT '',
+                    priority   TEXT NOT NULL DEFAULT 'medium',
+                    source     TEXT NOT NULL DEFAULT 'manual',
+                    description TEXT NOT NULL DEFAULT '',
+                    date_type  TEXT NOT NULL DEFAULT 'moment_day',
+                    start_date TEXT NOT NULL DEFAULT '',
+                    completed  INTEGER NOT NULL DEFAULT 0
+                )
+                """
+            )
+            await db.commit()
+
+        store = DeadlineStore(db_file)
+        await store.initialize()
+        yield store
+        await store.close()
+
+    @pytest.mark.asyncio
+    async def test_insert_none_start_date_on_old_schema(
+        self, old_schema_store: DeadlineStore
+    ) -> None:
+        """Inserting a record with start_date=None must not crash on old schema.
+
+        This is the exact bug reported in A017: the frontend sends
+        start_date="" which is coerced to None, but the old NOT NULL
+        column rejects NULL, causing a 500 IntegrityError.
+        """
+        record = DeadlineRecord(
+            id="test-old-1",
+            title="Test on old schema",
+            course="CS302",
+            due_date=datetime(2026, 4, 14, 18, 55),
+            priority=DeadlinePriority.MEDIUM,
+            source=DeadlineSource.MANUAL,
+            date_type=DateType.MOMENT_HM,
+            start_date=None,  # This is the critical case
+        )
+        saved = await old_schema_store.add(record)
+        assert saved.id == "test-old-1"
+        assert saved.start_date is None
+
+    @pytest.mark.asyncio
+    async def test_insert_none_due_date_on_old_schema(
+        self, old_schema_store: DeadlineStore
+    ) -> None:
+        """Inserting a record with due_date=None must not crash on old schema."""
+        record = DeadlineRecord(
+            id="test-old-2",
+            title="No-date task on old schema",
+            date_type=DateType.NO_DATE,
+            due_date=None,
+            start_date=None,
+        )
+        saved = await old_schema_store.add(record)
+        assert saved.id == "test-old-2"
+        assert saved.due_date is None
+        assert saved.start_date is None
+
+    @pytest.mark.asyncio
+    async def test_old_schema_preserves_existing_data(
+        self,
+        tmp_path,
+    ) -> None:
+        """Migration must not lose existing data in old-schema tables."""
+        import aiosqlite
+
+        db_file = str(tmp_path / "preserve_deadlines.db")
+
+        # Create old schema with existing data
+        async with aiosqlite.connect(db_file) as db:
+            await db.execute(
+                """
+                CREATE TABLE deadlines (
+                    id         TEXT PRIMARY KEY,
+                    title      TEXT NOT NULL,
+                    course     TEXT NOT NULL DEFAULT '',
+                    due_date   TEXT NOT NULL DEFAULT '',
+                    priority   TEXT NOT NULL DEFAULT 'medium',
+                    source     TEXT NOT NULL DEFAULT 'manual',
+                    description TEXT NOT NULL DEFAULT '',
+                    date_type  TEXT NOT NULL DEFAULT 'moment_day',
+                    start_date TEXT NOT NULL DEFAULT '',
+                    completed  INTEGER NOT NULL DEFAULT 0
+                )
+                """
+            )
+            await db.execute(
+                "INSERT INTO deadlines (id, title, course, due_date, start_date) "
+                "VALUES (?, ?, ?, ?, ?)",
+                ("existing-1", "Old HW", "CS101", "2026-04-15", ""),
+            )
+            await db.commit()
+
+        store = DeadlineStore(db_file)
+        await store.initialize()
+        try:
+            items = await store.list_all()
+            assert len(items) == 1
+            assert items[0].title == "Old HW"
+            assert items[0].due_date == datetime(2026, 4, 15)
+            assert items[0].start_date is None  # "" coerced to None on read
+        finally:
+            await store.close()
+
+    @pytest.mark.asyncio
+    async def test_update_date_to_none_on_old_schema(
+        self, old_schema_store: DeadlineStore
+    ) -> None:
+        """Updating a date field to None should work on migrated old schema."""
+        record = DeadlineRecord(
+            id="test-old-3",
+            title="To update",
+            due_date=datetime(2026, 4, 15),
+            start_date=datetime(2026, 4, 10),
+            date_type=DateType.PERIOD_DAY,
+        )
+        await old_schema_store.add(record)
+        updated = await old_schema_store.update("test-old-3", {"start_date": None})
+        assert updated is not None
+        assert updated.start_date is None

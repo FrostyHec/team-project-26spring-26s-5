@@ -15,7 +15,7 @@ Pydantic — invalid inputs produce HTTP 422 before reaching the service.
 from datetime import datetime
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from agent_core.logging_utils import get_logger
 from agent_core.models.deadline import (
@@ -75,6 +75,9 @@ class UpdateDeadlineRequest(BaseModel):
     so FastAPI returns a standard 422 for invalid values automatically.
     ``due_date`` and ``start_date`` use ``datetime`` so Pydantic validates
     the format automatically (422 for non-ISO-8601 values).
+
+    Empty strings for date fields are coerced to None to handle frontend
+    scenarios where unset dates are transmitted as "".
     """
 
     title: str | None = None
@@ -86,6 +89,18 @@ class UpdateDeadlineRequest(BaseModel):
     start_date: datetime | None = None
     completed: bool | None = None
 
+    @field_validator("due_date", "start_date", mode="before")
+    @classmethod
+    def coerce_empty_string_to_none(cls, v: object) -> object:
+        """Convert empty string to None for datetime fields.
+
+        This allows frontend to send "" for unset dates without triggering
+        a validation error. Valid ISO-8601 strings are parsed normally.
+        """
+        if v == "":
+            return None
+        return v
+
 
 class CreateDeadlineRequest(BaseModel):
     """Request body for creating a new deadline.
@@ -95,6 +110,9 @@ class CreateDeadlineRequest(BaseModel):
     returns a standard 422 for invalid values automatically.
     ``due_date`` and ``start_date`` use ``datetime | None`` so Pydantic
     validates the format automatically.
+
+    Empty strings for date fields are coerced to None to handle frontend
+    scenarios where unset dates are transmitted as "".
     """
 
     title: str
@@ -104,6 +122,18 @@ class CreateDeadlineRequest(BaseModel):
     description: str = ""
     date_type: DateType = DateType.MOMENT_DAY
     start_date: datetime | None = None
+
+    @field_validator("due_date", "start_date", mode="before")
+    @classmethod
+    def coerce_empty_string_to_none(cls, v: object) -> object:
+        """Convert empty string to None for datetime fields.
+
+        This allows frontend to send "" for unset dates without triggering
+        a validation error. Valid ISO-8601 strings are parsed normally.
+        """
+        if v == "":
+            return None
+        return v
 
 
 class DuplicateEntry(BaseModel):
