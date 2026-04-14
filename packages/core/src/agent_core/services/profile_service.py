@@ -78,6 +78,16 @@ class ProfileService:
             record.email_password_encrypted,
         )
 
+    async def get_decrypted_profile(self) -> tuple[str, str]:
+        """Return the current user profile as a tuple.
+
+        Returns:
+            A tuple containing the CAS account and decrypted CAS password.
+        """
+        record = await self._store.get_profile()
+        cas_pw = await self._store.get_decrypted_cas_password()
+        return record.cas_account, cas_pw
+
     async def update_profile(
         self, request: UpdateProfileRequest
     ) -> UserProfileResponse:

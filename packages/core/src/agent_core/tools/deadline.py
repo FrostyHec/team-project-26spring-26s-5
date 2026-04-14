@@ -10,6 +10,7 @@ values, delegates to the service, and formats results as JSON strings.
 """
 
 import json
+from datetime import datetime, timedelta
 from typing import Any
 
 from agent_core.logging_utils import get_logger
@@ -34,6 +35,7 @@ from agent_core.services.deadline_service import (
 from agent_core.services.deadline_service import (
     sanitise_date_fields as _sanitise_date_fields,  # noqa: F401
 )
+from agent_core.tools.blackboard import get_all_ddls
 from agent_core.tools.registry import ToolRegistry, ToolSensitivity
 from agent_core.tools.widgets import CalendarWidgetData
 
@@ -63,27 +65,6 @@ _get_store = get_deadline_store
 # ---------------------------------------------------------------------------
 # Mock external data sources
 # ---------------------------------------------------------------------------
-
-_MOCK_ANNOUNCEMENTS: list[dict[str, str]] = [
-    {
-        "course": "CS302",
-        "title": "Project 1 Due",
-        "content": "Project 1 is due on 2026-04-15. Please submit via Blackboard.",
-        "date": "2026-04-01",
-    },
-    {
-        "course": "CS302",
-        "title": "Midterm Exam Reminder",
-        "content": "Midterm exam will be held on 2026-04-20 in Room 301.",
-        "date": "2026-04-02",
-    },
-    {
-        "course": "MATH201",
-        "title": "Homework 5 Posted",
-        "content": "Homework 5 is due on 2026-04-10. Topics: integration.",
-        "date": "2026-04-01",
-    },
-]
 
 _MOCK_EMAILS: list[dict[str, str]] = [
     {
@@ -130,13 +111,47 @@ _MOCK_EXAMS: list[dict[str, str]] = [
 # ---------------------------------------------------------------------------
 
 
-def get_announcements() -> str:
-    """Fetch course announcements from Blackboard (mock).
+async def get_announcements() -> str:
+    """Fetch course deadlines from Blackboard and format as announcements.
+
+    Authenticates via CAS using credentials stored in the user profile,
+    then retrieves deadlines from all enrolled courses.  Each deadline is
+    converted into an announcement-style dict with ``course``, ``title``,
+    ``content``, and ``date`` (UTC+8) fields.
 
     Returns:
         JSON array of announcement objects with course, title, content, date.
     """
-    return json.dumps(_MOCK_ANNOUNCEMENTS, ensure_ascii=False)
+    # Get all deadlines from Blackboard
+    all_ddls = await get_all_ddls()
+
+    # Convert to announcements format
+    announcements = []
+    for course, ddls in all_ddls.items():
+        for ddl in ddls:
+            # Parse and convert dueDate to UTC+8
+            due_date_str = ddl.get("dueDate")
+            if due_date_str:
+                # Parse ISO format string
+                utc_time = datetime.fromisoformat(due_date_str.replace("Z", "+00:00"))
+                # Convert to UTC+8
+                utc8_time = utc_time + timedelta(hours=8)
+                # Format as YYYY-MM-DD
+                date = utc8_time.strftime("%Y-%m-%d")
+
+                title = ddl.get("title", "Untitled")
+                content = f"{title} is due on {date}. Please submit via Blackboard."
+
+                announcements.append(
+                    {
+                        "course": course,
+                        "title": title,
+                        "content": content,
+                        "date": date,
+                    }
+                )
+
+    return json.dumps(announcements, ensure_ascii=False)
 
 
 def query_email(since_days: int = _DEFAULT_SINCE_DAYS) -> str:

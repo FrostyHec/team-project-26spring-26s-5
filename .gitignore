@@ -114,3 +114,5 @@ chainlit.md
 **/nonpublic-*
 **/*-nonpublic-*
 **/output
+
+bb_cached_ddls.json

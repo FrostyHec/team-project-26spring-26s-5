@@ -2,6 +2,7 @@
 
 import json
 from datetime import date, datetime
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -211,12 +212,30 @@ class TestDeadlineStore:
 class TestMockDataTools:
     """Tests for mock external data source tools."""
 
-    def test_get_announcements_returns_json(self) -> None:
-        result = json.loads(get_announcements())
-        assert isinstance(result, list)
-        assert len(result) > 0
-        assert "course" in result[0]
-        assert "title" in result[0]
+    @pytest.mark.asyncio
+    async def test_get_announcements_returns_json(self) -> None:
+        mock_ddls = {
+            "CS302 Software Engineering": [
+                {
+                    "title": "Assignment 1",
+                    "dueDate": "2026-04-15T16:00:00.000Z",
+                },
+            ],
+        }
+        with patch(
+            "agent_core.tools.deadline.get_all_ddls",
+            new_callable=AsyncMock,
+            return_value=mock_ddls,
+        ):
+            result = json.loads(await get_announcements())
+            assert isinstance(result, list)
+            assert len(result) == 1
+            item = result[0]
+            assert item["course"] == "CS302 Software Engineering"
+            assert item["title"] == "Assignment 1"
+            # UTC 16:00 + 8h -> 2026-04-16
+            assert item["date"] == "2026-04-16"
+            assert "content" in item
 
     def test_query_email_returns_json(self) -> None:
         result = json.loads(query_email())

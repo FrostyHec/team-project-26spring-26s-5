@@ -24,6 +24,7 @@ from agent_core.security.encryption import (
     reset_fernet,
 )
 from agent_core.services.profile_service import ProfileService
+from agent_core.tools.blackboard import get_all_ddls
 
 # ===========================================================================
 # Fixtures
@@ -485,3 +486,18 @@ class TestProfileService:
         result = await profile_service.get_profile()
         assert result.cas_account == ""
         assert result.cas_password_is_set is False
+
+    @pytest.mark.asyncio
+    async def test_blackboard_via_profile(
+        self, profile_service: ProfileService
+    ) -> None:
+        await profile_service.update_profile(
+            UpdateProfileRequest(
+                cas_account="mock_user_name", cas_password="mock_pass_word"
+            )
+        )
+        all_ddls = await get_all_ddls(profile_service)
+        assert isinstance(all_ddls, dict)
+        assert "Mock Course" in all_ddls
+        assert isinstance(all_ddls["Mock Course"], list)
+        assert all_ddls["Mock Course"][0]["title"] == "Mock Assignment 1"
