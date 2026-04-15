@@ -130,22 +130,13 @@ function formatDateSeparator(dateStr: string): string {
         📥 No Date / Backlog
       </div>
       <div class="space-y-2">
-        <div
+        <TimelineCard
           v-for="task in backlogTasks"
           :key="task.id"
-          class="flex items-center gap-2 rounded border border-gray-200 bg-white p-2.5 text-sm text-gray-600 transition-colors hover:bg-gray-50"
-        >
-          <input
-            type="checkbox"
-            :checked="task.completed"
-            class="h-3.5 w-3.5 cursor-pointer rounded border-gray-300"
-            @change="emit('toggle-complete', task.id, !task.completed)"
-          />
-          <div class="h-2 w-2 rounded-full bg-gray-300" />
-          <span :class="task.completed ? 'text-gray-400 line-through' : ''">
-            {{ task.title }}
-          </span>
-        </div>
+          :task="task"
+          @toggle-complete="(id, c) => emit('toggle-complete', id, c)"
+          @click="emit('open-detail', task)"
+        />
       </div>
     </div>
   </div>

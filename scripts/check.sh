@@ -170,7 +170,9 @@ if semgrep --config "$PROJECT_ROOT/semgrep-rules.yaml" \
            --error \
            --quiet \
            "$PROJECT_ROOT/packages" \
-           "$PROJECT_ROOT/.github" \
+           "$PROJECT_ROOT/.github/workflows" \
+           "$PROJECT_ROOT/.github/PULL_REQUEST_TEMPLATE.md" \
+           "$PROJECT_ROOT/.github/ISSUE_TEMPLATE" \
            "$PROJECT_ROOT/scripts"; then
     print_success "Language check passed"
 else

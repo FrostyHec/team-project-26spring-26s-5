@@ -114,5 +114,7 @@ chainlit.md
 **/nonpublic-*
 **/*-nonpublic-*
 **/output
+.github/skills
+.github/copilot-instructions.md
 
 bb_cached_ddls.json

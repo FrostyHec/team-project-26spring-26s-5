@@ -13,6 +13,7 @@ import {
   type DateTypeValue,
   updateDeadline,
   createDeadline,
+  deleteDeadline,
 } from '@/api/agent'
 import { PRIORITY_COLORS } from './deadlineConstants'
 
@@ -34,6 +35,7 @@ const description = ref('')
 const dateType = ref<DateTypeValue>(DateType.MOMENT_DAY)
 const startDate = ref('')
 const saving = ref(false)
+const deleting = ref(false)
 const errorMsg = ref('')
 
 /** Populate form from the task prop (or reset for create mode). */
@@ -109,6 +111,26 @@ async function handleSave() {
     errorMsg.value = e instanceof Error ? e.message : 'Failed to save'
   } finally {
     saving.value = false
+  }
+}
+
+async function handleDelete() {
+  if (!props.task) return
+  const confirmed = window.confirm(
+    'Are you sure you want to delete this task? This action cannot be undone.',
+  )
+  if (!confirmed) return
+
+  deleting.value = true
+  errorMsg.value = ''
+  try {
+    await deleteDeadline(props.task.id)
+    emit('saved') // Triggers parent to refresh list
+    emit('close') // Close the modal
+  } catch (e) {
+    errorMsg.value = e instanceof Error ? e.message : 'Failed to delete task'
+  } finally {
+    deleting.value = false
   }
 }
 </script>
@@ -238,20 +260,30 @@ async function handleSave() {
       </div>
 
       <!-- Footer -->
-      <div class="flex justify-end gap-2 border-t border-gray-200 px-4 py-3">
+      <div class="flex justify-between gap-2 border-t border-gray-200 px-4 py-3">
         <button
-          class="rounded px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-100"
-          @click="emit('close')"
+          v-if="task"
+          class="rounded bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+          :disabled="deleting || saving"
+          @click="handleDelete"
         >
-          Cancel
+          {{ deleting ? 'Deleting...' : 'Delete' }}
         </button>
-        <button
-          class="rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-          :disabled="saving || !title.trim()"
-          @click="handleSave"
-        >
-          {{ saving ? 'Saving...' : isCreateMode ? 'Create' : 'Save' }}
-        </button>
+        <div class="flex gap-2">
+          <button
+            class="rounded px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-100"
+            @click="emit('close')"
+          >
+            Cancel
+          </button>
+          <button
+            class="rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            :disabled="saving || !title.trim()"
+            @click="handleSave"
+          >
+            {{ saving ? 'Saving...' : isCreateMode ? 'Create' : 'Save' }}
+          </button>
+        </div>
       </div>
     </div>
   </div>
