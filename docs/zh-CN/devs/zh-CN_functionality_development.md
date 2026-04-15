@@ -5,18 +5,24 @@
 
 ---
 
-## 1. Python 后端开发（必读）
+## 1. Python 后端开发
+
+### 项目结构&规范（必读）
 
 | 文档 | 说明 |
 |------|------|
 | [项目结构](zh-CN_project_structure.md) | Monorepo 目录树、三大 package（core / cli / gui）的组织方式与依赖关系 |
+| [Python 代码规范](zh-CN_code_conventions_python.md) | 格式化（Ruff）、类型标注（Pyright strict）、枚举替代 magic string、SQLModel 模型规范 |
+
+
+### 可选阅读（根据功能相关性选择阅读）：
+| 文档 | 说明 |
+|------|------|
+| [Core 核心引擎实现](../design/zh-CN_core_implementation.md) | ReactAgent 架构、LangGraph 状态图、ToolRegistry 工具系统、FastAPI 服务器 |
 | [CRUD 开发指南](../design/zh-CN_crud_development_guide.md) | Controller–Service–Store 三层架构标准模式、SQLModel 异步 ORM、类型安全校验规范与检查清单 |
 | [Deadline 管理设计](../design/zh-CN_deadline_management.md) | 三层架构的参考实现：数据模型、Store / Service / Controller 各层职责、REST API、工具函数 |
-| [Python 代码规范](zh-CN_code_conventions_python.md) | 格式化（Ruff）、类型标注（Pyright strict）、枚举替代 magic string、SQLModel 模型规范 |
-| [Core 核心引擎实现](../design/zh-CN_core_implementation.md) | ReactAgent 架构、LangGraph 状态图、ToolRegistry 工具系统、FastAPI 服务器 |
-| [提交规范](zh-CN_commit_conventions.md) | Conventional Commits 格式、scope 列表、Breaking Change 处理 |
 
-## 2. Vue 前端开发（必读）
+## 2. Vue 前端开发（前端必读）
 
 | 文档 | 说明 |
 |------|------|

@@ -18,6 +18,7 @@ class SkillType(StrEnum):
     POLICY_SEARCH = "policy_search"
     COURSE_RECOMMEND = "course_recommend"
     CAMPUS_NEWS = "campus_news"
+    EMAIL_ASSISTANT = "email_assistant"
 
 
 class SkillDefinition(BaseModel):

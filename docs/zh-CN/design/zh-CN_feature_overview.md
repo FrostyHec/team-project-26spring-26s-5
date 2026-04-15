@@ -139,6 +139,25 @@ def add(a: float, b: float) -> float:
 | `/chat` | POST | `ChatRequest{message}` | `ChatResponse{response}` | 同步对话 |
 | `/chat/stream` | POST | `ChatRequest{message}` | SSE 流 | 流式对话 |
 
+### 3.2.1 Email API 错误语义（A003 修复）
+
+邮件相关端点在“凭据未配置”场景下统一返回机器可读错误：
+
+- **状态码**：`428 Precondition Required`
+- **错误码**：`EMAIL_CREDENTIALS_MISSING`
+- **响应结构**：
+
+```json
+{
+    "detail": {
+        "code": "EMAIL_CREDENTIALS_MISSING",
+        "message": "Email credentials not configured..."
+    }
+}
+```
+
+这样前端可以精确识别并给出友好引导，而不是仅显示模糊的 `400` 文本。
+
 ### 3.3 错误处理
 
 - **同步对话 `/chat`**：LLM 调用失败时抛出 `HTTPException(status_code=502)`，明确表示上游服务错误。
@@ -242,6 +261,12 @@ SSE 解析实现：使用 `ReadableStream` 的 `getReader()` 逐块读取，按 
 
 - **Vue Router**：单路由 `/` 指向 `ChatView` 组件，使用 `createWebHistory` 模式。
 - **Vite 代理**：开发模式下 `/api` 路径代理到 `http://localhost:8000`，去除 `/api` 前缀后转发。
+
+### 6.5 Inbox 邮件功能稳定性修复（A003）
+
+- **i18n 编译错误修复**：修复邮件编辑/写信界面中占位文案触发 `Invalid linked format` 的问题，确保点击“写邮件/回复”可正常打开编辑界面。
+- **错误提示可读性提升**：邮箱凭据缺失时，前端通过错误码识别并弹窗提示用户先到设置页配置邮箱账号和密码。
+- **API 客户端错误解析统一化**：`src/api/email.ts` 统一解析后端 `detail`（字符串或对象），保留错误码用于界面分支处理。
 
 ---
 

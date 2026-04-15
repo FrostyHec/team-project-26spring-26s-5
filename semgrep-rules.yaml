@@ -45,3 +45,4 @@ rules:
         - "**/build/**"
         - "**/__pycache__/**"
         - "**/output/**"
+        - "**/.github/skills/**"

@@ -11,9 +11,12 @@ from langchain_openai import ChatOpenAI
 from agent_core.api.approval import make_api_approval_handler
 from agent_core.config import AgentConfig
 from agent_core.engine.agent import ReactAgent
+from agent_core.persistence.email_store import EmailStore
 from agent_core.persistence.profile_store import ProfileStore
 from agent_core.persistence.session_store import SessionStore
 from agent_core.security.encryption import reset_fernet
+from agent_core.services.email_client import EmailClient
+from agent_core.services.email_service import EmailService
 from agent_core.services.profile_service import ProfileService
 from agent_core.skills import get_system_prompt_for_skill
 from agent_core.tools import auto_discover_and_register
@@ -24,6 +27,8 @@ _agent: ReactAgent | None = None
 _store: SessionStore | None = None
 _profile_store: ProfileStore | None = None
 _profile_service: ProfileService | None = None
+_email_store: EmailStore | None = None
+_email_service: EmailService | None = None
 _config: AgentConfig | None = None
 
 
@@ -86,7 +91,8 @@ async def init_dependencies(config: AgentConfig | None = None) -> None:
     Args:
         config: Optional configuration.
     """
-    global _agent, _store, _profile_store, _profile_service, _config
+    global _agent, _store, _profile_store, _profile_service
+    global _email_store, _email_service, _config
     _config = config or AgentConfig.from_env()
 
     # Configure encryption key if provided
@@ -100,6 +106,33 @@ async def init_dependencies(config: AgentConfig | None = None) -> None:
     await _profile_store.initialize()
     _profile_service = ProfileService(_profile_store)
 
+    # Email subsystem
+    import tempfile
+    from pathlib import Path
+
+    if _config.db_path == ":memory:":
+        email_db = ":memory:"
+        data_root = tempfile.mkdtemp()
+    else:
+        email_db = str(Path(_config.db_path).with_name("email.db"))
+        data_root = str(Path(_config.db_path).parent)
+    _email_store = EmailStore(email_db)
+    await _email_store.initialize()
+    _email_service = EmailService(
+        email_store=_email_store,
+        profile_store=_profile_store,
+        email_client=EmailClient(data_root=data_root),
+        data_root=data_root,
+    )
+    # Register the singletons in the provider module so tools can access them
+    from agent_core.persistence.email_provider import (
+        set_email_service,
+        set_email_store,
+    )
+
+    await set_email_store(_email_store)
+    await set_email_service(_email_service)
+
     _agent = create_agent(_config)
     _agent.session_store = _store
     _agent.approval_handler = make_api_approval_handler
@@ -107,7 +140,8 @@ async def init_dependencies(config: AgentConfig | None = None) -> None:
 
 async def shutdown_dependencies() -> None:
     """Release all singletons (called during lifespan shutdown)."""
-    global _agent, _store, _profile_store, _profile_service, _config
+    global _agent, _store, _profile_store, _profile_service
+    global _email_store, _email_service, _config
     if _store:
         await _store.close()
         _store = None
@@ -115,8 +149,20 @@ async def shutdown_dependencies() -> None:
         await _profile_store.close()
         _profile_store = None
     _profile_service = None
+    if _email_store:
+        await _email_store.close()
+        _email_store = None
+    _email_service = None
     _agent = None
     _config = None
+    # Reset provider-module singletons so tools don't point at closed stores
+    from agent_core.persistence.email_provider import (
+        set_email_service,
+        set_email_store,
+    )
+
+    await set_email_store(None)
+    await set_email_service(None)
 
 
 def get_agent() -> ReactAgent:
@@ -196,3 +242,17 @@ def get_profile_service() -> ProfileService:
     if _profile_service is None:
         raise RuntimeError("ProfileService not initialized")
     return _profile_service
+
+
+def get_email_service() -> EmailService:
+    """FastAPI dependency that provides the EmailService.
+
+    Returns:
+        The initialized EmailService.
+
+    Raises:
+        RuntimeError: If the service has not been initialized.
+    """
+    if _email_service is None:
+        raise RuntimeError("EmailService not initialized")
+    return _email_service

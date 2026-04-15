@@ -19,6 +19,7 @@ class TestSkillType:
             "policy_search",
             "course_recommend",
             "campus_news",
+            "email_assistant",
         }
         actual = {s.value for s in SkillType}
         assert expected == actual

@@ -117,4 +117,9 @@ chainlit.md
 .github/skills
 .github/copilot-instructions.md
 
+# Runtime databases (auto-created, not part of source)
+*.db
+*.sqlite
+*.sqlite3
+
 bb_cached_ddls.json

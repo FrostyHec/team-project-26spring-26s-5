@@ -18,7 +18,7 @@ export const WIDGET_COMPONENTS: Record<WidgetType, Component> = {
   [WIDGET_TYPES.SOURCES]: defineAsyncComponent(() => import('./SourcesWidget.vue')),
   [WIDGET_TYPES.WEB_PREVIEW]: defineAsyncComponent(() => import('./WebPreviewWidget.vue')),
   [WIDGET_TYPES.NEWS_DIGEST]: defineAsyncComponent(() => import('./EmptyWidget.vue')),
-  [WIDGET_TYPES.INBOX]: defineAsyncComponent(() => import('./EmptyWidget.vue')),
+  [WIDGET_TYPES.INBOX]: defineAsyncComponent(() => import('./InboxWidget.vue')),
   [WIDGET_TYPES.EMPTY]: defineAsyncComponent(() => import('./EmptyWidget.vue')),
 }
 
@@ -41,7 +41,6 @@ export const WIDGET_TITLE_I18N_KEYS: Record<WidgetType, string> = {
 const HIDDEN_WIDGET_TYPES: ReadonlySet<WidgetType> = new Set([
   WIDGET_TYPES.EMPTY,
   WIDGET_TYPES.NEWS_DIGEST,
-  WIDGET_TYPES.INBOX,
 ])
 
 /** A selectable widget entry for the dropdown. */

@@ -26,6 +26,7 @@ generate_key() -> str
 """
 
 import os
+from pathlib import Path
 
 from cryptography.fernet import Fernet
 
@@ -36,6 +37,9 @@ ENV_KEY = "SETTINGS_ENCRYPTION_KEY"
 # Internal alias for backwards compatibility within this module.
 _ENV_KEY = ENV_KEY
 
+#: Path to the persisted key file used when the env var is absent.
+_KEY_FILE = Path("output") / ".encryption_key"
+
 # Module-level cached Fernet instance (lazy-initialized).
 _fernet: Fernet | None = None
 
@@ -44,7 +48,12 @@ _fernet: Fernet | None = None
 
 
 def _load_or_generate_key() -> bytes:
-    """Load the Fernet key from the environment, or generate a new one.
+    """Load the Fernet key from the environment, key file, or generate a new one.
+
+    Priority:
+    1. ``SETTINGS_ENCRYPTION_KEY`` environment variable
+    2. Persisted key file at ``output/.encryption_key``
+    3. Generate a new key and persist it to the key file
 
     Returns:
         A URL-safe base64-encoded 32-byte Fernet key.
@@ -52,9 +61,14 @@ def _load_or_generate_key() -> bytes:
     raw = os.getenv(_ENV_KEY, "")
     if raw:
         return raw.encode()
-    # Generate a fresh key — deterministic within a process but NOT persisted.
-    # In production, set SETTINGS_ENCRYPTION_KEY in the environment.
-    return Fernet.generate_key()
+    # Try to load from persisted file (survives server restarts in dev).
+    if _KEY_FILE.exists():
+        return _KEY_FILE.read_bytes().strip()
+    # Generate a fresh key and persist it so subsequent restarts reuse it.
+    key: bytes = Fernet.generate_key()
+    _KEY_FILE.parent.mkdir(parents=True, exist_ok=True)
+    _KEY_FILE.write_bytes(key)
+    return key
 
 
 def _get_fernet() -> Fernet:

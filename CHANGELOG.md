@@ -12,6 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - add/edit/delete deadlines
     - deadline display in 3 views (timeline, week, month)
 - Deprecated Chainlit POC frontend.
+- Email Agent Feature:
+    - Full IMAP/SMTP integration with async I/O (`asyncio.to_thread`), CID inline image rewriting, and attachment deduplication
+    - Multi-folder inbox (INBOX / Sent / Starred / Trash / Spam), lazy attachment fetch on demand, and per-attachment download UI
+    - Rich-text compose with WangEditor v5; flag actions (mark unread / trash / spam) from detail view
+    - Settings panel with fetch period, auto-sync toggle, test connection, and clear cache
+    - Security fixes: path traversal guard via `Path.relative_to()`, typed `AttachmentNotFoundError`, correct HTTP 428/404/503 status codes
+    - 73 backend email tests; i18n coverage (en + zh)
 
 ## [0.1.0] - 2025-04-01
 - Project Initialization:

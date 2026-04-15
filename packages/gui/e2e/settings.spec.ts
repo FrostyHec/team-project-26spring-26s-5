@@ -100,10 +100,10 @@ test.describe('Settings Panel', () => {
   test('settings panel shows navigation sections', async ({ page }) => {
     await openSettings(page)
 
-    await expect(page.locator('text=Campus System Service')).toBeVisible()
-    await expect(page.locator('text=Email Service')).toBeVisible()
-    await expect(page.locator('text=Extension Service')).toBeVisible()
-    await expect(page.locator('text=Language')).toBeVisible()
+    await expect(page.locator('text=Campus System Service').first()).toBeVisible()
+    await expect(page.locator('text=Email Service').first()).toBeVisible()
+    await expect(page.locator('text=Extension Service').first()).toBeVisible()
+    await expect(page.locator('text=Language').first()).toBeVisible()
   })
 
   test('CAS service section shows account and password fields', async ({ page }) => {
