@@ -56,6 +56,7 @@ class AgentState(TypedDict):
 **相关文件：**
 - `packages/core/src/agent_core/tools/registry.py`
 - `packages/core/src/agent_core/tools/calculator.py`
+- `packages/core/src/agent_core/tools/policy_search.py`
 
 ### 2.1 ToolRegistry 类
 
@@ -118,6 +119,39 @@ def add(a: float, b: float) -> float:
 
 ---
 
+### 2.6 Campus Policy Search 工具（RAG）
+
+Campus Policy Search 是当前已实现的检索增强生成能力，用于回答校园政策、培养方案、课程要求、毕业要求等问题。
+
+**相关文件：**
+- `packages/core/src/agent_core/policy_search/ingest.py`
+- `packages/core/src/agent_core/policy_search/embeddings.py`
+- `packages/core/src/agent_core/policy_search/index.py`
+- `packages/core/src/agent_core/policy_search/retriever.py`
+- `packages/core/src/agent_core/policy_search/build_index.py`
+- `packages/core/src/agent_core/tools/policy_search.py`
+- `packages/core/src/agent_core/skills/policy_search.py`
+
+**实现链路：**
+
+```
+PDF 文档 → 文本提取与切片 → Embedding → FAISS 索引
+用户问题 → search_campus_policy → 向量检索 Top-K → LLM 基于结果回答
+```
+
+**关键特性：**
+- 使用本地 FAISS 索引，不依赖独立向量数据库服务
+- 检索结果附带文档名、页码、章节等元数据
+- 工具返回 `[来源 n]` 格式的引用，供 Agent 在回答中使用
+- 第一版只支持中文 PDF 文档，索引通过离线脚本构建
+
+**当前范围：**
+- 已实现后端 `core` + API 侧能力
+- 可通过 API 的 `skill=policy_search` 触发专用系统提示词
+- 本次实现不包含 GUI 改造
+
+---
+
 ## 3. API 层
 
 **相关文件：**
@@ -136,8 +170,9 @@ def add(a: float, b: float) -> float:
 |------|------|--------|------|------|
 | `/health` | GET | — | `{"status": "ok"}` | 健康检查 |
 | `/tools` | GET | — | `ToolInfo[]` | 列出所有可用工具 |
-| `/chat` | POST | `ChatRequest{message}` | `ChatResponse{response}` | 同步对话 |
-| `/chat/stream` | POST | `ChatRequest{message}` | SSE 流 | 流式对话 |
+| `/chat` | POST | `ChatRequest{message, skill?}` | `ChatResponse{response}` | 同步对话 |
+| `/chat/stream` | POST | `ChatRequest{message, skill?}` | SSE 流 | 流式对话 |
+| `/skills` | GET | — | `SkillDefinition[]` | 列出可用 skills |
 
 ### 3.2.1 Email API 错误语义（A003 修复）
 
@@ -176,6 +211,9 @@ def add(a: float, b: float) -> float:
 | `temperature` | `TEMPERATURE` | `0.0` |
 | `max_iterations` | `MAX_ITERATIONS` | `10` |
 | `system_prompt` | `SYSTEM_PROMPT` | 内置默认提示词 |
+| `embedding_api_key` | `EMBEDDING_API_KEY` | `""` |
+| `embedding_base_url` | `EMBEDDING_BASE_URL` | `""` |
+| `embedding_model` | `EMBEDDING_MODEL` | `"text-embedding-v4"` |
 
 ### 3.5 公共 API
 

@@ -36,6 +36,8 @@ team-project-26spring-26s-5/
 │   │   ├── pyproject.toml     # 包配置和依赖
 │   │   ├── README.md
 │   │   ├── .venv/             # 独立虚拟环境（uv 管理）
+│   │   ├── output/
+│   │   │   └── policy_index/  # Policy Search 本地索引产物（不应提交）
 │   │   ├── src/agent_core/    # 源代码
 │   │   │   ├── __init__.py    # 公共 API 导出
 │   │   │   ├── config.py      # 环境配置加载（AgentConfig）
@@ -43,10 +45,20 @@ team-project-26spring-26s-5/
 │   │   │   │   ├── __init__.py
 │   │   │   │   ├── agent.py   # ReactAgent 核心类（LangGraph）
 │   │   │   │   └── state.py   # AgentState 类型定义
+│   │   │   ├── policy_search/ # Campus Policy Search RAG
+│   │   │   │   ├── build_index.py  # 离线索引构建入口
+│   │   │   │   ├── embeddings.py   # Embedding API 封装
+│   │   │   │   ├── index.py        # FAISS 索引构建/加载
+│   │   │   │   ├── ingest.py       # PDF 解析与切片
+│   │   │   │   ├── models.py       # Chunk / Metadata / Result 模型
+│   │   │   │   └── retriever.py    # Top-K 检索与格式化
+│   │   │   ├── skills/        # Agent skills / personas
+│   │   │   │   └── policy_search.py # Policy Search 专用 prompt
 │   │   │   ├── tools/         # 工具系统
 │   │   │   │   ├── __init__.py
 │   │   │   │   ├── registry.py    # ToolRegistry + @register 装饰器
-│   │   │   │   └── calculator.py  # POC 计算工具（加减乘除）
+│   │   │   │   ├── calculator.py  # POC 计算工具（加减乘除）
+│   │   │   │   └── policy_search.py # RAG 检索工具入口
 │   │   │   └── api/           # Web API
 │   │   │       ├── __init__.py
 │   │   │       └── server.py  # FastAPI 应用（REST 端点）
@@ -54,6 +66,7 @@ team-project-26spring-26s-5/
 │   │       ├── test_api.py        # API 端点测试
 │   │       ├── test_calculator.py # 计算工具测试
 │   │       ├── test_config.py     # 配置测试
+│   │       ├── test_policy_search.py # Policy Search 测试
 │   │       ├── test_registry.py   # 工具注册测试
 │   │       └── test_state.py      # 状态管理测试
 │   ├── cli/                   # 💻 CLI 前端（Python）
@@ -118,7 +131,7 @@ packages/gui           ← 独立的 Node.js 项目，通过 HTTP API 与 core �
 
 | 包 | 语言 | 职责 | 对外接口 |
 |------|------|------|----------|
-| `core` | Python | ReAct 引擎、工具系统、FastAPI 服务 | REST API（HTTP） |
+| `core` | Python | ReAct 引擎、工具系统、Skills、FastAPI 服务、Policy Search RAG | REST API（HTTP） |
 | `cli` | Python | 命令行交互界面 | 终端命令 |
 | `gui` | TypeScript/Vue | 生产级 Web 聊天界面 | Web UI（Vue SPA） |
 
@@ -183,7 +196,7 @@ pnpm 使用 `pnpm-lock.yaml` 锁定依赖版本。
 | 文件 | 说明 |
 |------|------|
 | `Taskfile.yml` | 项目级任务编排（go-task v3），定义 init/dev/test/lint/format/clean 等任务 |
-| `.env.example` | 环境变量模板（OPENAI_API_KEY、MODEL_NAME 等） |
+| `.env.example` | 环境变量模板（LLM、Embedding、日志、数据库等） |
 | `.pre-commit-config.yaml` | Git hooks 配置（Ruff 格式化、Commitizen 检查） |
 | `.github/workflows/ci.yml` | GitHub Actions CI 工作流（lint → language-check → test） |
 | `.gitignore` | Git 忽略规则 |
@@ -253,3 +266,17 @@ server: {
 ```
 
 前端发起 `/api/chat` 请求 → Vite 代理重写为 `/chat` → 转发到 FastAPI。
+
+## Policy Search 相关约定
+
+- PDF 原始文档默认放在仓库根目录 `pdfs/`
+- 离线索引构建命令：
+
+```bash
+cd packages/core
+uv run python -m agent_core.policy_search.build_index
+```
+
+- 索引产物默认输出到 `packages/core/output/policy_index/`
+- 这些索引产物属于本地生成文件，不应提交到 Git
+- 当前实现不包含 GUI 改造，主要落在 `core` 与 API 层

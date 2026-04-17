@@ -37,6 +37,11 @@ MODEL_NAME=gpt-4o-mini       # 使用的模型
 TEMPERATURE=0.0              # 模型温度（0.0 = 确定性输出）
 MAX_ITERATIONS=10            # 最大推理循环次数
 SYSTEM_PROMPT=You are a helpful AI assistant with calculator tools.
+
+# Policy Search 使用的 Embedding 配置
+EMBEDDING_API_KEY=your-dashscope-api-key-here
+EMBEDDING_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+EMBEDDING_MODEL=text-embedding-v4
 ```
 
 ### 3. 运行
@@ -118,7 +123,12 @@ Vue 前端特点：
 
 ## 内置工具
 
-当前版本提供以下 POC 演示工具（计算器）：
+当前版本包含两类能力：
+
+- 通用演示工具：计算器
+- 专用 skill：Campus Policy Search
+
+### Calculator 工具
 
 | 工具 | 功能 | 参数 | 示例 |
 |------|------|------|------|
@@ -135,6 +145,30 @@ Agent 会根据用户的自然语言请求，自动选择合适的工具进行�
 用户：帮我算一下 100 除以 7
 Agent：（调用 divide 工具）→ 100 ÷ 7 ≈ 14.2857
 ```
+
+### Campus Policy Search
+
+Campus Policy Search 用于回答校园政策、培养方案、课程要求、毕业要求等问题。当前实现基于本地 RAG：
+
+```text
+PDF 文档 → 切片 → Embedding → FAISS 索引
+用户问题 → search_campus_policy → Top-K 检索 → LLM 基于结果回答
+```
+
+使用前需要先构建索引：
+
+```bash
+cd packages/core
+uv run python -m agent_core.policy_search.build_index
+```
+
+默认约定：
+- 原始 PDF 放在仓库根目录 `pdfs/`
+- 索引输出到 `packages/core/output/policy_index/`
+- 第一版只支持中文 PDF，且只支持本地离线构建索引
+
+当前建议通过 API 使用该能力，而不是通过 `agent-cli chat`。
+原因是当前 CLI 交互入口尚未接入 `policy_search` skill 选择。
 
 ## API 端点参考
 
@@ -185,9 +219,24 @@ curl http://localhost:8000/tools
     "name": "divide",
     "description": "Divide a by b. Args: a (float), b (float). Returns error if b is zero.",
     "sensitivity": "safe"
+  },
+  {
+    "name": "search_campus_policy",
+    "description": "Search campus policy documents for information about university regulations, curriculum requirements, academic procedures, course plans, graduation requirements, and other campus policies.",
+    "sensitivity": "safe"
   }
 ]
 ```
+
+### GET /skills
+
+获取所有可用 skill 列表。
+
+```bash
+curl http://localhost:8000/skills
+```
+
+Policy Search 对应的 skill 标识为 `policy_search`。
 
 ### POST /chat
 
@@ -206,6 +255,19 @@ curl -X POST http://localhost:8000/chat \
   "message": "What is 42 + 58?"
 }
 ```
+
+`skill` 字段可选；当需要启用专用 persona 时传入。例如 Policy Search：
+
+```bash
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "航空航天工程专业需要多少学分？",
+    "skill": "policy_search"
+  }'
+```
+
+此时 Agent 会在 `policy_search` skill 的系统提示词约束下优先调用 `search_campus_policy`。
 
 **响应**：
 

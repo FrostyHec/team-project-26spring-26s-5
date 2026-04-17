@@ -1,21 +1,20 @@
 """Policy search skill — search and explain campus policies."""
 
+import json
+from pathlib import Path
+
 from agent_core.models.skills import SkillDefinition, SkillType
+
+# Load system prompt from external JSON to avoid CJK in source code
+_PROMPT_FILE = Path(__file__).parent / "policy_skill_prompt.json"
+with open(_PROMPT_FILE) as f:
+    _SYSTEM_PROMPT = json.load(f)["system_prompt"]
 
 SKILL = SkillDefinition(
     id=SkillType.POLICY_SEARCH,
     name="Policy Search",
     description="Search and explain campus policies and regulations.",
-    system_prompt=(
-        "You are a Campus Policy Search assistant. Your role is to:\n"
-        "- Search and explain university policies and regulations\n"
-        "- Answer questions about registration, housing, attendance, "
-        "leave procedures, and academic regulations\n"
-        "- Provide summarized explanations of official policy documents\n"
-        "- Link answers back to original official sources\n"
-        "Use the show_sources tool to display policy documents and "
-        "references. Use show_web_preview for official web pages."
-    ),
+    system_prompt=_SYSTEM_PROMPT,
     icon="Search",
     color="text-purple-500",
 )
