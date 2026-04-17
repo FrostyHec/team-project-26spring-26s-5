@@ -41,3 +41,11 @@ export const MAX_DOTS_PER_CELL = 4
 
 /** Number of leading characters shown when previewing a UUID. */
 export const ID_PREVIEW_LENGTH = 8
+
+/** Options for the priority filter dropdown (includes "All" sentinel). */
+export const PRIORITY_FILTER_OPTIONS: ReadonlyArray<{ value: string; labelKey: string }> = [
+  { value: '', labelKey: 'deadlines.filterAllPriorities' },
+  { value: 'high', labelKey: 'deadlines.filterPriorityHigh' },
+  { value: 'medium', labelKey: 'deadlines.filterPriorityMedium' },
+  { value: 'low', labelKey: 'deadlines.filterPriorityLow' },
+] as const

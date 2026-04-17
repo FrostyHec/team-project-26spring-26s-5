@@ -178,6 +178,14 @@
     "removeAttachment": "移除",
     "editorPlaceholder": "在此输入邮件正文..."
   },
+  "deadlines": {
+    "filterAllCourses": "全部课程",
+    "filterAllPriorities": "全部",
+    "filterPriorityHigh": "高",
+    "filterPriorityMedium": "中",
+    "filterPriorityLow": "低",
+    "filterNoMatch": "暂无满足筛选条件的 DDL。"
+  },
   "errors": {
     "loadSettings": "加载设置失败",
     "saveSettings": "保存设置失败",

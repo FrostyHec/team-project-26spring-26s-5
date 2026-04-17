@@ -32,7 +32,12 @@ const futureTasks = computed(() =>
   props.deadlines
     .filter((t) => {
       const s = computeTaskStatus(t)
-      return s === TASK_STATUS.TODAY || s === TASK_STATUS.UPCOMING || s === TASK_STATUS.COMPLETED
+      if (s === TASK_STATUS.TODAY || s === TASK_STATUS.UPCOMING) return true
+      // Completed tasks: only show in the future section if their due_date is today or later.
+      if (s === TASK_STATUS.COMPLETED) {
+        return t.due_date && toDateOnly(t.due_date) >= today.value
+      }
+      return false
     })
     .filter((t) => t.date_type !== DateType.NO_DATE && t.due_date),
 )

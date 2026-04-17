@@ -178,6 +178,14 @@
     "removeAttachment": "Remove",
     "editorPlaceholder": "Enter email body here..."
   },
+  "deadlines": {
+    "filterAllCourses": "All courses",
+    "filterAllPriorities": "All",
+    "filterPriorityHigh": "High",
+    "filterPriorityMedium": "Medium",
+    "filterPriorityLow": "Low",
+    "filterNoMatch": "No deadlines match current filters."
+  },
   "errors": {
     "loadSettings": "Failed to load settings",
     "saveSettings": "Failed to save settings",

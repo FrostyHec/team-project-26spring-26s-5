@@ -46,6 +46,7 @@ const statusBorder: Record<string, string> = {
         :checked="task.completed"
         class="mt-0.5 h-4 w-4 flex-shrink-0 cursor-pointer rounded border-gray-300"
         @change="emit('toggle-complete', task.id, !task.completed)"
+        @click.stop
       />
 
       <div class="min-w-0 flex-1">
@@ -57,6 +58,7 @@ const statusBorder: Record<string, string> = {
           <h4
             class="truncate text-sm font-medium"
             :class="task.completed ? 'text-gray-400 line-through' : 'text-gray-800'"
+            data-testid="task-title"
           >
             {{ task.title }}
           </h4>

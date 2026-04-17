@@ -7,9 +7,15 @@
  * is fetched from the REST API and managed locally.
  */
 import { ref, computed, onMounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { fetchDeadlines, toggleDeadlineComplete, type DeadlineInfo } from '@/api/agent'
 import { useChatStore } from '@/stores/chat'
-import { PANEL_VIEWS, PANEL_VIEW_TABS, type PanelView } from './deadlineConstants'
+import {
+  PANEL_VIEWS,
+  PANEL_VIEW_TABS,
+  PRIORITY_FILTER_OPTIONS,
+  type PanelView,
+} from './deadlineConstants'
 import TaskListView from './TaskListView.vue'
 import WeekView from './WeekView.vue'
 import MonthView from './MonthView.vue'
@@ -18,19 +24,37 @@ import TaskDetailModal from './TaskDetailModal.vue'
 
 defineProps<{ data?: Record<string, unknown> }>()
 
+const { t } = useI18n()
 const chatStore = useChatStore()
 const deadlines = ref<DeadlineInfo[]>([])
 const activeView = ref<PanelView>(PANEL_VIEWS.TASKS)
 const hideCompleted = ref(false)
+const filterCourse = ref<string>('')
+const filterPriority = ref<string>('')
 const loading = ref(false)
 const errorMsg = ref('')
 const showSyncPanel = ref(false)
 const detailTask = ref<DeadlineInfo | null>(null)
 const showCreateModal = ref(false)
 
+const uniqueCourses = computed<string[]>(() => {
+  const courses = new Set(deadlines.value.map((d) => d.course).filter(Boolean))
+  return [...courses].sort()
+})
+
+// Reset course filter if the selected course disappears after a data refresh.
+watch(uniqueCourses, (courses) => {
+  if (filterCourse.value && !courses.includes(filterCourse.value)) {
+    filterCourse.value = ''
+  }
+})
+
 const filteredDeadlines = computed(() => {
-  if (!hideCompleted.value) return deadlines.value
-  return deadlines.value.filter((d) => !d.completed)
+  let result = deadlines.value
+  if (hideCompleted.value) result = result.filter((d) => !d.completed)
+  if (filterCourse.value) result = result.filter((d) => d.course === filterCourse.value)
+  if (filterPriority.value) result = result.filter((d) => d.priority === filterPriority.value)
+  return result
 })
 
 async function loadDeadlines() {
@@ -107,6 +131,29 @@ watch(() => chatStore.deadlineVersion, loadDeadlines)
         </button>
       </div>
 
+      <!-- Course filter -->
+      <select
+        v-model="filterCourse"
+        aria-label="Course filter"
+        data-testid="filter-course"
+        class="rounded-md border border-gray-200 bg-white px-2 py-1 text-xs text-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-300"
+      >
+        <option value="">{{ t('deadlines.filterAllCourses') }}</option>
+        <option v-for="c in uniqueCourses" :key="c" :value="c">{{ c }}</option>
+      </select>
+
+      <!-- Priority filter -->
+      <select
+        v-model="filterPriority"
+        aria-label="Priority filter"
+        data-testid="filter-priority"
+        class="rounded-md border border-gray-200 bg-white px-2 py-1 text-xs text-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-300"
+      >
+        <option v-for="opt in PRIORITY_FILTER_OPTIONS" :key="opt.value" :value="opt.value">
+          {{ t(opt.labelKey) }}
+        </option>
+      </select>
+
       <!-- New Task button -->
       <button
         class="rounded-md px-2 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50"
@@ -156,24 +203,35 @@ watch(() => chatStore.deadlineVersion, loadDeadlines)
 
     <!-- Active view -->
     <div v-else class="flex-1 overflow-y-auto">
-      <TaskListView
-        v-if="activeView === PANEL_VIEWS.TASKS"
-        :deadlines="filteredDeadlines"
-        @toggle-complete="handleToggleComplete"
-        @open-detail="openDetail"
-      />
-      <WeekView
-        v-else-if="activeView === PANEL_VIEWS.WEEK"
-        :deadlines="filteredDeadlines"
-        @toggle-complete="handleToggleComplete"
-        @open-detail="openDetail"
-      />
-      <MonthView
-        v-else-if="activeView === PANEL_VIEWS.MONTH"
-        :deadlines="filteredDeadlines"
-        @toggle-complete="handleToggleComplete"
-        @open-detail="openDetail"
-      />
+      <!-- Filter no-match state (filter active but nothing passes) -->
+      <div
+        v-if="filteredDeadlines.length === 0 && deadlines.length > 0"
+        class="py-12 text-center text-sm text-gray-400"
+        data-testid="filter-no-match"
+      >
+        {{ t('deadlines.filterNoMatch') }}
+      </div>
+
+      <template v-else>
+        <TaskListView
+          v-if="activeView === PANEL_VIEWS.TASKS"
+          :deadlines="filteredDeadlines"
+          @toggle-complete="handleToggleComplete"
+          @open-detail="openDetail"
+        />
+        <WeekView
+          v-else-if="activeView === PANEL_VIEWS.WEEK"
+          :deadlines="filteredDeadlines"
+          @toggle-complete="handleToggleComplete"
+          @open-detail="openDetail"
+        />
+        <MonthView
+          v-else-if="activeView === PANEL_VIEWS.MONTH"
+          :deadlines="filteredDeadlines"
+          @toggle-complete="handleToggleComplete"
+          @open-detail="openDetail"
+        />
+      </template>
     </div>
 
     <!-- Task detail modal (edit mode) -->
