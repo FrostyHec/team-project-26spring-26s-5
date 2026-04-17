@@ -51,10 +51,17 @@ describe('useSettingsStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.resetAllMocks()
+    const mockLocalStorage = {
+      setItem: vi.fn(),
+      getItem: vi.fn(),
+      removeItem: vi.fn(),
+    }
+    vi.stubGlobal('localStorage', mockLocalStorage)
   })
 
   afterEach(() => {
     vi.useRealTimers()
+    vi.unstubAllGlobals()
   })
 
   it('initializes with correct default state', () => {
@@ -260,10 +267,8 @@ describe('useSettingsStore', () => {
 
     it('setLocale updates localStorage', () => {
       const store = useSettingsStore()
-      const spy = vi.spyOn(Storage.prototype, 'setItem')
       store.setLocale('zh')
-      expect(spy).toHaveBeenCalledWith('app-locale', 'zh')
-      spy.mockRestore()
+      expect(localStorage.setItem).toHaveBeenCalledWith('app-locale', 'zh')
     })
   })
 })

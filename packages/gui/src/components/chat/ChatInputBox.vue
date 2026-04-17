@@ -4,7 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { Send, Paperclip } from 'lucide-vue-next'
 import { useChatStore } from '@/stores/chat'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const chatStore = useChatStore()
 
 const inputText = ref('')
@@ -92,7 +92,7 @@ async function handleSend() {
   showSkillMenu.value = false
   // Reset textarea height
   if (inputRef.value) inputRef.value.style.height = 'auto'
-  await chatStore.sendMessage(msg)
+  await chatStore.sendMessage(msg, locale.value)
 }
 
 /**

@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from agent_core.api.approval import resolve_pending
 from agent_core.api.dependencies import get_agent, get_agent_for_skill
+from agent_core.api.routes.utils import get_language
 from agent_core.engine.agent import ReactAgent
 from agent_core.logging_utils import get_logger
 from agent_core.models.events import ErrorEvent
@@ -45,12 +46,14 @@ class ChatResponse(BaseModel):
 @router.post("/chat", response_model=ChatResponse)
 async def chat(
     request: ChatRequest,
+    language: str = Depends(get_language),
     agent: ReactAgent = Depends(get_agent),
 ) -> ChatResponse:
     """Send a message and get a complete response.
 
     Args:
         request: The chat request payload.
+        language: Language code from X-Language header.
         agent: Injected ReactAgent instance.
 
     Returns:
@@ -60,7 +63,9 @@ async def chat(
         HTTPException: 502 if the LLM call fails.
     """
     try:
-        target = get_agent_for_skill(request.skill) if request.skill else agent
+        target = (
+            get_agent_for_skill(request.skill, language) if request.skill else agent
+        )
         response = await target.chat(request.message, session_id=request.session_id)
     except Exception as e:
         logger.exception("Chat request failed")
@@ -71,19 +76,20 @@ async def chat(
 @router.post("/chat/stream")
 async def chat_stream(
     request: ChatRequest,
+    language: str = Depends(get_language),
     agent: ReactAgent = Depends(get_agent),
 ) -> StreamingResponse:
     """Stream agent execution steps as Server-Sent Events.
 
     Args:
         request: The chat request payload.
+        language: Language code from X-Language header.
         agent: Injected ReactAgent instance.
 
     Returns:
         SSE stream of agent events.
     """
-
-    target = get_agent_for_skill(request.skill) if request.skill else agent
+    target = get_agent_for_skill(request.skill, language) if request.skill else agent
 
     async def event_generator() -> AsyncGenerator[str, None]:
         try:

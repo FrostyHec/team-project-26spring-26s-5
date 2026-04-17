@@ -40,16 +40,18 @@ class TestToolsEndpoint:
         assert response.status_code == 200
         tools = response.json()
         assert isinstance(tools, list)
-        assert (
-            len(tools) == 26
-        )  # 4 calc + 1 weather + 4 widget + 9 deadline + 7 email + 1 policy_search
+        # 4 calculator + 1 weather + 4 widget + 9 deadline
+        #   + 7 email + 3 course + 1 policy_search
+        assert len(tools) == 29
         names = {t["name"] for t in tools}
         assert "add" in names
         assert "subtract" in names
         assert "multiply" in names
         assert "divide" in names
         assert "get_weather" in names
-        assert "show_document" in names  # show_calendar removed
+        assert "show_document" in names
+        assert "analyze_document" in names
+        assert "read_file" in names
 
 
 class TestChatEndpointErrors:

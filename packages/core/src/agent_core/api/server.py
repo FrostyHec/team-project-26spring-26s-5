@@ -17,6 +17,7 @@ from agent_core.api.dependencies import init_dependencies, shutdown_dependencies
 from agent_core.api.routes.chat import router as chat_router
 from agent_core.api.routes.deadlines import router as deadlines_router
 from agent_core.api.routes.email import router as email_router
+from agent_core.api.routes.evaluate import router as evaluate_router
 from agent_core.api.routes.health import router as health_router
 from agent_core.api.routes.sessions import router as sessions_router
 from agent_core.api.routes.settings import router as settings_router
@@ -66,6 +67,7 @@ def create_app(config: AgentConfig | None = None) -> FastAPI:
     app.include_router(chat_router)
     app.include_router(sessions_router)
     app.include_router(deadlines_router)
+    app.include_router(evaluate_router)
     app.include_router(settings_router)
     app.include_router(email_router)
 

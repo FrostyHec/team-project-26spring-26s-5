@@ -23,11 +23,13 @@ export type EventType = (typeof EVENT_TYPES)[keyof typeof EVENT_TYPES]
 export const WIDGET_TYPES = {
   CALENDAR: 'calendar',
   DOCUMENT: 'document',
+  DOCUMENT_ANALYSIS: 'document_analysis',
   WEB_PREVIEW: 'web_preview',
   COURSE_CARDS: 'course_cards',
   SOURCES: 'sources',
   NEWS_DIGEST: 'news_digest',
   INBOX: 'inbox',
+  QUIZ: 'quiz',
   EMPTY: 'empty',
 } as const
 

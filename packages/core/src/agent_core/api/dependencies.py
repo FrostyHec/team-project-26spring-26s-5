@@ -30,6 +30,7 @@ _profile_service: ProfileService | None = None
 _email_store: EmailStore | None = None
 _email_service: EmailService | None = None
 _config: AgentConfig | None = None
+_llm: ChatOpenAI | None = None
 
 
 def _create_tool_registry() -> ToolRegistry:
@@ -50,12 +51,14 @@ def _create_tool_registry() -> ToolRegistry:
 def create_agent(
     config: AgentConfig | None = None,
     skill_id: str | None = None,
+    language: str = "en",
 ) -> ReactAgent:
     """Create and configure a ReactAgent instance.
 
     Args:
         config: Optional configuration. Uses env if not provided.
         skill_id: Optional skill ID for system prompt override.
+        language: Language code for multi-language skills (default "en").
 
     Returns:
         Configured ReactAgent.
@@ -75,8 +78,10 @@ def create_agent(
     llm = ChatOpenAI(**llm_kwargs)
     registry = _create_tool_registry()
 
-    # Use skill-specific system prompt if provided
-    system_prompt = get_system_prompt_for_skill(skill_id) or config.system_prompt
+    # Use skill-specific system prompt if provided (with language support)
+    system_prompt = (
+        get_system_prompt_for_skill(skill_id, language) or config.system_prompt
+    )
 
     return ReactAgent(
         llm=llm,
@@ -91,6 +96,7 @@ async def init_dependencies(config: AgentConfig | None = None) -> None:
     Args:
         config: Optional configuration.
     """
+    global _llm
     global _agent, _store, _profile_store, _profile_service
     global _email_store, _email_service, _config
     _config = config or AgentConfig.from_env()
@@ -137,9 +143,21 @@ async def init_dependencies(config: AgentConfig | None = None) -> None:
     _agent.session_store = _store
     _agent.approval_handler = make_api_approval_handler
 
+    # Create shared LLM instance for direct use (e.g., evaluation)
+    llm_kwargs: dict[str, Any] = {
+        "model": _config.model_name,
+        "temperature": 0.3,  # Lower temp for evaluation
+    }
+    if _config.openai_api_key:
+        llm_kwargs["api_key"] = _config.openai_api_key
+    if _config.openai_base_url:
+        llm_kwargs["base_url"] = _config.openai_base_url
+    _llm = ChatOpenAI(**llm_kwargs)
+
 
 async def shutdown_dependencies() -> None:
     """Release all singletons (called during lifespan shutdown)."""
+    global _llm
     global _agent, _store, _profile_store, _profile_service
     global _email_store, _email_service, _config
     if _store:
@@ -155,6 +173,7 @@ async def shutdown_dependencies() -> None:
     _email_service = None
     _agent = None
     _config = None
+    _llm = None
     # Reset provider-module singletons so tools don't point at closed stores
     from agent_core.persistence.email_provider import (
         set_email_service,
@@ -179,7 +198,7 @@ def get_agent() -> ReactAgent:
     return _agent
 
 
-def get_agent_for_skill(skill_id: str | None) -> ReactAgent:
+def get_agent_for_skill(skill_id: str | None, language: str = "en") -> ReactAgent:
     """Get an agent configured for a specific skill.
 
     If no skill_id is given (or it matches the default), returns the
@@ -188,6 +207,7 @@ def get_agent_for_skill(skill_id: str | None) -> ReactAgent:
 
     Args:
         skill_id: Optional skill identifier.
+        language: Language code for multi-language skills (default "en").
 
     Returns:
         A ReactAgent with the appropriate system prompt.
@@ -196,7 +216,7 @@ def get_agent_for_skill(skill_id: str | None) -> ReactAgent:
     if not skill_id:
         return base
 
-    agent = create_agent(_config, skill_id=skill_id)
+    agent = create_agent(_config, skill_id=skill_id, language=language)
     agent.session_store = base.session_store
     agent.approval_handler = base.approval_handler
     return agent
@@ -214,6 +234,22 @@ def get_store() -> SessionStore:
     if _store is None:
         raise RuntimeError("SessionStore not initialized")
     return _store
+
+
+def get_llm() -> ChatOpenAI:
+    """FastAPI dependency that provides a shared ChatOpenAI instance.
+
+    Used for direct LLM calls outside the agent (e.g., quiz evaluation).
+
+    Returns:
+        A configured ChatOpenAI instance.
+
+    Raises:
+        RuntimeError: If dependencies have not been initialized.
+    """
+    if _llm is None:
+        raise RuntimeError("LLM not initialized")
+    return _llm
 
 
 def get_profile_store() -> ProfileStore:

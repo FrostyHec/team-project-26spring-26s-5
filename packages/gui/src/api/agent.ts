@@ -94,11 +94,15 @@ export async function sendMessage(
 /**
  * Stream a chat response via SSE.
  * Yields AgentEvent objects for real-time UI updates.
+ *
+ * The language is sent via X-Language header to the backend for
+ * multi-language prompt selection.
  */
 export async function* streamMessage(
   message: string,
   sessionId?: string,
   skill?: string,
+  language: string = 'en',
 ): AsyncGenerator<AgentEvent> {
   const body: Record<string, unknown> = { message }
   if (sessionId) body.session_id = sessionId
@@ -106,7 +110,10 @@ export async function* streamMessage(
 
   const response = await fetch(`${API_BASE}/chat/stream`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Language': language,
+    },
     body: JSON.stringify(body),
   })
 
@@ -302,6 +309,64 @@ export async function fetchDeadlines(course?: string, priority?: string): Promis
   }
   const data = await response.json()
   return data.deadlines
+}
+
+// ---------- Quiz Evaluation ----------
+
+/** A single quiz question for evaluation request. */
+export interface QuizQuestionForEval {
+  id: number
+  type: 'multiple_choice' | 'true_false' | 'fill_blank' | 'short_answer'
+  question: string
+  options: string[] | null
+  correct_answer: string
+  explanation: string | null
+  score: number
+}
+
+/** Evaluation result for a single question. */
+export interface QuestionEvaluation {
+  score: number
+  standard_answer: string
+  analysis: string
+  total_score_included: boolean
+}
+
+/** Evaluation result for the whole quiz. */
+export interface QuizEvaluationResult {
+  evaluations: Record<string, QuestionEvaluation>
+}
+
+/**
+ * Evaluate quiz answers using LLM.
+ * fill_blank and short_answer questions are sent to LLM for evaluation;
+ * multiple_choice and true_false are auto-scored.
+ *
+ * The language is determined by the frontend i18n locale and sent via
+ * the X-Language header to the backend for prompt selection.
+ */
+export async function evaluateQuiz(
+  questions: QuizQuestionForEval[],
+  userAnswers: Record<string, string>,
+  useAiGrading: boolean = true,
+  language: string = 'en',
+): Promise<QuizEvaluationResult> {
+  const response = await fetch(`${API_BASE}/evaluate`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Language': language,
+    },
+    body: JSON.stringify({
+      questions,
+      user_answers: userAnswers,
+      use_ai_grading: useAiGrading,
+    }),
+  })
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`)
+  }
+  return response.json()
 }
 
 /**

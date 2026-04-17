@@ -16,6 +16,7 @@ import {
   deleteDeadline,
   updateDeadline,
   createDeadline,
+  evaluateQuiz,
 } from '../agent'
 
 // Mock global fetch
@@ -457,6 +458,101 @@ describe('API client', () => {
       mockFetch.mockResolvedValue({ ok: false, status: 422 })
 
       await expect(createDeadline({ title: '' })).rejects.toThrow('API error: 422')
+    })
+  })
+
+  // ── A009: evaluateQuiz ─────────────────────────────────────────
+
+  describe('evaluateQuiz', () => {
+    const mockQuestions = [
+      {
+        id: 1,
+        type: 'multiple_choice' as const,
+        question: 'What is 2+2?',
+        options: ['3', '4', '5'],
+        correct_answer: '4',
+        explanation: null,
+        score: 1,
+      },
+    ]
+    const mockUserAnswers = { '1': '4' }
+    const mockResult = {
+      evaluations: {
+        '1': {
+          score: 1,
+          standard_answer: '4',
+          analysis: 'Correct!',
+          total_score_included: true,
+        },
+      },
+    }
+
+    it('sends POST to /evaluate with correct body and X-Language header', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(mockResult),
+      })
+
+      const result = await evaluateQuiz(mockQuestions, mockUserAnswers, true, 'zh')
+
+      expect(result).toEqual(mockResult)
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/evaluate'),
+        expect.objectContaining({
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Language': 'zh',
+          },
+          body: JSON.stringify({
+            questions: mockQuestions,
+            user_answers: mockUserAnswers,
+            use_ai_grading: true,
+          }),
+        }),
+      )
+    })
+
+    it('uses default language en when not specified', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(mockResult),
+      })
+
+      await evaluateQuiz(mockQuestions, mockUserAnswers)
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/evaluate'),
+        expect.objectContaining({
+          headers: expect.objectContaining({ 'X-Language': 'en' }),
+        }),
+      )
+    })
+
+    it('uses default useAiGrading true when not specified', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(mockResult),
+      })
+
+      await evaluateQuiz(mockQuestions, mockUserAnswers)
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/evaluate'),
+        expect.objectContaining({
+          body: JSON.stringify({
+            questions: mockQuestions,
+            user_answers: mockUserAnswers,
+            use_ai_grading: true,
+          }),
+        }),
+      )
+    })
+
+    it('throws on non-OK response', async () => {
+      mockFetch.mockResolvedValue({ ok: false, status: 500 })
+
+      await expect(evaluateQuiz(mockQuestions, mockUserAnswers)).rejects.toThrow('API error: 500')
     })
   })
 })

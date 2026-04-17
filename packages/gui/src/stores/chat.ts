@@ -277,8 +277,11 @@ export const useChatStore = defineStore('chat', () => {
 
   // ---- Chat ----
 
-  /** Send a message and stream the response. */
-  async function sendMessage(content: string): Promise<void> {
+  /** Send a message and stream the response.
+   * @param content The message content to send.
+   * @param language The language code for multi-language prompt selection (e.g., 'en' or 'zh').
+   */
+  async function sendMessage(content: string, language: string = 'en'): Promise<void> {
     if (!content.trim() || isLoading.value) return
 
     error.value = null
@@ -329,6 +332,7 @@ export const useChatStore = defineStore('chat', () => {
         content,
         currentSessionId ?? undefined,
         session.skill,
+        language,
       )) {
         handleStreamEvent(event, reactiveMsg)
       }
