@@ -33,7 +33,9 @@ SKILL = SkillDefinition(
         "- Default priority is 'medium' unless the user indicates urgency\n"
         "- After saving or adding deadlines, offer to show the dashboard\n"
         "- When displaying results, organize by due date (earliest first)\n"
-        "- Use show_deadline_dashboard() for visual deadline display when appropriate"
+        "- You must use show_deadline_dashboard() for visual deadline display"
+        " when completing any deadline management task, including after syncing,"
+        " adding, or listing deadlines."
     ),
     icon="Calendar",
     color="text-red-500",
