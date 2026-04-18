@@ -28,14 +28,30 @@ export function toDateOnly(iso: string): string {
 
 /**
  * Return the computed timeline status for a task.
+ *
+ * Day-precision tasks (MOMENT_DAY / PERIOD_DAY) compare only the calendar
+ * date.  Hour-minute tasks (MOMENT_HM / PERIOD_HM) compare the full
+ * datetime so that a task due at 20:39 correctly flips to OVERDUE at 20:40
+ * on the same calendar day.
  */
 export function computeTaskStatus(task: DeadlineInfo): TaskStatus {
   if (task.completed) return TASK_STATUS.COMPLETED
   if (task.date_type === DateType.NO_DATE || !task.due_date) return TASK_STATUS.NO_DATE
 
+  const isHm = task.date_type === DateType.MOMENT_HM || task.date_type === DateType.PERIOD_HM
+
+  if (isHm) {
+    const due = new Date(task.due_date)
+    const now = new Date()
+    if (due < now) return TASK_STATUS.OVERDUE
+    const today = todayDateStr()
+    const dueDay = toDateOnly(task.due_date)
+    if (dueDay === today) return TASK_STATUS.TODAY
+    return TASK_STATUS.UPCOMING
+  }
+
   const today = todayDateStr()
   const dueDay = toDateOnly(task.due_date)
-
   if (dueDay < today) return TASK_STATUS.OVERDUE
   if (dueDay === today) return TASK_STATUS.TODAY
   return TASK_STATUS.UPCOMING

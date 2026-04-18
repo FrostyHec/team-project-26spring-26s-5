@@ -19,7 +19,8 @@
       "casService": "Campus System Service",
       "emailService": "Email Service",
       "extensionService": "Extension Service",
-      "language": "Language"
+      "language": "Language",
+      "deadlineManagement": "DDL Management"
     },
     "language": {
       "title": "Language",
@@ -236,5 +237,32 @@
     "syncEmails": "Failed to sync emails",
     "loadEmails": "Failed to load emails",
     "sendEmail": "Failed to send email"
+  },
+  "deadlineAlarm": {
+    "title": "DDL Reminders",
+    "description": "Configure deadline reminders to receive notifications before DDLs are due.",
+    "enabled": "Enable DDL Reminders",
+    "leadTimes": "Advance Notice",
+    "hourOnlyHint": "(only for tasks with hour:minute precision)",
+    "channels": "Notification Channels",
+    "enabledPriorities": "Priority Levels",
+    "hour1": "1 hour before",
+    "hour3": "3 hours before",
+    "hour6": "6 hours before",
+    "hour12": "12 hours before",
+    "day1": "1 day before",
+    "day3": "3 days before",
+    "week1": "1 week before",
+    "inApp": "In-app notification",
+    "emailChannel": "Email notification",
+    "emailRequiresConfig": "(requires email account configured in Email Service)",
+    "priorityHigh": "High priority",
+    "priorityMedium": "Medium priority",
+    "priorityLow": "Low priority",
+    "settingsSaved": "Reminder settings saved",
+    "notificationTitle": "DDL Reminder",
+    "notificationBody": "You have {count} upcoming DDL(s)",
+    "dismiss": "Dismiss",
+    "validationError": "When reminders are enabled, select at least one option for advance notice, channel, and priority."
   }
 }

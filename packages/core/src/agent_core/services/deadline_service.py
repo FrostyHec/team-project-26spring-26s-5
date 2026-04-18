@@ -12,7 +12,7 @@ Architecture note (validation layers):
 """
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from agent_core.logging_utils import get_logger
@@ -163,6 +163,7 @@ def build_record_from_dict(
         description=description,
         date_type=date_type,
         start_date=start_date,
+        created_at=datetime.now(UTC),
     )
     return record, warnings
 
@@ -279,6 +280,7 @@ class DeadlineService:
             description=description,
             date_type=date_type,
             start_date=start_date,
+            created_at=datetime.now(UTC),
         )
         saved = await self._store.add(record)
         return saved, warnings

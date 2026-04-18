@@ -6,7 +6,7 @@
  * a refresh button, and renders the active sub-view.  All deadline data
  * is fetched from the REST API and managed locally.
  */
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { fetchDeadlines, toggleDeadlineComplete, type DeadlineInfo } from '@/api/agent'
 import { useChatStore } from '@/stores/chat'
@@ -37,6 +37,11 @@ const showSyncPanel = ref(false)
 const detailTask = ref<DeadlineInfo | null>(null)
 const showCreateModal = ref(false)
 
+// Increments every 60 s so that computed properties that read it
+// (e.g. filteredDeadlines) are invalidated and overdue statuses recompute.
+const tickNow = ref(Date.now())
+let _tickTimer: ReturnType<typeof setInterval> | null = null
+
 const uniqueCourses = computed<string[]>(() => {
   const courses = new Set(deadlines.value.map((d) => d.course).filter(Boolean))
   return [...courses].sort()
@@ -50,6 +55,8 @@ watch(uniqueCourses, (courses) => {
 })
 
 const filteredDeadlines = computed(() => {
+  // Depend on tickNow so Vue recomputes statuses every minute even if data is unchanged.
+  tickNow.value
   let result = deadlines.value
   if (hideCompleted.value) result = result.filter((d) => !d.completed)
   if (filterCourse.value) result = result.filter((d) => d.course === filterCourse.value)
@@ -104,7 +111,19 @@ function handleCreateSaved() {
   loadDeadlines()
 }
 
-onMounted(loadDeadlines)
+onMounted(() => {
+  loadDeadlines()
+  _tickTimer = setInterval(() => {
+    tickNow.value = Date.now()
+  }, 60_000)
+})
+
+onUnmounted(() => {
+  if (_tickTimer !== null) {
+    clearInterval(_tickTimer)
+    _tickTimer = null
+  }
+})
 
 // Auto-refresh when a deadline-mutating tool completes in the chat.
 watch(() => chatStore.deadlineVersion, loadDeadlines)

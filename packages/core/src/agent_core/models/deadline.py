@@ -160,6 +160,12 @@ class DeadlineRecord(SQLModel, table=True):
     date_type: DateType = Field(default=DateType.MOMENT_DAY, sa_type=String())
     start_date: datetime | None = Field(default=None, sa_type=LenientDateTime())
     completed: bool = Field(default=False)
+    # Tracks when the record was first created/imported.
+    # Used by the alarm service to skip tasks that were already overdue at
+    # import time (due_date <= created_at → never remind).
+    # NULL means legacy data; the store's migration fills it with the
+    # migration timestamp so historical overdue tasks are excluded.
+    created_at: datetime | None = Field(default=None, sa_type=LenientDateTime())
 
 
 def _coerce_deadline_enums(target: DeadlineRecord, _context: object) -> None:

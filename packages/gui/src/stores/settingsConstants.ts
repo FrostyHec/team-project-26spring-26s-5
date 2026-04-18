@@ -21,6 +21,7 @@ export const SETTINGS_SECTIONS = {
   EMAIL_SERVICE: 'email_service',
   EXTENSION_SERVICE: 'extension_service',
   LANGUAGE: 'language',
+  DEADLINE_MANAGEMENT: 'deadline_management',
 } as const
 
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[keyof typeof SETTINGS_SECTIONS]
@@ -35,6 +36,7 @@ export const SETTINGS_SECTION_I18N_KEYS: Record<SettingsSection, string> = {
   [SETTINGS_SECTIONS.EMAIL_SERVICE]: 'settings.sections.emailService',
   [SETTINGS_SECTIONS.EXTENSION_SERVICE]: 'settings.sections.extensionService',
   [SETTINGS_SECTIONS.LANGUAGE]: 'settings.sections.language',
+  [SETTINGS_SECTIONS.DEADLINE_MANAGEMENT]: 'settings.sections.deadlineManagement',
 }
 
 /** Ordered list of all settings sections for navigation. */
@@ -43,6 +45,7 @@ export const SETTINGS_SECTION_LIST: SettingsSection[] = [
   SETTINGS_SECTIONS.EMAIL_SERVICE,
   SETTINGS_SECTIONS.EXTENSION_SERVICE,
   SETTINGS_SECTIONS.LANGUAGE,
+  SETTINGS_SECTIONS.DEADLINE_MANAGEMENT,
 ]
 
 /** Duration in milliseconds before the success message auto-dismisses. */

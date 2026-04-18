@@ -7,7 +7,7 @@ objects from the Service layer and translates them into DB operations.
 """
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import func, text
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -69,6 +69,7 @@ class DeadlineStore:
         async with self._engine.begin() as conn:
             await conn.run_sync(DeadlineRecord.metadata.create_all)
             await conn.run_sync(self._migrate_nullable_dates)
+            await conn.run_sync(self._migrate_add_created_at)
         logger.info("Deadline store initialised at %s", self.db_path)
 
     @staticmethod
@@ -147,6 +148,46 @@ class DeadlineStore:
         conn.execute(text("ALTER TABLE deadlines_new RENAME TO deadlines"))
         conn.execute(text("PRAGMA foreign_keys = ON"))
         logger.info("Migration complete: date columns are now nullable")
+
+    @staticmethod
+    def _migrate_add_created_at(connection: object) -> None:
+        """Add ``created_at`` column to deadlines table if missing (sync callback).
+
+        For existing rows (legacy data), sets ``created_at`` to the current
+        migration timestamp so that:
+        - Rows whose ``due_date < migration_time`` are treated as historical
+          overdue tasks and will never trigger alarms.
+        - Rows whose ``due_date >= migration_time`` remain alarm-eligible.
+
+        This migration is idempotent.
+        """
+        from datetime import datetime
+
+        from sqlalchemy import Connection, inspect
+        from sqlalchemy import text as sa_text
+
+        conn: Connection = connection  # type: ignore[assignment]
+
+        inspector = inspect(conn)
+        if "deadlines" not in inspector.get_table_names():
+            return  # Table will be created fresh with the column by create_all
+
+        columns = {c["name"] for c in inspector.get_columns("deadlines")}
+        if "created_at" in columns:
+            return  # Already migrated
+
+        logger.info("Migrating deadlines table: adding created_at column")
+        conn.execute(sa_text("ALTER TABLE deadlines ADD COLUMN created_at TEXT"))
+
+        migration_ts = datetime.now(UTC).isoformat()
+        conn.execute(
+            sa_text("UPDATE deadlines SET created_at = :ts WHERE created_at IS NULL"),
+            {"ts": migration_ts},
+        )
+        logger.info(
+            "Migration complete: created_at added, existing rows set to %s",
+            migration_ts,
+        )
 
     async def close(self) -> None:
         """Dispose the engine and release connections."""

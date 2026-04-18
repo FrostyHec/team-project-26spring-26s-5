@@ -11,16 +11,23 @@ from langchain_openai import ChatOpenAI
 from agent_core.api.approval import make_api_approval_handler
 from agent_core.config import AgentConfig
 from agent_core.engine.agent import ReactAgent
+from agent_core.logging_utils import get_logger
+from agent_core.persistence.alarm_store import AlarmStore
+from agent_core.persistence.deadline_store import DeadlineStore
 from agent_core.persistence.email_store import EmailStore
 from agent_core.persistence.profile_store import ProfileStore
 from agent_core.persistence.session_store import SessionStore
 from agent_core.security.encryption import reset_fernet
+from agent_core.services.alarm_scheduler import AlarmScheduler
+from agent_core.services.alarm_service import AlarmService
 from agent_core.services.email_client import EmailClient
 from agent_core.services.email_service import EmailService
 from agent_core.services.profile_service import ProfileService
 from agent_core.skills import get_system_prompt_for_skill
 from agent_core.tools import auto_discover_and_register
 from agent_core.tools.registry import ToolRegistry
+
+logger = get_logger("api.dependencies")
 
 # Module-level singletons (initialized during app lifespan)
 _agent: ReactAgent | None = None
@@ -29,6 +36,9 @@ _profile_store: ProfileStore | None = None
 _profile_service: ProfileService | None = None
 _email_store: EmailStore | None = None
 _email_service: EmailService | None = None
+_alarm_store: AlarmStore | None = None
+_alarm_service: AlarmService | None = None
+_alarm_scheduler: AlarmScheduler | None = None
 _config: AgentConfig | None = None
 _llm: ChatOpenAI | None = None
 
@@ -98,7 +108,8 @@ async def init_dependencies(config: AgentConfig | None = None) -> None:
     """
     global _llm
     global _agent, _store, _profile_store, _profile_service
-    global _email_store, _email_service, _config
+    global _email_store, _email_service, _alarm_store, _alarm_service
+    global _alarm_scheduler, _config
     _config = config or AgentConfig.from_env()
 
     # Configure encryption key if provided
@@ -139,6 +150,34 @@ async def init_dependencies(config: AgentConfig | None = None) -> None:
     await set_email_store(_email_store)
     await set_email_service(_email_service)
 
+    # Alarm subsystem
+    _alarm_store = AlarmStore(_config.db_path)
+    await _alarm_store.initialize()
+
+    # Adapter: bridge AlarmService's (subject, body) → EmailService.send_email()
+    async def _alarm_send_email(subject: str, body: str) -> None:
+        from agent_core.models.email import SendEmailRequest
+
+        profile = await _profile_store.get_profile()
+        if not profile.email_account:
+            logger.warning(
+                "Cannot send alarm email: no email account configured in profile"
+            )
+            return
+        logger.info("Sending alarm email to %s", profile.email_account)
+        await _email_service.send_email(
+            SendEmailRequest(to=profile.email_account, subject=subject, plain_body=body)
+        )
+        logger.info("Alarm email sent to %s", profile.email_account)
+
+    _alarm_service = AlarmService(
+        deadline_store=await _init_deadline_store_for_alarm(_config.db_path),
+        alarm_store=_alarm_store,
+        send_email_fn=_alarm_send_email,
+    )
+    _alarm_scheduler = AlarmScheduler(_alarm_service)
+    await _alarm_scheduler.start()
+
     _agent = create_agent(_config)
     _agent.session_store = _store
     _agent.approval_handler = make_api_approval_handler
@@ -159,7 +198,15 @@ async def shutdown_dependencies() -> None:
     """Release all singletons (called during lifespan shutdown)."""
     global _llm
     global _agent, _store, _profile_store, _profile_service
-    global _email_store, _email_service, _config
+    global _email_store, _email_service, _alarm_store, _alarm_service
+    global _alarm_scheduler, _config
+    if _alarm_scheduler:
+        await _alarm_scheduler.stop()
+        _alarm_scheduler = None
+    if _alarm_store:
+        await _alarm_store.close()
+        _alarm_store = None
+    _alarm_service = None
     if _store:
         await _store.close()
         _store = None
@@ -292,3 +339,39 @@ def get_email_service() -> EmailService:
     if _email_service is None:
         raise RuntimeError("EmailService not initialized")
     return _email_service
+
+
+def get_alarm_service() -> AlarmService:
+    """FastAPI dependency that provides the AlarmService.
+
+    Returns:
+        The initialized AlarmService.
+
+    Raises:
+        RuntimeError: If the service has not been initialized.
+    """
+    if _alarm_service is None:
+        raise RuntimeError("AlarmService not initialized")
+    return _alarm_service
+
+
+async def _init_deadline_store_for_alarm(db_path: str) -> DeadlineStore:
+    """Create, initialize, and register the DeadlineStore singleton.
+
+    Uses *db_path* (from the app config) so that tests using
+    ``db_path=':memory:'`` share the same in-memory store across all
+    routes and services — avoiding a mismatch between the deadline tool
+    layer and the alarm service.
+    """
+    from pathlib import Path
+
+    from agent_core.persistence.deadline_provider import set_deadline_store
+
+    if db_path == ":memory:":
+        deadline_db = ":memory:"
+    else:
+        deadline_db = str(Path(db_path).with_name("deadlines.db"))
+    store = DeadlineStore(deadline_db)
+    await store.initialize()
+    await set_deadline_store(store)
+    return store

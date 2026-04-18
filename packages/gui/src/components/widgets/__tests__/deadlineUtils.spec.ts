@@ -102,25 +102,68 @@ describe('computeTaskStatus', () => {
     expect(computeTaskStatus(task)).toBe(TASK_STATUS.NO_DATE)
   })
 
-  it('returns OVERDUE when due_date < today', () => {
+  it('returns OVERDUE when due_date < today (day-precision)', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(2026, 3, 15))
     const task = makeTask({ due_date: '2026-04-10' })
     expect(computeTaskStatus(task)).toBe(TASK_STATUS.OVERDUE)
   })
 
-  it('returns TODAY when due_date == today', () => {
+  it('returns TODAY when due_date == today (day-precision)', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(2026, 3, 15))
     const task = makeTask({ due_date: '2026-04-15' })
     expect(computeTaskStatus(task)).toBe(TASK_STATUS.TODAY)
   })
 
-  it('returns UPCOMING when due_date > today', () => {
+  it('returns UPCOMING when due_date > today (day-precision)', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(2026, 3, 10))
     const task = makeTask({ due_date: '2026-04-15' })
     expect(computeTaskStatus(task)).toBe(TASK_STATUS.UPCOMING)
+  })
+
+  it('MOMENT_HM: returns OVERDUE when due datetime is in the past (same calendar day)', () => {
+    vi.useFakeTimers()
+    // now = 2026-04-15 20:40 local; task was due at 20:39 local (1 min ago)
+    vi.setSystemTime(new Date(2026, 3, 15, 20, 40, 0))
+    const task = makeTask({
+      date_type: DateType.MOMENT_HM,
+      due_date: new Date(2026, 3, 15, 20, 39, 0).toISOString(),
+    })
+    expect(computeTaskStatus(task)).toBe(TASK_STATUS.OVERDUE)
+  })
+
+  it('MOMENT_HM: returns TODAY when due time is later today', () => {
+    vi.useFakeTimers()
+    // now = 2026-04-15 09:00 local; task due at 21:00 local (later today)
+    vi.setSystemTime(new Date(2026, 3, 15, 9, 0, 0))
+    const task = makeTask({
+      date_type: DateType.MOMENT_HM,
+      due_date: new Date(2026, 3, 15, 21, 0, 0).toISOString(),
+    })
+    expect(computeTaskStatus(task)).toBe(TASK_STATUS.TODAY)
+  })
+
+  it('MOMENT_HM: returns UPCOMING when due datetime is tomorrow', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 3, 15, 20, 40, 0))
+    const task = makeTask({
+      date_type: DateType.MOMENT_HM,
+      due_date: new Date(2026, 3, 16, 20, 39, 0).toISOString(),
+    })
+    expect(computeTaskStatus(task)).toBe(TASK_STATUS.UPCOMING)
+  })
+
+  it('PERIOD_HM: returns OVERDUE when end datetime has passed today', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 3, 15, 22, 0, 0))
+    const task = makeTask({
+      date_type: DateType.PERIOD_HM,
+      start_date: new Date(2026, 3, 14, 8, 0, 0).toISOString(),
+      due_date: new Date(2026, 3, 15, 21, 0, 0).toISOString(),
+    })
+    expect(computeTaskStatus(task)).toBe(TASK_STATUS.OVERDUE)
   })
 })
 

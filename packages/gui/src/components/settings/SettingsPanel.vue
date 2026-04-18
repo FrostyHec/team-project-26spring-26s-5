@@ -19,6 +19,9 @@ const SECTION_COMPONENTS: Record<SettingsSection, ReturnType<typeof defineAsyncC
     () => import('./ExtensionServiceSettings.vue'),
   ),
   [SETTINGS_SECTIONS.LANGUAGE]: defineAsyncComponent(() => import('./LanguageSettings.vue')),
+  [SETTINGS_SECTIONS.DEADLINE_MANAGEMENT]: defineAsyncComponent(
+    () => import('./DeadlineAlarmSettings.vue'),
+  ),
 }
 
 const activeSectionComponent = computed(() => SECTION_COMPONENTS[settingsStore.activeSection])

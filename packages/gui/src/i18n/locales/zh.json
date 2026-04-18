@@ -19,7 +19,8 @@
       "casService": "校内系统服务",
       "emailService": "邮件服务",
       "extensionService": "扩展服务",
-      "language": "语言"
+      "language": "语言",
+      "deadlineManagement": "DDL 管理"
     },
     "language": {
       "title": "语言",
@@ -236,5 +237,32 @@
     "syncEmails": "同步邮件失败",
     "loadEmails": "加载邮件失败",
     "sendEmail": "发送邮件失败"
+  },
+  "deadlineAlarm": {
+    "title": "DDL 提醒",
+    "description": "配置截止日期提醒，在 DDL 到期前收到通知。",
+    "enabled": "启用 DDL 提醒",
+    "leadTimes": "提前提醒时间",
+    "hourOnlyHint": "（仅适用于精确到时分的任务）",
+    "channels": "通知方式",
+    "enabledPriorities": "提醒优先级",
+    "hour1": "提前 1 小时",
+    "hour3": "提前 3 小时",
+    "hour6": "提前 6 小时",
+    "hour12": "提前 12 小时",
+    "day1": "提前 1 天",
+    "day3": "提前 3 天",
+    "week1": "提前 1 周",
+    "inApp": "站内通知",
+    "emailChannel": "邮件通知",
+    "emailRequiresConfig": "（需要先在邮件服务中配置邮箱账号）",
+    "priorityHigh": "高优先级",
+    "priorityMedium": "中优先级",
+    "priorityLow": "低优先级",
+    "settingsSaved": "提醒设置已保存",
+    "notificationTitle": "DDL 即将到期",
+    "notificationBody": "您有 {count} 个 DDL 即将到期",
+    "dismiss": "知道了",
+    "validationError": "启用提醒时，提醒时间、通知方式和优先级至少各选一项。"
   }
 }
