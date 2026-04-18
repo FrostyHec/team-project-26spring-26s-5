@@ -6,19 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-- Support settings panel in GUI
 - Support Basic Deadline Management Functionalities 
-    - import data
+    - import data from blackboard
     - add/edit/delete deadlines
     - deadline display in 3 views (timeline, week, month)
-- Deprecated Chainlit POC frontend.
-- Email Agent Feature:
+    - Alarming ddls via multiple channels (frontend & email)
+- Support Email Agent:
     - Full IMAP/SMTP integration with async I/O (`asyncio.to_thread`), CID inline image rewriting, and attachment deduplication
     - Multi-folder inbox (INBOX / Sent / Starred / Trash / Spam), lazy attachment fetch on demand, and per-attachment download UI
     - Rich-text compose with WangEditor v5; flag actions (mark unread / trash / spam) from detail view
     - Settings panel with fetch period, auto-sync toggle, test connection, and clear cache
     - Security fixes: path traversal guard via `Path.relative_to()`, typed `AttachmentNotFoundError`, correct HTTP 428/404/503 status codes
-    - 73 backend email tests; i18n coverage (en + zh)
+- Support Basic RAG-based Campus Policy Search
+    - PDF Parsing
+    - Indexing and context vector storage
+    - Related tool implementation
+- Support Course Materials Summarization
+    - PDF Parsing and reading
+    - Quiz Generation
+    - New Pannels for summarization display and quiz testing.
+- Support settings panel in GUI
+    - Configurations of SUSTech Blackboard, Email, Deadline Agent, languages, etc.
+- Support i18n (en/zh) switch in frontend
+- Project Management:
+    - Deprecated Chainlit POC frontend.
 
 ## [0.1.0] - 2025-04-01
 - Project Initialization:
