@@ -34,3 +34,6 @@ package-lock.json
 # Playwright reports / test results
 playwright-report/
 test-results/
+
+# Prompt content files — CJK characters are intentional content, not code
+prompts/

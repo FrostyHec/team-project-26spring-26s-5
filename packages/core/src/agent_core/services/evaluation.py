@@ -25,7 +25,6 @@ from agent_core.prompts_loader import (
     DEFAULT_LANGUAGE,
     build_evaluation_prompt,
     get_evaluation_prompt,
-    get_fallback_message,
 )
 
 logger = get_logger("services.evaluation")
@@ -162,12 +161,12 @@ class QuizEvaluationService:
         )
         user_answered = user_answer == question.correct_answer
         analysis_key = (
-            "auto_scored" if question.type == "true_false" else "choice_no_manual"
+            "autoScored" if question.type == "true_false" else "choiceNoManual"
         )
         return QuestionEvaluation(
             score=max_score if user_answered else 0.0,
             standard_answer=question.correct_answer,
-            analysis=get_fallback_message(analysis_key, self._language),
+            analysis=analysis_key,
             total_score_included=True,
         )
 
@@ -184,7 +183,7 @@ class QuizEvaluationService:
         return QuestionEvaluation(
             score=max_score if correct else 0.0,
             standard_answer=question.correct_answer,
-            analysis=get_fallback_message("auto_scored", self._language),
+            analysis="autoScored",
             total_score_included=True,
         )
 
@@ -206,7 +205,7 @@ class QuizEvaluationService:
         return QuestionEvaluation(
             score=0.0,
             standard_answer=question.correct_answer,
-            analysis=get_fallback_message("no_answer", self._language),
+            analysis="noAnswerProvided",
             total_score_included=True,
         )
 
@@ -261,9 +260,7 @@ class QuizEvaluationService:
         return QuestionEvaluation(
             score=max_score if correct else 0.0,
             standard_answer=question.correct_answer,
-            analysis=parsed.get(
-                "analysis", get_fallback_message("no_analysis", self._language)
-            ),
+            analysis=parsed.get("analysis", "noAnalysisAvailable"),
             total_score_included=True,
         )
 
@@ -283,9 +280,7 @@ class QuizEvaluationService:
         return QuestionEvaluation(
             score=score,
             standard_answer=parsed.get("standard_answer", question.correct_answer),
-            analysis=parsed.get(
-                "analysis", get_fallback_message("no_analysis", self._language)
-            ),
+            analysis=parsed.get("analysis", "noAnalysisAvailable"),
             total_score_included=True,
         )
 
@@ -305,17 +300,13 @@ class QuizEvaluationService:
             return QuestionEvaluation(
                 score=max_score if correct else 0.0,
                 standard_answer=question.correct_answer,
-                analysis=get_fallback_message(
-                    "service_unavailable_auto", self._language
-                ),
+                analysis="serviceUnavailableAuto",
                 total_score_included=True,
             )
         else:
             return QuestionEvaluation(
                 score=0.0,
                 standard_answer=question.correct_answer,
-                analysis=get_fallback_message(
-                    "service_unavailable_manual", self._language
-                ),
+                analysis="serviceUnavailableManual",
                 total_score_included=True,
             )

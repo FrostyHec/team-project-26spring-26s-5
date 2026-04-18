@@ -172,6 +172,22 @@ function getPlaceholder(type: string): string {
   return t('quiz.placeholderShortAnswer')
 }
 
+/** Translate analysis key (from backend) to localized string. */
+function getAnalysisText(analysis: string): string {
+  const i18nKeyMap: Record<string, string> = {
+    autoScored: 'quiz.autoScored',
+    choiceNoManual: 'quiz.choiceNoManual',
+    noAnswerProvided: 'quiz.noAnswerProvided',
+    noAnalysisAvailable: 'quiz.noAnalysisAvailable',
+    serviceUnavailableAuto: 'quiz.serviceUnavailableAuto',
+    serviceUnavailableManual: 'quiz.serviceUnavailableManual',
+  }
+  // If analysis is an i18n key (from backend fallback), translate it;
+  // otherwise it's raw LLM text — display as-is.
+  const i18nKey = i18nKeyMap[analysis]
+  return i18nKey ? t(i18nKey) : analysis
+}
+
 async function submitQuiz(): Promise<void> {
   if (isEvaluating.value) return
   isEvaluating.value = true
@@ -556,7 +572,7 @@ function defaultScore(q: QuizQuestion): number {
                     {{ t('quiz.analysisLabel') }}
                   </div>
                   <div class="text-sm text-gray-700 whitespace-pre-wrap">
-                    {{ question.evaluation!.analysis }}
+                    {{ getAnalysisText(question.evaluation!.analysis) }}
                   </div>
                 </div>
               </template>

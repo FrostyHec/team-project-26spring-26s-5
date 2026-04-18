@@ -130,7 +130,7 @@
     "defaultTitle": "练习题",
     "showAnswers": "显示答案",
     "hideAnswers": "隐藏答案",
-    "score": "分 ({text})",
+    "score": "{text}分",
     "resetQuiz": "重新答题",
     "typeMultipleChoice": "单选题",
     "typeTrueFalse": "判断题",

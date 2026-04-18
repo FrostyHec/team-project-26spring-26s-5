@@ -13,7 +13,6 @@ from pydantic import Field
 
 from agent_core.models.course_assistant import QuizQuestion, QuizWidgetData
 from agent_core.models.events import WidgetData, WidgetType
-from agent_core.prompts_loader import get_quiz_title
 from agent_core.tools.registry import ToolRegistry
 
 # ---------------------------------------------------------------------------
@@ -94,9 +93,9 @@ def generate_quiz(
         )
         result = generate_quiz(questions, "Python Basics Quiz")
     """
-    # Use localized default title from prompts config if not provided
+    # Let frontend use its own i18n default title when not provided
     if quiz_title is None:
-        quiz_title = get_quiz_title(language)
+        quiz_title = ""
 
     try:
         parsed = json.loads(questions_json)

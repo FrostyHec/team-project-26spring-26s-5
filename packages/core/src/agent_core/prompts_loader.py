@@ -1,13 +1,14 @@
 """Multi-language prompts loader for the agent.
 
-Loads evaluation and skill prompts from prompts.json, supporting multiple
-languages. The default language is English.
+Loads prompts from external .md files referenced by prompts.json index.
+Supports multiple languages with fallback to English.
 
 Language is passed from the frontend via the X-Language request header
 in the API call.
 """
 
 import json
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -17,27 +18,35 @@ SUPPORTED_LANGUAGES = {"en", "zh"}
 
 
 def _get_prompts_dir() -> Path:
-    """Get the directory containing prompts.json."""
-    return Path(__file__).parent
+    """Get the directory containing the prompts index and .md files."""
+    return Path(__file__).parent / "prompts"
 
 
-def _load_prompts() -> dict[str, Any]:
-    """Load all prompts from prompts.json."""
-    prompts_path = _get_prompts_dir() / "prompts.json"
-    with open(prompts_path, encoding="utf-8") as f:
+def _load_index() -> dict[str, Any]:
+    """Load the prompts index from prompts.json."""
+    index_path = _get_prompts_dir() / "prompts.json"
+    with open(index_path, encoding="utf-8") as f:
         return json.load(f)
 
 
-# Cache for loaded prompts
-_prompts_cache: dict[str, Any] | None = None
+# Cache for loaded index
+_index_cache: dict[str, Any] | None = None
 
 
-def _get_prompts() -> dict[str, Any]:
-    """Get cached prompts, loading if necessary."""
-    global _prompts_cache
-    if _prompts_cache is None:
-        _prompts_cache = _load_prompts()
-    return _prompts_cache
+def _get_index() -> dict[str, Any]:
+    """Get cached index, loading if necessary."""
+    global _index_cache
+    if _index_cache is None:
+        _index_cache = _load_index()
+    return _index_cache
+
+
+@lru_cache(maxsize=32)
+def _read_prompt_file(rel_path: str) -> str:
+    """Read a prompt .md file by its relative path from the index."""
+    prompts_dir = _get_prompts_dir()
+    file_path = prompts_dir / rel_path
+    return file_path.read_text(encoding="utf-8")
 
 
 def _validate_language(lang: str) -> str:
@@ -58,23 +67,29 @@ def get_evaluation_prompt(question_type: str, language: str = DEFAULT_LANGUAGE) 
         The system prompt in the specified language.
     """
     lang = _validate_language(language)
-    prompts = _get_prompts()
-    return prompts["evaluation"][question_type][lang]
+    index = _get_index()
+    rel_path = index["evaluation"][question_type][lang]
+    return _read_prompt_file(rel_path)
 
 
-def get_evaluation_header(question_type: str, language: str = DEFAULT_LANGUAGE) -> str:
-    """Get the evaluation header prompt for a question type.
+def get_course_assistant_prompt(language: str = DEFAULT_LANGUAGE) -> str:
+    """Get the course assistant system prompt.
 
     Args:
-        question_type: Either "short_answer" or "fill_blank".
         language: Language code (e.g., "en" or "zh").
 
     Returns:
-        The header prompt in the specified language.
+        The system prompt in the specified language.
     """
     lang = _validate_language(language)
-    prompts = _get_prompts()
-    return prompts["evaluation"]["headers"][lang][f"{question_type}_header"]
+    index = _get_index()
+    rel_path = index["course_assistant"]["system_prompt"][lang]
+    return _read_prompt_file(rel_path)
+
+
+# ---------------------------------------------------------------------------
+# Question templates — read from .md files (contain placeholder formatting)
+# ---------------------------------------------------------------------------
 
 
 def build_evaluation_prompt(
@@ -101,60 +116,14 @@ def build_evaluation_prompt(
         Formatted evaluation prompt.
     """
     lang = _validate_language(language)
-    prompts = _get_prompts()
-    headers = prompts["evaluation"]["headers"][lang]
-    no_answer = headers["no_answer"]
+    index = _get_index()
+    template = _read_prompt_file(index["evaluation"]["question_template"][lang])
 
-    template = headers["question_template"]
     return template.format(
         id=question_id,
         type=question_type,
         question=question_text,
         reference_answer=reference_answer,
         explanation=explanation or "N/A",
-        user_answer=user_answer if user_answer.strip() else no_answer,
+        user_answer=user_answer if user_answer.strip() else "",
     )
-
-
-def get_fallback_message(message_key: str, language: str = DEFAULT_LANGUAGE) -> str:
-    """Get a fallback message for evaluation.
-
-    Args:
-        message_key: One of auto_scored, choice_no_manual, no_answer,
-            no_analysis, service_unavailable_auto, service_unavailable_manual.
-        language: Language code (e.g., "en" or "zh").
-
-    Returns:
-        The fallback message in the specified language.
-    """
-    lang = _validate_language(language)
-    prompts = _get_prompts()
-    return prompts["evaluation"]["fallback_messages"][lang][message_key]
-
-
-def get_course_assistant_prompt(language: str = DEFAULT_LANGUAGE) -> str:
-    """Get the course assistant system prompt.
-
-    Args:
-        language: Language code (e.g., "en" or "zh").
-
-    Returns:
-        The system prompt in the specified language.
-    """
-    lang = _validate_language(language)
-    prompts = _get_prompts()
-    return prompts["course_assistant"]["system_prompt"][lang]
-
-
-def get_quiz_title(language: str = DEFAULT_LANGUAGE) -> str:
-    """Get the default quiz title.
-
-    Args:
-        language: Language code (e.g., "en" or "zh").
-
-    Returns:
-        The quiz title in the specified language.
-    """
-    lang = _validate_language(language)
-    prompts = _get_prompts()
-    return prompts["quiz"]["title"][lang]

@@ -130,7 +130,7 @@
     "defaultTitle": "Practice Quiz",
     "showAnswers": "Show Answers",
     "hideAnswers": "Hide Answers",
-    "score": "Score ({text})",
+    "score": "{text} points",
     "resetQuiz": "Reset Quiz",
     "typeMultipleChoice": "Multiple Choice",
     "typeTrueFalse": "True/False",

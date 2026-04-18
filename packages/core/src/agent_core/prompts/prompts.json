@@ -1,0 +1,22 @@
+{
+  "evaluation": {
+    "short_answer": {
+      "en": "evaluation/short_answer.en.md",
+      "zh": "evaluation/short_answer.zh.md"
+    },
+    "fill_blank": {
+      "en": "evaluation/fill_blank.en.md",
+      "zh": "evaluation/fill_blank.zh.md"
+    },
+    "question_template": {
+      "en": "evaluation/question_template.en.md",
+      "zh": "evaluation/question_template.zh.md"
+    }
+  },
+  "course_assistant": {
+    "system_prompt": {
+      "en": "course_assistant/system_prompt.en.md",
+      "zh": "course_assistant/system_prompt.zh.md"
+    }
+  }
+}
