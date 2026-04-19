@@ -157,7 +157,12 @@
     "serviceUnavailableAuto": "(Evaluation service unavailable, processed as auto-scored)",
     "serviceUnavailableManual": "(Evaluation service unavailable, please check reference answer and judge yourself)",
     "courseRecommend": "Course Recommendations",
-    "documentAnalysis": "Document Analysis"
+    "documentAnalysis": "Document Analysis",
+    "difficulty": {
+      "easy": "Easy",
+      "medium": "Medium",
+      "hard": "Hard"
+    }
   },
   "course": {
     "documentAnalysis": "Document Analysis",

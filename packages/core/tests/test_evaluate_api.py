@@ -486,7 +486,7 @@ class TestEvaluateShortAnswerAIEnabled:
             assert response.status_code == 200
             eval_ = response.json()["evaluations"]["9"]
             assert eval_["score"] == 0.0
-            assert eval_["total_score_included"] is True
+            assert eval_["total_score_included"] is False
         finally:
             del client.app.dependency_overrides[  # type: ignore[attr-defined]
                 get_llm

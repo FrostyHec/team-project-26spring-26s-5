@@ -21,6 +21,7 @@ class QuizQuestion(BaseModel):
     correct_answer: str
     explanation: str | None = None
     score: float | None = None  # Question score, None means use default
+    difficulty: Literal["easy", "medium", "hard"] | None = None
 
 
 class QuizWidgetData(WidgetData):
@@ -32,6 +33,7 @@ class QuizWidgetData(WidgetData):
     show_answers: bool = False
     source_content_preview: str = ""
     metadata: dict = {}
+    difficulty: Literal["easy", "medium", "hard"] | None = None
 
 
 class QuestionEvaluation(BaseModel):

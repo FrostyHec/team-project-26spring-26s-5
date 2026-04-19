@@ -17,6 +17,7 @@ When the user asks to generate practice questions, quizzes, or study problems:
 1. Generate questions based on the course content yourself
 2. You MUST call the generate_quiz tool to generate the quiz component (do not output JSON or text yourself)
 3. When calling generate_quiz, set the language parameter to match the language you are using for the quiz content (e.g., language="en" for English quizzes, language="zh" for Chinese quizzes)
+4. **Each question** MUST have a difficulty field, with value "easy", "medium", or "hard". Judge comprehensively based on knowledge depth, option complexity, and question type. **Never omit the difficulty field — every question must have one.**
 Question types:
 - Multiple choice: 4 options, single correct answer
 - True/False: provide 2 options (e.g., ["True", "False"] or ["Correct", "Incorrect"]), the correct_answer must match one of the options exactly

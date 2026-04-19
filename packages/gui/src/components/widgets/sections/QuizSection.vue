@@ -16,6 +16,7 @@ const props = defineProps<{
   title: string
   questions: QuizQuestion[]
   quizType: string
+  difficulty?: 'easy' | 'medium' | 'hard'
 }>()
 
 // State
@@ -57,6 +58,7 @@ const correctCount = computed(() => {
   if (!submitted.value) return 0
   return props.questions.filter((q) => {
     const eval_ = evaluationResults.value[String(q.id)]
+    if (eval_ && eval_.total_score_included === false) return false
     if (q.type === 'short_answer' && eval_) {
       return eval_.score >= (q.score ?? 10) * 0.5
     }
@@ -71,7 +73,7 @@ const totalScore = computed(() => {
   if (!submitted.value) return 0
   return props.questions.reduce((sum, q) => {
     const eval_ = evaluationResults.value[String(q.id)]
-    if (q.type === 'short_answer' && eval_) return sum + eval_.score
+    if (eval_ && eval_.total_score_included === false) return sum
     if (q.type === 'fill_blank' && eval_) return sum + eval_.score
     const questionScore =
       q.score ??
@@ -120,23 +122,25 @@ const scoreLabel = computed(() => {
 
 function isCorrect(question: QuizQuestion): boolean | null {
   if (!submitted.value) return null
+  const eval_ = evaluationResults.value[String(question.id)]
+  if (eval_ && eval_.total_score_included === false) return null
   if (question.type === 'short_answer') {
-    const eval_ = evaluationResults.value[String(question.id)]
     if (eval_) return eval_.score >= (question.score ?? 10) * 0.5
     return null
   }
   if (question.type === 'fill_blank') {
-    const eval_ = evaluationResults.value[String(question.id)]
     if (eval_) return eval_.score >= (question.score ?? 5) * 0.5
     return null
   }
   return userAnswers.value[question.id] === question.correct_answer
 }
 
-function getQuestionState(question: QuizQuestion): 'correct' | 'wrong' | 'unanswered' {
+function getQuestionState(question: QuizQuestion): 'correct' | 'wrong' | 'unanswered' | 'unscored' {
   if (!submitted.value) return 'unanswered'
+  const eval_ = evaluationResults.value[String(question.id)]
+  if (eval_ && eval_.total_score_included === false) return 'unscored'
   const correct = isCorrect(question)
-  return correct === true ? 'correct' : correct === false ? 'wrong' : 'unanswered'
+  return correct === true ? 'correct' : 'wrong'
 }
 
 function selectAnswer(questionId: number, answer: string): void {
@@ -191,13 +195,32 @@ function getAnalysisText(analysis: string): string {
 async function submitQuiz(): Promise<void> {
   if (isEvaluating.value) return
   isEvaluating.value = true
-  let evaluationFailed = false
-  try {
-    const userAnswersForApi: Record<string, string> = {}
-    for (const [k, v] of Object.entries(userAnswers.value)) {
-      userAnswersForApi[k] = v
+
+  // Unanswered fill_blank/short_answer: score 0, included in total
+  for (const q of props.questions) {
+    if (
+      (q.type === 'fill_blank' || q.type === 'short_answer') &&
+      userAnswers.value[q.id] === undefined
+    ) {
+      evaluationResults.value[String(q.id)] = {
+        score: 0,
+        standard_answer: q.correct_answer,
+        analysis: 'noAnswerProvided',
+        total_score_included: true,
+      }
     }
-    const questionsForApi: QuizQuestionForEval[] = props.questions.map((q) => ({
+  }
+
+  // Answered questions: call API for evaluation
+  const answeredQuestions = props.questions.filter((q) => userAnswers.value[q.id] !== undefined)
+
+  if (answeredQuestions.length > 0) {
+    const userAnswersForApi: Record<string, string> = {}
+    for (const q of answeredQuestions) {
+      const answer = userAnswers.value[q.id]
+      userAnswersForApi[String(q.id)] = answer as string
+    }
+    const questionsForApi: QuizQuestionForEval[] = answeredQuestions.map((q) => ({
       id: q.id,
       type: q.type,
       question: q.question,
@@ -214,36 +237,38 @@ async function submitQuiz(): Promise<void> {
               ? 5
               : 10),
     }))
-    const result: QuizEvaluationResult = await evaluateQuiz(
-      questionsForApi,
-      userAnswersForApi,
-      useAiGrading.value,
-      locale.value,
-    )
-    evaluationResults.value = result.evaluations
-  } catch (err) {
-    console.error('Evaluation failed:', err)
-    evaluationFailed = true
-  } finally {
-    isEvaluating.value = false
-    submitted.value = true
-    showAnswers.value = true
-  }
-  if (evaluationFailed) {
-    for (const q of props.questions) {
-      if (
-        (q.type === 'short_answer' || q.type === 'fill_blank') &&
-        !evaluationResults.value[String(q.id)]
-      ) {
-        evaluationResults.value[String(q.id)] = {
-          score: 0,
-          standard_answer: q.correct_answer,
-          analysis: t('quiz.serviceUnavailableManual'),
-          total_score_included: q.type === 'short_answer' ? false : true,
+
+    try {
+      const result: QuizEvaluationResult = await evaluateQuiz(
+        questionsForApi,
+        userAnswersForApi,
+        useAiGrading.value,
+        locale.value,
+      )
+      Object.assign(evaluationResults.value, result.evaluations)
+    } catch (err) {
+      console.error('Evaluation failed:', err)
+      // API failed: short_answer already answered → not included in total
+      for (const q of answeredQuestions) {
+        const existing = evaluationResults.value[String(q.id)]
+        if (
+          q.type === 'short_answer' &&
+          (existing === undefined || existing.total_score_included !== false)
+        ) {
+          evaluationResults.value[String(q.id)] = {
+            score: 0,
+            standard_answer: q.correct_answer,
+            analysis: 'serviceUnavailableManual',
+            total_score_included: false,
+          }
         }
       }
     }
   }
+
+  isEvaluating.value = false
+  submitted.value = true
+  showAnswers.value = true
 }
 
 function resetQuiz(): void {
@@ -351,6 +376,17 @@ function defaultScore(q: QuizQuestion): number {
         >
           {{ getQuizTypeLabel(quizType) }}
         </span>
+        <span
+          v-if="difficulty"
+          class="px-2 py-0.5 text-xs rounded-full"
+          :class="{
+            'bg-green-50 text-green-600': difficulty === 'easy',
+            'bg-yellow-50 text-yellow-600': difficulty === 'medium',
+            'bg-red-50 text-red-600': difficulty === 'hard',
+          }"
+        >
+          {{ t('quiz.difficulty.' + difficulty) }}
+        </span>
       </div>
     </div>
 
@@ -372,7 +408,9 @@ function defaultScore(q: QuizQuestion): number {
           :class="{
             'border-green-300 bg-green-50': getQuestionState(question) === 'correct',
             'border-red-300 bg-red-50': getQuestionState(question) === 'wrong',
-            'border-gray-200': getQuestionState(question) === 'unanswered',
+            'border-gray-200':
+              getQuestionState(question) === 'unanswered' ||
+              getQuestionState(question) === 'unscored',
           }"
         >
           <!-- Question header -->
@@ -383,7 +421,9 @@ function defaultScore(q: QuizQuestion): number {
                 :class="{
                   'bg-green-100 text-green-700': getQuestionState(question) === 'correct',
                   'bg-red-100 text-red-700': getQuestionState(question) === 'wrong',
-                  'bg-purple-100 text-purple-700': getQuestionState(question) === 'unanswered',
+                  'bg-purple-100 text-purple-700':
+                    getQuestionState(question) === 'unanswered' ||
+                    getQuestionState(question) === 'unscored',
                 }"
               >
                 {{ index + 1 }}
@@ -403,6 +443,17 @@ function defaultScore(q: QuizQuestion): number {
                 >
                   {{ getQuestionTypeLabel(question.type) }}
                   {{ t('quiz.score', { text: defaultScore(question) }) }}
+                </span>
+                <span
+                  v-if="question.difficulty"
+                  class="inline-block ml-1.5 px-2 py-0.5 text-xs rounded-full"
+                  :class="{
+                    'bg-green-50 text-green-600': question.difficulty === 'easy',
+                    'bg-yellow-50 text-yellow-600': question.difficulty === 'medium',
+                    'bg-red-50 text-red-600': question.difficulty === 'hard',
+                  }"
+                >
+                  {{ t('quiz.difficulty.' + question.difficulty) }}
                 </span>
                 <!-- fill_blank and short_answer score badge — uses pre-cached evaluation -->
                 <span

@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Quiz: add difficulty field (easy/medium/hard) to questions and quiz sets, auto-inferred from questions, displayed in frontend
+- Quiz: fix short_answer scoring when evaluation service unavailable — not counted in total score, shown as unscored
+
+## [0.2.0] - 2025-04-19
 - Support Basic Deadline Management Functionalities 
     - import data from blackboard
     - add/edit/delete deadlines

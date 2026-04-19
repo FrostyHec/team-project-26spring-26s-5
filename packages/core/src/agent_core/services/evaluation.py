@@ -308,5 +308,5 @@ class QuizEvaluationService:
                 score=0.0,
                 standard_answer=question.correct_answer,
                 analysis="serviceUnavailableManual",
-                total_score_included=True,
+                total_score_included=False,
             )

@@ -39,6 +39,10 @@ const quizType = computed(() => {
   const meta = props.data.metadata as Record<string, unknown> | undefined
   return (meta?.quiz_type as string) || 'mixed'
 })
+const quizDifficulty = computed(() => {
+  const d = props.data.difficulty
+  return d === 'easy' || d === 'medium' || d === 'hard' ? d : undefined
+})
 
 const summary = computed(() => (props.data.summary as string) || '')
 const keyPoints = computed(() =>
@@ -190,6 +194,7 @@ async function toggle(key: SectionKey): Promise<void> {
         :title="title"
         :questions="questions"
         :quiz-type="quizType"
+        :difficulty="quizDifficulty"
       />
       <CourseSection v-else-if="singleSection!.key === 'courses'" :courses="courses" />
       <DocumentAnalysisSection
@@ -258,6 +263,7 @@ async function toggle(key: SectionKey): Promise<void> {
           :title="title"
           :questions="questions"
           :quiz-type="quizType"
+          :difficulty="quizDifficulty"
         />
 
         <!-- Analysis section -->

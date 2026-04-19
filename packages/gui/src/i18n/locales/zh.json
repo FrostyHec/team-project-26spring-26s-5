@@ -157,7 +157,12 @@
     "serviceUnavailableAuto": "（评估服务暂时不可用，已按自动评分处理）",
     "serviceUnavailableManual": "（评估服务暂时不可用，请查看参考答案后自行评判）",
     "courseRecommend": "课程推荐",
-    "documentAnalysis": "文档分析"
+    "documentAnalysis": "文档分析",
+    "difficulty": {
+      "easy": "简单",
+      "medium": "中等",
+      "hard": "困难"
+    }
   },
   "course": {
     "documentAnalysis": "文档分析",

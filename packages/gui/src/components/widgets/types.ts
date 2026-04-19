@@ -16,4 +16,5 @@ export interface QuizQuestion {
   correct_answer: string
   explanation: string | null
   score?: number
+  difficulty?: 'easy' | 'medium' | 'hard'
 }

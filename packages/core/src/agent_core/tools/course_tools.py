@@ -105,7 +105,9 @@ def generate_quiz(
                 "error": "Invalid JSON format for questions",
                 "hint": "Expected a JSON array of question objects, e.g.: "
                 '[{"question": "...", "type": "multiple_choice", '
-                '"options": [...], "correct_answer": "..."}]',
+                '"options": [...], "correct_answer": "...", '
+                '"difficulty": "medium"}] '
+                'difficulty must be "easy", "medium", or "hard".',
             }
         )
 
@@ -155,6 +157,17 @@ def generate_quiz(
         else:
             score = DEFAULT_SCORES.get(q_type, 10.0)
 
+        # Validate difficulty
+        raw_difficulty = q.get("difficulty")
+        if raw_difficulty not in ("easy", "medium", "hard"):
+            errors.append(
+                f"Question {i + 1}: difficulty must be 'easy', 'medium', or 'hard', "
+                f"got '{raw_difficulty}' — defaulting to 'medium'"
+            )
+            difficulty = "medium"
+        else:
+            difficulty = raw_difficulty
+
         question_text = q.get("question", "")
         if not question_text:
             errors.append(f"Question {i + 1}: missing 'question' field")
@@ -188,6 +201,7 @@ def generate_quiz(
                 correct_answer=correct,
                 explanation=q.get("explanation"),
                 score=score,
+                difficulty=difficulty,
             )
         )
 
@@ -206,11 +220,23 @@ def generate_quiz(
     if errors:
         metadata["warnings"] = errors
 
+    # Infer quiz-level difficulty from question difficulties:
+    # easy=1, medium=2, hard=3; compute avg and round half up
+    difficulty_map = {"easy": 1, "medium": 2, "hard": 3}
+    if questions:
+        scores = [difficulty_map.get(q.difficulty, 2) for q in questions]
+        avg = sum(scores) / len(questions)
+        rounded = int(avg + 0.5)
+        quiz_difficulty = {1: "easy", 2: "medium", 3: "hard"}[rounded]
+    else:
+        quiz_difficulty = "medium"
+
     return QuizWidgetData(
         title=quiz_title,
         questions=questions,
         show_answers=False,
         metadata=metadata,
+        difficulty=quiz_difficulty,
     ).model_dump_json()
 
 
@@ -547,7 +573,8 @@ def register_course_tools(registry: ToolRegistry) -> None:
             "quiz_title (str, optional) — title for the quiz panel; "
             "language (str, optional, default 'en') — 'en' or 'zh' for title. "
             "Each question object: {question (str), type (str), correct_answer (str), "
-            "options (list[str], optional), explanation (str, optional)}. "
+            "options (list[str], optional), explanation (str, optional), "
+            'difficulty (str, required) — must be "easy", "medium", or "hard".}. '
             "Type mapping: 'multiple_choice' = single choice with 4 options; "
             "'true_false' = provide 2 options, e.g. ['True', 'False']; "
             "'fill_blank' = fill-in-the-blank, question contains ___ as placeholder, "
