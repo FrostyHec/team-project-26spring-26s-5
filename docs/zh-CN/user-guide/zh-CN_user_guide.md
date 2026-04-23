@@ -170,6 +170,53 @@ uv run python -m agent_core.policy_search.build_index
 当前建议通过 API 使用该能力，而不是通过 `agent-cli chat`。
 原因是当前 CLI 交互入口尚未接入 `policy_search` skill 选择。
 
+### 课程管理与资料库
+
+课程管理功能支持添加课程、上传课程资料（PDF/DOCX/PPTX/XLSX/TXT/MD，≤10 MB）、管理和下载文件。
+
+**后端 API：**
+
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/courses` | GET | 列出所有课程（可选 `?semester=` 筛选） |
+| `/courses` | POST | 创建新课程（body: name, code?, credits?, instructor?, description?, tags?, semester?） |
+| `/courses/{course_id}` | GET | 获取单个课程 |
+| `/courses/{course_id}` | PATCH | 更新课程字段 |
+| `/courses/{course_id}` | DELETE | 删除课程（同时删除所有关联资料文件和记录） |
+| `/course-materials` | GET | 列出资料（可选 `?course_id=` 筛选） |
+| `/course-materials` | POST | 上传文件到课程（`multipart/form-data`：file, course_id, description?, tags?） |
+| `/course-materials/{id}` | GET | 获取资料记录 |
+| `/course-materials/{id}` | PATCH | 更新资料描述/标签 |
+| `/course-materials/{id}` | DELETE | 删除资料记录及物理文件 |
+| `/course-materials/{id}/download` | GET | 下载资料物理文件 |
+| `/pdfs/{filename}` | GET | 安全地提供 PDF 文件（防路径穿越） |
+
+**前端使用：**
+
+1. 在右侧工作区切换到"课程"面板
+2. 点击"添加课程"输入课程名称等信息
+3. 点击课程卡片右侧箭头进入该课程的文件管理页面
+4. 在蓝色区域填写资料描述和标签，点击"上传"选择文件
+5. 文件列表支持编辑描述/标签、下载、删除操作
+
+**AI 课程助手：**
+
+`skill=course_assistant` 会话模式下，Agent 可以：
+- `analyze_document`：分析课程资料，提取摘要、关键点、难点
+- `generate_quiz`：根据资料内容生成测验题（支持选择题/判断题/填空题/简答题，自动推断难度）
+- `read_course_material`：读取指定资料内容供 AI 分析
+
+使用示例：
+
+```bash
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "帮我分析这份课程资料的主要知识点",
+    "skill": "course_assistant"
+  }'
+```
+
 ## API 端点参考
 
 后端 FastAPI 服务器提供以下 REST API 端点：

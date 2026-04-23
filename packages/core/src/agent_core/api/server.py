@@ -16,6 +16,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from agent_core.api.dependencies import init_dependencies, shutdown_dependencies
 from agent_core.api.routes.alarm_settings import router as alarm_settings_router
 from agent_core.api.routes.chat import router as chat_router
+from agent_core.api.routes.course_materials import router as course_materials_router
+from agent_core.api.routes.courses import router as courses_router
 from agent_core.api.routes.deadlines import router as deadlines_router
 from agent_core.api.routes.email import router as email_router
 from agent_core.api.routes.evaluate import router as evaluate_router
@@ -70,6 +72,8 @@ def create_app(config: AgentConfig | None = None) -> FastAPI:
     app.include_router(chat_router)
     app.include_router(sessions_router)
     app.include_router(deadlines_router)
+    app.include_router(courses_router)
+    app.include_router(course_materials_router)
     app.include_router(evaluate_router)
     app.include_router(settings_router)
     app.include_router(email_router)

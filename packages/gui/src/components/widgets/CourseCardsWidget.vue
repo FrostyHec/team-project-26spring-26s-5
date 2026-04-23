@@ -5,7 +5,10 @@ import { useI18n } from 'vue-i18n'
 import CourseSection from './sections/CourseSection.vue'
 import QuizSection from './sections/QuizSection.vue'
 import DocumentAnalysisSection from './sections/DocumentAnalysisSection.vue'
+import CourseManager from './CourseManager.vue'
+import FileManager from './FileManager.vue'
 import type { CourseInfo, QuizQuestion } from './types'
+import type { Course } from '@/stores/courseStore'
 
 const { t } = useI18n()
 
@@ -13,6 +16,25 @@ const { t } = useI18n()
 const props = defineProps<{
   data: Record<string, unknown>
 }>()
+
+// ========== Tab state ==========
+type Tab = 'courses' | 'learning'
+
+const activeTab = ref<Tab>('learning')
+
+// When in the course management tab, tracks which course is open in FileManager (null = CourseManager)
+const selectedCourse = ref<Course | null>(null)
+
+// Reset file-manager view when switching back to "learning"
+watch(activeTab, (tab) => {
+  if (tab === 'learning') {
+    selectedCourse.value = null
+  }
+})
+
+function handleSelectCourse(course: Course) {
+  selectedCourse.value = course
+}
 
 // ========== Section key type ==========
 type SectionKey = 'courses' | 'questions' | 'analysis'
@@ -178,97 +200,73 @@ async function toggle(key: SectionKey): Promise<void> {
 
 <template>
   <div class="flex flex-col h-full bg-gray-50">
-    <!-- Empty state -->
-    <div
-      v-if="availableSections.length === 0"
-      class="flex flex-col items-center justify-center h-full text-gray-400"
-    >
-      <BookOpen class="w-12 h-12 mb-2 opacity-50" />
-      <p class="text-sm">{{ t('widgets.courseCardsEmpty') }}</p>
-    </div>
-
-    <!-- Single section: render content directly without accordion header -->
-    <div v-else-if="availableSections.length === 1" class="h-full overflow-y-auto">
-      <QuizSection
-        v-if="singleSection!.key === 'questions'"
-        :title="title"
-        :questions="questions"
-        :quiz-type="quizType"
-        :difficulty="quizDifficulty"
-      />
-      <CourseSection v-else-if="singleSection!.key === 'courses'" :courses="courses" />
-      <DocumentAnalysisSection
-        v-else-if="singleSection!.key === 'analysis'"
-        :summary="summary"
-        :key-points="keyPoints"
-        :difficult-concepts="difficultConcepts"
-        :suggested-topics="suggestedTopics"
-        :doc-type="docType"
-        :original-length="originalLength"
-      />
-    </div>
-
-    <!-- Multiple sections: use accordion -->
-    <div
-      v-if="availableSections.length > 1"
-      v-for="section in availableSections"
-      :key="section.key"
-      class="border-b border-gray-100"
-    >
-      <!-- Accordion header -->
+    <!-- Tab bar -->
+    <div class="flex border-b border-gray-200 bg-white">
       <button
-        class="w-full flex items-center gap-3 px-4 py-3 bg-white hover:bg-gray-50 transition-colors text-left"
-        @click="toggle(section.key)"
-      >
-        <!-- Color badge -->
-        <span
-          class="flex-shrink-0 w-7 h-7 rounded flex items-center justify-center"
-          :style="{ backgroundColor: section.color + '20', color: section.color }"
-        >
-          <component :is="section.icon" class="w-4 h-4" />
-        </span>
-        <!-- Title -->
-        <span class="flex-1 text-sm font-semibold text-gray-800">{{ t(section.labelKey) }}</span>
-        <!-- Count badge -->
-        <span
-          class="text-xs px-2 py-0.5 rounded-full font-medium"
-          :style="{ backgroundColor: section.color + '15', color: section.color }"
-        >
-          {{ section.count }}
-        </span>
-        <!-- Expand indicator -->
-        <ChevronDown
-          class="w-4 h-4 text-gray-400 transition-transform duration-200"
-          :class="{ 'rotate-180': isExpanded(section.key) }"
-        />
-      </button>
-
-      <!-- Accordion content -->
-      <div
-        v-show="isExpanded(section.key)"
-        :ref="
-          (el) => {
-            sectionRefs[section.key] = el as HTMLElement
-          }
+        class="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors"
+        :class="
+          activeTab === 'courses'
+            ? 'text-blue-600 border-b-2 border-blue-500'
+            : 'text-gray-400 hover:text-gray-600'
         "
-        class="overflow-y-auto"
-        :class="section.key === 'questions' ? 'max-h-[60vh]' : 'max-h-[50vh]'"
+        @click="activeTab = 'courses'"
       >
-        <!-- Courses section -->
-        <CourseSection v-if="section.key === 'courses'" :courses="courses" />
+        <BookOpen class="w-4 h-4" />
+        {{ t('courseManager.myCourses') }}
+      </button>
+      <button
+        class="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors"
+        :class="
+          activeTab === 'learning'
+            ? 'text-blue-600 border-b-2 border-blue-500'
+            : 'text-gray-400 hover:text-gray-600'
+        "
+        @click="activeTab = 'learning'"
+      >
+        <HelpCircle class="w-4 h-4" />
+        {{ t('courseManager.learning') }}
+      </button>
+    </div>
 
-        <!-- Questions section -->
+    <!-- Course management tab -->
+    <div v-if="activeTab === 'courses'" class="flex-1 overflow-hidden flex flex-col">
+      <!-- File manager (course selected) -->
+      <div v-if="selectedCourse" class="flex-1 overflow-hidden flex flex-col">
+        <FileManager
+          :course-id="selectedCourse.id"
+          :course-name="selectedCourse.name"
+          @back="selectedCourse = null"
+        />
+      </div>
+      <!-- Course manager (no course selected) -->
+      <div v-else class="flex-1 overflow-hidden flex flex-col">
+        <CourseManager @select-course="handleSelectCourse" />
+      </div>
+    </div>
+
+    <!-- Learning tab -->
+    <template v-else>
+      <!-- Empty state -->
+      <div
+        v-if="availableSections.length === 0"
+        class="flex flex-col items-center justify-center h-full text-gray-400"
+      >
+        <BookOpen class="w-12 h-12 mb-2 opacity-50" />
+        <p class="text-sm">{{ t('widgets.courseCardsEmpty') }}</p>
+      </div>
+
+      <!-- Single section: render content directly without accordion header -->
+      <div v-else-if="availableSections.length === 1" class="h-full overflow-y-auto">
         <QuizSection
-          v-else-if="section.key === 'questions'"
+          v-if="singleSection!.key === 'questions'"
           :title="title"
           :questions="questions"
           :quiz-type="quizType"
           :difficulty="quizDifficulty"
         />
-
-        <!-- Analysis section -->
+        <CourseSection v-else-if="singleSection!.key === 'courses'" :courses="courses" />
         <DocumentAnalysisSection
-          v-else-if="section.key === 'analysis'"
+          v-else-if="singleSection!.key === 'analysis'"
           :summary="summary"
           :key-points="keyPoints"
           :difficult-concepts="difficultConcepts"
@@ -277,6 +275,77 @@ async function toggle(key: SectionKey): Promise<void> {
           :original-length="originalLength"
         />
       </div>
-    </div>
+
+      <!-- Multiple sections: use accordion -->
+      <div
+        v-if="availableSections.length > 1"
+        v-for="section in availableSections"
+        :key="section.key"
+        class="border-b border-gray-100"
+      >
+        <!-- Accordion header -->
+        <button
+          class="w-full flex items-center gap-3 px-4 py-3 bg-white hover:bg-gray-50 transition-colors text-left"
+          @click="toggle(section.key)"
+        >
+          <!-- Color badge -->
+          <span
+            class="flex-shrink-0 w-7 h-7 rounded flex items-center justify-center"
+            :style="{ backgroundColor: section.color + '20', color: section.color }"
+          >
+            <component :is="section.icon" class="w-4 h-4" />
+          </span>
+          <!-- Title -->
+          <span class="flex-1 text-sm font-semibold text-gray-800">{{ t(section.labelKey) }}</span>
+          <!-- Count badge -->
+          <span
+            class="text-xs px-2 py-0.5 rounded-full font-medium"
+            :style="{ backgroundColor: section.color + '15', color: section.color }"
+          >
+            {{ section.count }}
+          </span>
+          <!-- Expand indicator -->
+          <ChevronDown
+            class="w-4 h-4 text-gray-400 transition-transform duration-200"
+            :class="{ 'rotate-180': isExpanded(section.key) }"
+          />
+        </button>
+
+        <!-- Accordion content -->
+        <div
+          v-show="isExpanded(section.key)"
+          :ref="
+            (el) => {
+              sectionRefs[section.key] = el as HTMLElement
+            }
+          "
+          class="overflow-y-auto"
+          :class="section.key === 'questions' ? 'max-h-[60vh]' : 'max-h-[50vh]'"
+        >
+          <!-- Courses section -->
+          <CourseSection v-if="section.key === 'courses'" :courses="courses" />
+
+          <!-- Questions section -->
+          <QuizSection
+            v-else-if="section.key === 'questions'"
+            :title="title"
+            :questions="questions"
+            :quiz-type="quizType"
+            :difficulty="quizDifficulty"
+          />
+
+          <!-- Analysis section -->
+          <DocumentAnalysisSection
+            v-else-if="section.key === 'analysis'"
+            :summary="summary"
+            :key-points="keyPoints"
+            :difficult-concepts="difficultConcepts"
+            :suggested-topics="suggestedTopics"
+            :doc-type="docType"
+            :original-length="originalLength"
+          />
+        </div>
+      </div>
+    </template>
   </div>
 </template>

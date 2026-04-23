@@ -32,6 +32,8 @@ class AgentConfig:
     log_level: str = "INFO"
     log_file: str = "./output/logs/agent.log"
     db_path: str = "./output/sessions.db"
+    course_material_max_size_mb: int = 10
+    course_material_allowed_extensions: str = ".pdf,.docx,.pptx,.xlsx,.txt,.md"
     encryption_key: str = ""
     system_prompt: str = field(
         default=(
@@ -66,6 +68,13 @@ class AgentConfig:
             log_file=os.getenv("LOG_FILE", "agent.log"),
             db_path=os.getenv("DB_PATH", "./output/sessions.db"),
             encryption_key=os.getenv(_ENCRYPTION_ENV_KEY, ""),
+            course_material_max_size_mb=int(
+                os.getenv("COURSE_MATERIAL_MAX_SIZE_MB", "10")
+            ),
+            course_material_allowed_extensions=os.getenv(
+                "COURSE_MATERIAL_ALLOWED_EXTENSIONS",
+                ".pdf,.docx,.pptx,.xlsx,.txt,.md",
+            ),
             system_prompt=os.getenv(
                 "SYSTEM_PROMPT",
                 cls.system_prompt,

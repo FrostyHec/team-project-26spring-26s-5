@@ -4,9 +4,11 @@ These tools support the Course Assistant skill by providing structured
 analysis of course materials and formatting quiz data for the frontend.
 """
 
+import asyncio
 import json
 import os
 import tempfile
+from collections.abc import Coroutine
 from typing import Any, Literal
 
 from pydantic import Field
@@ -251,8 +253,8 @@ def _infer_quiz_type(questions: list[QuizQuestion]) -> str:
 def analyze_document(
     summary: str,
     key_points: list[str],
-    difficult_concepts: list[str] | None = None,
-    suggested_topics: list[str] | None = None,
+    difficult_concepts: list[str] | str | None = None,
+    suggested_topics: list[str] | str | None = None,
     doc_type: str = "text",
     original_length: int = 0,
 ) -> str:
@@ -265,7 +267,9 @@ def analyze_document(
         summary: Overall summary of the document content (2-3 sentences).
         key_points: List of 5-8 key knowledge points, each as a single sentence.
         difficult_concepts: List of 3-5 concepts that students often find confusing.
+            Can also be passed as a JSON string (e.g. when called via LLM tool calls).
         suggested_topics: List of 3-5 suggested study topics for deeper learning.
+            Can also be passed as a JSON string (e.g. when called via LLM tool calls).
         doc_type: Type of document (text, markdown, pdf, slides).
         original_length: Original length of the source content in characters.
 
@@ -293,6 +297,24 @@ def analyze_document(
             original_length=5000,
         )
     """
+
+    # Parse JSON string inputs (LLM tool calls may pass lists as JSON strings)
+    def _parse_list(val: list[str] | str | None) -> list[str]:
+        if val is None:
+            return []
+        if isinstance(val, str):
+            try:
+                parsed = json.loads(val)
+                if isinstance(parsed, list):
+                    return [str(v) for v in parsed]
+            except (json.JSONDecodeError, TypeError):
+                pass
+            return []
+        return val
+
+    dc = _parse_list(difficult_concepts)
+    st = _parse_list(suggested_topics)
+
     if not summary:
         return DocumentAnalysisWidgetData(
             summary="No summary provided.",
@@ -303,8 +325,8 @@ def analyze_document(
     return DocumentAnalysisWidgetData(
         summary=summary,
         key_points=key_points,
-        difficult_concepts=difficult_concepts or [],
-        suggested_topics=suggested_topics or [],
+        difficult_concepts=dc,
+        suggested_topics=st,
         doc_type=doc_type,
         original_length=original_length,
     ).model_dump_json()
@@ -400,7 +422,11 @@ def _resolve_path(path: str) -> str:
     if not os.path.isabs(path):
         path = os.path.normpath(os.path.abspath(path))
     else:
-        path = os.path.normpath(path)
+        # Use realpath so the result is consistent with _validate_path's
+        # os.path.realpath call and _get_allowed_roots' realpath entries —
+        # this avoids NFD/NFC Unicode normalization mismatches and symlink
+        # resolution discrepancies on macOS.
+        path = os.path.realpath(path)
     return path
 
 
@@ -424,9 +450,14 @@ def _get_allowed_roots() -> list[str]:
     allowed.  Extra roots can be added via the ``COURSE_TOOLS_ALLOWED_ROOTS``
     environment variable (paths separated by ``os.pathsep``).
     """
+    repo_root = _get_workspace_root()
     roots = [
-        os.path.realpath(_get_workspace_root()),
+        os.path.realpath(repo_root),
         os.path.realpath(tempfile.gettempdir()),
+        # course_materials storage: packages/cli/output/ is the runtime location
+        os.path.realpath(
+            os.path.join(repo_root, "packages", "cli", "output", "course_materials")
+        ),
     ]
     extra = os.environ.get("COURSE_TOOLS_ALLOWED_ROOTS", "")
     if extra:
@@ -461,6 +492,190 @@ def _validate_path(path: str) -> tuple[bool, str]:
     if file_size > MAX_FILE_SIZE:
         return False, f"File too large (max {MAX_FILE_SIZE // (1024 * 1024)}MB)"
     return True, ""
+
+
+def _run_async[T](coro: Coroutine[Any, Any, T]) -> T:
+    """Run an async coroutine from a sync context.
+
+    Always uses asyncio.run() to create a fresh event loop, avoiding
+    InvalidStateError when already inside a running event loop.
+    """
+    return asyncio.run(coro)
+
+
+def list_courses(semester: str | None = None) -> str:
+    """List all courses available in the database.
+
+    Use this tool first when the user wants to analyze course materials.
+    It tells you which courses exist and their IDs, which you need
+    to pass to ``list_course_materials``.
+
+    Args:
+        semester: Optional semester filter (e.g. "2026Spring"). If not provided,
+            returns all courses.
+
+    Returns:
+        JSON string with a list of courses. Each course has:
+        - id (str): Unique course ID — pass this to ``list_course_materials``.
+        - name (str): Course name.
+        - code (str): Course code (e.g. "CS101"), may be empty.
+        - instructor (str): Instructor name, may be empty.
+        - semester (str): Academic semester, may be empty.
+        - description (str): Course description, may be empty.
+        - tags (str): Comma-separated tags, may be empty.
+
+    Example:
+        result = list_courses()
+        # Returns: {"courses": [{"id": "...", "name": "Data Structures", ...}]}
+    """
+    try:
+
+        async def _inner():
+            from agent_core.persistence.course_provider import get_course_store
+            from agent_core.services.course_service import CourseService
+
+            store = await get_course_store()
+            svc = CourseService(store)
+            return await svc.list(semester=semester)
+
+        courses = _run_async(_inner())
+        return json.dumps(
+            {
+                "courses": [
+                    {
+                        "id": c.id,
+                        "name": c.name,
+                        "code": c.code,
+                        "instructor": c.instructor,
+                        "semester": c.semester,
+                        "description": c.description,
+                        "tags": c.tags,
+                    }
+                    for c in courses
+                ]
+            }
+        )
+    except Exception as e:
+        return json.dumps({"error": f"Failed to list courses: {e}"})
+
+
+def _resolve_material_path(stored_path: str) -> str:
+    """Resolve a stored_path from the DB to a usable absolute path.
+
+    The DB stores paths like "output/course_materials/{course_id}/{uuid}_{filename}"
+    which may be relative to either the repo root OR the packages/cli/ directory.
+    This function tries both locations and returns the one where the file exists.
+    """
+    repo_root = _get_workspace_root()
+    cli_storage = os.path.join(
+        repo_root, "packages", "cli", "output", "course_materials"
+    )
+
+    # Extract the part after "course_materials/" to preserve course_id subdirectory
+    cm_pos = stored_path.find("course_materials/")
+    rel_path = (
+        stored_path[cm_pos + len("course_materials/") :]
+        if cm_pos != -1
+        else os.path.basename(stored_path)
+    )
+
+    # Try packages/cli/output/course_materials/{course_id}/{uuid}_{filename}
+    cli_candidate = os.path.join(cli_storage, rel_path)
+    if os.path.exists(cli_candidate):
+        return os.path.realpath(cli_candidate)
+
+    # Fall back: resolve as repo-root-relative path
+    repo_candidate = os.path.normpath(os.path.join(repo_root, stored_path))
+    if os.path.exists(repo_candidate):
+        return os.path.realpath(repo_candidate)
+
+    # Last resort: repo-root-relative path; let read_file report errors.
+    return repo_candidate
+
+
+def list_course_materials(
+    course_id: str | None = None, course_name: str | None = None
+) -> str:
+    """List all materials (files) available for a course.
+
+    Use this after ``list_courses`` to find which files exist in a course.
+    You need the ``stored_path`` from the returned records to pass to ``read_file``.
+
+    Args:
+        course_id: ID of the course to list materials for.
+            Get this from ``list_courses``.
+        course_name: If course_id is unknown, you can pass the course name here
+            instead. The tool will look up the course ID automatically.
+            Note: if both ``course_id`` and ``course_name`` are provided,
+            ``course_id`` takes precedence.
+
+    Returns:
+        JSON string with a list of materials. Each material has:
+        - id (str): Unique material ID.
+        - course_id (str): The owning course ID.
+        - filename (str): Original uploaded filename.
+        - stored_path (str): File path on disk — pass this to ``read_file``.
+        - file_type (str): Extension including dot, e.g. ".pdf".
+        - file_size (int): Size in bytes.
+        - description (str): File description, may be empty.
+        - tags (str): Comma-separated tags, may be empty.
+        - created_at (str): ISO timestamp of upload.
+
+    Example:
+        # If you already know the course_id:
+        result = list_course_materials(course_id="2dfba536-...")
+
+        # If you only know the course name:
+        result = list_course_materials(course_name="Data Structures")
+    """
+    try:
+
+        async def _inner():
+            from agent_core.persistence.course_material_provider import (
+                get_course_material_store,
+            )
+            from agent_core.persistence.course_provider import get_course_store
+            from agent_core.services.course_material_service import (
+                CourseMaterialService,
+            )
+            from agent_core.services.course_service import CourseService
+
+            course_store = await get_course_store()
+            material_store = await get_course_material_store()
+            course_service = CourseService(course_store)
+            svc = CourseMaterialService(material_store, course_service)
+
+            resolved_course_id = course_id
+            if not resolved_course_id and course_name:
+                all_courses = await course_service.list()
+                for c in all_courses:
+                    if course_name.lower() in c.name.lower():
+                        resolved_course_id = c.id
+                        break
+
+            return await svc.list(course_id=resolved_course_id)
+
+        materials = _run_async(_inner())
+        return json.dumps(
+            {
+                "materials": [
+                    {
+                        "id": m.id,
+                        "course_id": m.course_id,
+                        "filename": m.filename,
+                        "stored_path": _resolve_material_path(m.stored_path),
+                        "file_type": m.file_type,
+                        "file_size": m.file_size,
+                        "description": m.description,
+                        "tags": m.tags,
+                        "created_at": m.created_at.isoformat() if m.created_at else "",
+                    }
+                    for m in materials
+                ]
+            }
+        )
+    except Exception as e:
+        return json.dumps({"error": f"Failed to list course materials: {e}"})
 
 
 def read_file(path: str, doc_type: str = "auto") -> str:
@@ -531,6 +746,31 @@ def read_file(path: str, doc_type: str = "auto") -> str:
 def register_course_tools(registry: ToolRegistry) -> None:
     """Register all course assistant tools with the given registry."""
     registry.add_tool(
+        func=list_courses,
+        description=(
+            "List all courses available in the database. "
+            "Use this first when the user wants to analyze course materials — "
+            "each course has an 'id' field needed for list_course_materials. "
+            "Args: semester (str, optional) — filter by semester, e.g. '2026Spring'. "
+            "Returns JSON with a 'courses' list, each containing id, name, code, "
+            "instructor, semester, description, tags. "
+            'If no courses exist, returns {"courses": []}.'
+        ),
+    )
+    registry.add_tool(
+        func=list_course_materials,
+        description=(
+            "List all files (materials) available for a specific course. "
+            "Use this after list_courses to find which files exist. "
+            "The returned 'stored_path' field is the file path to pass to read_file. "
+            "Args: course_id (str, optional) — get this from list_courses; "
+            "course_name (str, optional) — alternative to course_id, "
+            "case-insensitive partial match on course name. "
+            "Returns JSON with a 'materials' list, each containing id, course_id, "
+            "filename, stored_path, file_type, file_size, desc, tags, created_at."
+        ),
+    )
+    registry.add_tool(
         func=read_file,
         description=(
             "Read a file and extract its content as text. "
@@ -539,7 +779,8 @@ def register_course_tools(registry: ToolRegistry) -> None:
             "Args: path (str, required) — file path (absolute or relative); "
             "doc_type (str, optional, default 'auto') — hint for format, "
             "use 'auto' to detect from extension. "
-            "Use this first when user provides a file path."
+            "IMPORTANT: To get the file path, first use list_courses "
+            "to find the course_id, then list_course_materials to get the stored_path."
         ),
     )
     registry.add_tool(

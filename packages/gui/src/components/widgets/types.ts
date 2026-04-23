@@ -1,3 +1,17 @@
+/**
+ * Frontend types for course-related widgets.
+ *
+ * Course / CourseMaterial are the persistent backend types used by
+ * the course management UI (CourseManager + FileManager).
+ *
+ * CourseInfo is the transient AI-generated type used by the quiz
+ * course-recommendation accordion section.
+ */
+
+import type { Course, CourseMaterial } from '@/stores/courseStore'
+
+export type { Course, CourseMaterial }
+
 export interface CourseInfo {
   name: string
   code?: string

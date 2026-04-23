@@ -75,6 +75,7 @@ const totalScore = computed(() => {
     const eval_ = evaluationResults.value[String(q.id)]
     if (eval_ && eval_.total_score_included === false) return sum
     if (q.type === 'fill_blank' && eval_) return sum + eval_.score
+    if (q.type === 'short_answer' && eval_) return sum + eval_.score
     const questionScore =
       q.score ??
       (q.type === 'multiple_choice'

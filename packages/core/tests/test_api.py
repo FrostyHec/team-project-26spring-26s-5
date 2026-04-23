@@ -41,8 +41,8 @@ class TestToolsEndpoint:
         tools = response.json()
         assert isinstance(tools, list)
         # 4 calculator + 1 weather + 4 widget + 9 deadline
-        #   + 7 email + 3 course + 1 policy_search
-        assert len(tools) == 29
+        #   + 7 email + 5 course + 1 policy_search
+        assert len(tools) == 31
         names = {t["name"] for t in tools}
         assert "add" in names
         assert "subtract" in names

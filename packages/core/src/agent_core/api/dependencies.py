@@ -13,6 +13,8 @@ from agent_core.config import AgentConfig
 from agent_core.engine.agent import ReactAgent
 from agent_core.logging_utils import get_logger
 from agent_core.persistence.alarm_store import AlarmStore
+from agent_core.persistence.course_material_store import CourseMaterialStore
+from agent_core.persistence.course_store import CourseStore
 from agent_core.persistence.deadline_store import DeadlineStore
 from agent_core.persistence.email_store import EmailStore
 from agent_core.persistence.profile_store import ProfileStore
@@ -41,6 +43,8 @@ _alarm_service: AlarmService | None = None
 _alarm_scheduler: AlarmScheduler | None = None
 _config: AgentConfig | None = None
 _llm: ChatOpenAI | None = None
+_course_store: CourseStore | None = None
+_course_material_store: CourseMaterialStore | None = None
 
 
 def _create_tool_registry() -> ToolRegistry:
@@ -109,7 +113,7 @@ async def init_dependencies(config: AgentConfig | None = None) -> None:
     global _llm
     global _agent, _store, _profile_store, _profile_service
     global _email_store, _email_service, _alarm_store, _alarm_service
-    global _alarm_scheduler, _config
+    global _alarm_scheduler, _config, _course_store, _course_material_store
     _config = config or AgentConfig.from_env()
 
     # Configure encryption key if provided
@@ -118,6 +122,34 @@ async def init_dependencies(config: AgentConfig | None = None) -> None:
 
     _store = SessionStore(_config.db_path)
     await _store.initialize()
+
+    # Course subsystem
+    from pathlib import Path
+
+    course_db = str(Path(_config.db_path).with_name("courses.db"))
+    _course_store = CourseStore(course_db)
+    await _course_store.initialize()
+
+    material_db = str(Path(_config.db_path).with_name("course_materials.db"))
+    _course_material_store = CourseMaterialStore(
+        material_db,
+        max_size_bytes=_config.course_material_max_size_mb * 1024 * 1024,
+        allowed_extensions=frozenset(
+            ext.strip().lower()
+            for ext in _config.course_material_allowed_extensions.split(",")
+            if ext.strip()
+        ),
+    )
+    await _course_material_store.initialize()
+
+    # Register course store singletons
+    from agent_core.persistence.course_material_provider import (
+        set_course_material_store,
+    )
+    from agent_core.persistence.course_provider import set_course_store
+
+    await set_course_store(_course_store)
+    await set_course_material_store(_course_material_store)
 
     _profile_store = ProfileStore(_config.db_path)
     await _profile_store.initialize()
@@ -199,7 +231,7 @@ async def shutdown_dependencies() -> None:
     global _llm
     global _agent, _store, _profile_store, _profile_service
     global _email_store, _email_service, _alarm_store, _alarm_service
-    global _alarm_scheduler, _config
+    global _alarm_scheduler, _config, _course_store, _course_material_store
     if _alarm_scheduler:
         await _alarm_scheduler.stop()
         _alarm_scheduler = None
@@ -229,6 +261,19 @@ async def shutdown_dependencies() -> None:
 
     await set_email_store(None)
     await set_email_service(None)
+    from agent_core.persistence.course_material_provider import (
+        set_course_material_store,
+    )
+    from agent_core.persistence.course_provider import set_course_store
+
+    await set_course_store(None)
+    await set_course_material_store(None)
+    if _course_material_store:
+        await _course_material_store.close()
+        _course_material_store = None
+    if _course_store:
+        await _course_store.close()
+        _course_store = None
 
 
 def get_agent() -> ReactAgent:
