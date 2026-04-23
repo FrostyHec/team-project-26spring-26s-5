@@ -125,7 +125,15 @@
     "webPreview": "Web Preview",
     "newsDigest": "News Digest",
     "inbox": "Inbox",
-    "empty": "Workspace"
+    "empty": "Workspace",
+    "policySearch": "Policy Search"
+  },
+  "policySearch": {
+    "copy": "Copy citation",
+    "open": "Open PDF",
+    "empty": "No results found",
+    "found": "found",
+    "back": "Back"
   },
   "quiz": {
     "defaultTitle": "Practice Quiz",

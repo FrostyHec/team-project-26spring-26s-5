@@ -44,6 +44,7 @@ class WidgetType(StrEnum):
     INBOX = "inbox"
     QUIZ = "quiz"
     EMPTY = "empty"
+    POLICY_SEARCH = "policy_search"
 
 
 class CustomEventName(StrEnum):

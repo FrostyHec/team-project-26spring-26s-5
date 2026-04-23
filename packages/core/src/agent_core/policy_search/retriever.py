@@ -13,11 +13,7 @@ import numpy as np
 from agent_core.logging_utils import get_logger
 from agent_core.policy_search.embeddings import get_query_embedding
 from agent_core.policy_search.index import load_index
-from agent_core.policy_search.models import (
-    FormattedSource,
-    RetrievalResult,
-    TextChunk,
-)
+from agent_core.policy_search.models import RetrievalResult, TextChunk
 
 logger = get_logger("policy_search.retriever")
 
@@ -107,52 +103,3 @@ def search(
         top_k,
     )
     return results
-
-
-def format_results_for_llm(results: list[RetrievalResult]) -> str:
-    """Format retrieval results into a string suitable for LLM consumption.
-
-    Produces a structured text block with numbered sources and snippets,
-    Produces a structured text block with numbered sources and snippets,
-    plus a citation index the LLM can reference as ``[source n]``.
-
-    Args:
-        results: Retrieval results from :func:`search`.
-
-    Returns:
-        Formatted string with snippets and citation references.
-    """
-    if not results:
-        return "No relevant policy documents found."  # nosemgrep
-
-    sections: list[str] = []
-    sources: list[FormattedSource] = []
-
-    for i, result in enumerate(results, 1):
-        source = FormattedSource(
-            index=i,
-            title=result.title,
-            page=result.page,
-            section=result.section,
-        )
-        sources.append(source)
-
-        snippet_preview = result.snippet.strip().replace("\n", " ")
-        if len(snippet_preview) > 300:
-            snippet_preview = snippet_preview[:300] + "..."
-
-        sections.append(
-            f"--- Search Result {i} ---\n"  # nosemgrep
-            f"Source: {source.to_citation()}\n"
-            f"Content: {snippet_preview}\n"
-        )
-
-    output_parts = [
-        "Retrieved relevant content from campus policy documents:\n\n"
-    ]  # nosemgrep
-    output_parts.extend(sections)
-    output_parts.append("--- Citation Index ---")
-    for src in sources:
-        output_parts.append(src.to_citation())
-
-    return "\n".join(output_parts)

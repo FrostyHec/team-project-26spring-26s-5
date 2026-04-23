@@ -1,6 +1,6 @@
 """Data models for policy search — chunk metadata and retrieval results."""
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class ChunkMetadata(BaseModel):
@@ -59,26 +59,3 @@ class RetrievalResult(BaseModel):
     source_path: str = ""
     official_url: str = ""
     chunk_id: str = ""
-
-
-class FormattedSource(BaseModel):
-    """A formatted citation source for LLM consumption.
-
-    Attributes:
-        index: 1-based source index for ``[source n]`` references.
-        title: Document title.
-        page: Page number.
-        section: Section heading.
-    """
-
-    index: int = Field(ge=1)
-    title: str
-    page: int
-    section: str = ""
-
-    def to_citation(self) -> str:
-        """Format as a citation string."""
-        parts = [f"[来源 {self.index}]", self.title, f"第{self.page}页"]  # nosemgrep
-        if self.section:
-            parts.append(self.section)
-        return " | ".join(parts)

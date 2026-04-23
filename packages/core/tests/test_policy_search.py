@@ -16,13 +16,7 @@ from agent_core.policy_search.ingest import (
     chunk_text,
     ingest_pdf,
 )
-from agent_core.policy_search.models import (
-    ChunkMetadata,
-    FormattedSource,
-    RetrievalResult,
-    TextChunk,
-)
-from agent_core.policy_search.retriever import format_results_for_llm
+from agent_core.policy_search.models import ChunkMetadata, RetrievalResult, TextChunk
 from agent_core.skills import get_skill
 from agent_core.tools import auto_discover_and_register
 from agent_core.tools.registry import ToolRegistry
@@ -65,19 +59,6 @@ class TestModels:
         )
         assert result.score == 0.5
         assert result.title == "Doc"
-
-    def test_formatted_source_citation(self) -> None:  # nosemgrep
-        src = FormattedSource(index=1, title="Policy Doc", page=3, section="Section 1")
-        citation = src.to_citation()
-        assert "[来源 1]" in citation  # nosemgrep
-        assert "Policy Doc" in citation
-        assert "第3页" in citation  # nosemgrep
-
-    def test_formatted_source_citation_no_section(self) -> None:  # nosemgrep
-        src = FormattedSource(index=2, title="Doc", page=1)
-        citation = src.to_citation()
-        assert "[来源 2]" in citation  # nosemgrep
-        assert "第1页" in citation  # nosemgrep
 
 
 # ---------------------------------------------------------------------------
@@ -208,10 +189,6 @@ class TestIndex:
 
 class TestRetriever:
     """Tests for the retriever search and formatting."""
-
-    def test_format_results_empty(self) -> None:
-        output = format_results_for_llm([])
-        assert "No relevant" in output
 
     @patch("agent_core.policy_search.retriever.load_index")
     @patch("agent_core.policy_search.retriever.get_query_embedding")

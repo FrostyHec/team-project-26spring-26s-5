@@ -59,13 +59,23 @@ class SourcesWidgetData(WidgetData):
     sources: list[dict[str, Any]] = []
 
 
+class PolicySearchWidgetData(WidgetData):
+    """Payload for the campus policy search widget."""
+
+    widget_type: Literal[WidgetType.POLICY_SEARCH] = WidgetType.POLICY_SEARCH
+    query: str = ""
+    results: list[dict[str, Any]] = []
+    totalCount: int = 0
+
+
 # Discriminated union used by TypeAdapter in the agent for isinstance checks.
 AnyWidgetData = Annotated[
     CalendarWidgetData
     | DocumentWidgetData
     | CourseCardsWidgetData
     | WebPreviewWidgetData
-    | SourcesWidgetData,
+    | SourcesWidgetData
+    | PolicySearchWidgetData,
     Field(discriminator="widget_type"),
 ]
 

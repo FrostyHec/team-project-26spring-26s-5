@@ -31,6 +31,7 @@ export const WIDGET_TYPES = {
   INBOX: 'inbox',
   QUIZ: 'quiz',
   EMPTY: 'empty',
+  POLICY_SEARCH: 'policy_search',
 } as const
 
 export type WidgetType = (typeof WIDGET_TYPES)[keyof typeof WIDGET_TYPES]

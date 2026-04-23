@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.3.0] - 2026-04-20
+- Policy Search GUI
+    - `PolicySearchWidget`: result cards with title, page, section, snippet; copy citation button; PDF preview trigger
+    - `PdfViewerWidget`: iframe-based browser-native PDF viewer with pagination (50%-300% zoom), new-tab launch
+    - SSE `WidgetDisplayEvent` triggers workspace panel; per-session widget state persistence across tab switches
+    - i18n support for all widget strings (Chinese/English)
+    - Cleanup: removed dead code (`format_results_for_llm`, `FormattedSource`), unused `pdfjs-dist` dependency and PDF.js CDN scripts
 - Quiz: add difficulty field (easy/medium/hard) to questions and quiz sets, auto-inferred from questions, displayed in frontend
 - Quiz: fix short_answer scoring when evaluation service unavailable — not counted in total score, shown as unscored
 

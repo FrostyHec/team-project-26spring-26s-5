@@ -125,7 +125,15 @@
     "webPreview": "网页预览",
     "newsDigest": "新闻摘要",
     "inbox": "收件箱",
-    "empty": "工作区"
+    "empty": "工作区",
+    "policySearch": "政策搜索"
+  },
+  "policySearch": {
+    "copy": "复制引用",
+    "open": "打开 PDF",
+    "empty": "未找到结果",
+    "found": "条结果",
+    "back": "返回"
   },
   "quiz": {
     "defaultTitle": "练习题",

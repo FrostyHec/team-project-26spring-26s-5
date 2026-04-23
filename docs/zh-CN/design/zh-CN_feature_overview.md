@@ -148,7 +148,7 @@ PDF 文档 → 文本提取与切片 → Embedding → FAISS 索引
 **当前范围：**
 - 已实现后端 `core` + API 侧能力
 - 可通过 API 的 `skill=policy_search` 触发专用系统提示词
-- 本次实现不包含 GUI 改造
+- ✅ **已实现完整 GUI**：右侧工作区面板的 PolicySearchWidget 组件，支持结果卡片、PDF 预览、引用复制
 
 ---
 
@@ -300,7 +300,29 @@ SSE 解析实现：使用 `ReadableStream` 的 `getReader()` 逐块读取，按 
 - **Vue Router**：单路由 `/` 指向 `ChatView` 组件，使用 `createWebHistory` 模式。
 - **Vite 代理**：开发模式下 `/api` 路径代理到 `http://localhost:8000`，去除 `/api` 前缀后转发。
 
-### 6.5 Inbox 邮件功能稳定性修复（A003）
+### 6.5 Policy Search GUI 组件
+
+**相关文件：**
+- `packages/gui/src/components/widgets/PolicySearchWidget.vue`
+- `packages/gui/src/components/widgets/PdfViewerWidget.vue`
+
+`PolicySearchWidget` 是右侧工作区面板的策略搜索结果组件，由后端 `WidgetDisplayEvent` 事件触发显示。
+
+**功能：**
+- 展示 Top-5 检索结果卡片，每条包含标题、页码、章节、文本摘要
+- 点击"Open PDF"在面板内打开 PDF 阅读器（iframe 方式，浏览器内置 PDF 渲染）
+- 点击"Copy citation"复制引用格式文本（Clipboard API，带 try/catch 容错）
+- i18n 多语言支持（中英文 strings 均从 `locales/*.json` 读取）
+
+`PdfViewerWidget` 支持：
+- 分页导航（上一页/下一页/直接输入页码）
+- 缩放控制（50%~300%）
+- 新窗口打开原始 PDF
+- URL hash 锚点跳转到指定页（`#page=N`）
+
+**Per-session widget 状态：** `ChatSession.widgetState` 保存切换会话时的 widget 状态，确保返回同一会话时恢复之前的工作区内容。
+
+### 6.6 Inbox 邮件功能稳定性修复（A003）
 
 - **i18n 编译错误修复**：修复邮件编辑/写信界面中占位文案触发 `Invalid linked format` 的问题，确保点击“写邮件/回复”可正常打开编辑界面。
 - **错误提示可读性提升**：邮箱凭据缺失时，前端通过错误码识别并弹窗提示用户先到设置页配置邮箱账号和密码。

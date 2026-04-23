@@ -246,13 +246,27 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  /** Switch to an existing session, loading its history. */
+  /** Switch to an existing session, loading its history.
+   * Restores the per-session widget state from the target session.
+   */
   async function switchSession(sessionId: string): Promise<void> {
-    activeSessionId.value = sessionId
-    activeWidget.value = { type: WIDGET_TYPES.EMPTY, data: {} }
+    // Save current widget state to the session we're leaving
+    const oldSession = sessions.value.find((s) => s.id === activeSessionId.value)
+    if (oldSession) {
+      oldSession.widgetState = { ...activeWidget.value }
+    }
 
-    const session = sessions.value.find((s) => s.id === sessionId)
-    if (session && session.messages.length === 0) {
+    activeSessionId.value = sessionId
+
+    // Restore widget state from the session we're entering
+    const newSession = sessions.value.find((s) => s.id === sessionId)
+    if (newSession?.widgetState) {
+      activeWidget.value = { ...newSession.widgetState }
+    } else {
+      activeWidget.value = { type: WIDGET_TYPES.EMPTY, data: {} }
+    }
+
+    if (newSession && newSession.messages.length === 0) {
       // Load message history from backend
       try {
         await refreshSessionFromServer(sessionId)
@@ -326,6 +340,7 @@ export const useChatStore = defineStore('chat', () => {
     const reactiveMsg = session.messages[session.messages.length - 1]!
 
     isLoading.value = true
+    let streamError = false
 
     try {
       for await (const event of streamMessage(
@@ -335,19 +350,32 @@ export const useChatStore = defineStore('chat', () => {
         language,
       )) {
         handleStreamEvent(event, reactiveMsg)
+        // Check if this was an error event (from backend LLM failure, not a thrown exception)
+        if (event.type === EVENT_TYPES.ERROR) {
+          streamError = true
+          error.value = event.content || 'Unknown error'
+          if (!reactiveMsg.content) {
+            reactiveMsg.content = 'Failed to get response.'
+          }
+        }
       }
     } catch (e) {
+      streamError = true
       error.value = e instanceof Error ? e.message : 'Unknown error'
       reactiveMsg.content = reactiveMsg.content || 'Failed to get response.'
     } finally {
       isLoading.value = false
       session.updatedAt = new Date()
-      if (currentSessionId && !currentSessionId.startsWith('local-')) {
-        try {
-          await refreshSessionFromServer(currentSessionId)
-        } catch {
-          // Best effort reconciliation, keep streamed view on failure
-        }
+      // Only refresh from server if there was no stream error.
+      // On stream error, messages were not persisted by the backend,
+      // so refreshing would overwrite the local (failed) message with empty server state.
+      if (streamError || !currentSessionId || currentSessionId.startsWith('local-')) {
+        return
+      }
+      try {
+        await refreshSessionFromServer(currentSessionId)
+      } catch {
+        // Best effort reconciliation, keep streamed view on failure
       }
     }
   }
@@ -427,9 +455,14 @@ export const useChatStore = defineStore('chat', () => {
         // Calendar widget self-fetches deadlines from REST API.
         // Deadline_manager skill uses show_deadline_dashboard() tool.
         const SELF_FETCH_WIDGETS: ReadonlySet<string> = new Set([WIDGET_TYPES.CALENDAR])
-        activeWidget.value = {
+        const newWidget = {
           type: wType,
           data: SELF_FETCH_WIDGETS.has(wType) ? {} : event.data || {},
+        }
+        activeWidget.value = newWidget
+        // Persist widget state to the active session
+        if (activeSession.value) {
+          activeSession.value.widgetState = { ...newWidget }
         }
         isWorkspaceOpen.value = true
         msg.traceSteps?.push({
@@ -439,6 +472,10 @@ export const useChatStore = defineStore('chat', () => {
         })
         break
       }
+
+      case EVENT_TYPES.ERROR:
+        // Error events are handled in sendMessage via streamError flag
+        break
     }
   }
 

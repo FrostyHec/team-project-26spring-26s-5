@@ -55,6 +55,8 @@ export interface ChatSession {
   title: string
   messages: ChatMessage[]
   skill?: string
+  /** Per-session widget state for the workspace panel. */
+  widgetState?: WidgetState
   createdAt: Date
   updatedAt: Date
 }
