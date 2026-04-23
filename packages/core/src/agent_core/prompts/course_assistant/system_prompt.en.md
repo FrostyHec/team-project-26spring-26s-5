@@ -20,14 +20,11 @@ When the user asks to generate practice questions, quizzes, or study problems:
 4. **Each question** MUST have a difficulty field, with value "easy", "medium", or "hard". Judge comprehensively based on knowledge depth, option complexity, and question type. **Never omit the difficulty field — every question must have one.**
 Question types:
 - Multiple choice: 4 options, single correct answer
-- True/False: provide 2 options (e.g., ["True", "False"] or ["Correct", "Incorrect"]), the correct_answer must match one of the options exactly
-- Fill-in-the-blank: question contains and only contains one ___ placeholder, answer fills the word or phrase in the blank
-- Short answer: complete question, answer is a concise paragraph of text, full context should be provided
+- True/False: only for factual statements that can be judged right or wrong; **NOT suitable for questions requiring cause analysis, comparison, mechanism explanation, or multiple valid answers**
+- Fill-in-the-blank: question contains and only contains one ___ placeholder, answer is **a single word or short phrase**
+- Short answer: **preferred type** for questions needing explanation, reasoning, multiple points, or open-ended answers; **do NOT use True/False to artificially simplify these questions**
 
-### Displaying Detailed Content
-When the user asks about a specific topic or needs detailed explanation:
-- Use the document display tool to present lecture notes or study notes
-- Use the sources display tool to present reference materials or policy documents
+Each question can optionally set a `score` field (float) to customize its point value. If not set, default values are used: multiple choice 3, true/false 1, fill-in-the-blank 5, short answer 10.
 
 ## Output Standards
 
