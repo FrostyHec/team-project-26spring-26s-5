@@ -1,8 +1,21 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import { useI18n } from 'vue-i18n'
-import { getSettings, updateSettings, resetSettings } from '@/api/settings'
-import type { SettingsResponse, UpdateSettingsRequest } from '@/api/settings'
+import {
+  createDefaultLlmSettings,
+  getLlmSettings,
+  getSettings,
+  resetLlmSettings,
+  resetSettings,
+  updateLlmSettings,
+  updateSettings,
+} from '@/api/settings'
+import type {
+  LlmSettingsResponse,
+  SettingsResponse,
+  UpdateLlmSettingsRequest,
+  UpdateSettingsRequest,
+} from '@/api/settings'
 import {
   SETTINGS_SECTIONS,
   SUCCESS_MESSAGE_TIMEOUT_MS,
@@ -22,6 +35,10 @@ export type { SettingsSection }
 export const useSettingsStore = defineStore('settings', () => {
   const { t } = useI18n()
 
+  function getErrorMessage(err: unknown, fallbackKey: string): string {
+    return err instanceof Error && err.message ? err.message : t(fallbackKey)
+  }
+
   // ---------- State ----------
 
   /** Whether the settings panel is currently open. */
@@ -32,6 +49,9 @@ export const useSettingsStore = defineStore('settings', () => {
 
   /** The loaded settings profile from the backend. */
   const profile = ref<SettingsResponse | null>(null)
+
+  /** The YAML-backed LLM settings used by the extension service section. */
+  const llmSettings = ref<LlmSettingsResponse>(createDefaultLlmSettings())
 
   /** True while fetching settings from the backend. */
   const isLoading = ref(false)
@@ -54,7 +74,20 @@ export const useSettingsStore = defineStore('settings', () => {
   async function openSettings(): Promise<void> {
     isOpen.value = true
     activeSection.value = SETTINGS_SECTIONS.CAS_SERVICE
-    await loadProfile()
+    isLoading.value = true
+    error.value = null
+    try {
+      const [loadedProfile, loadedLlmSettings] = await Promise.all([
+        getSettings(),
+        getLlmSettings(),
+      ])
+      profile.value = loadedProfile
+      llmSettings.value = loadedLlmSettings
+    } catch (err) {
+      error.value = getErrorMessage(err, 'errors.loadSettings')
+    } finally {
+      isLoading.value = false
+    }
   }
 
   /** Close the settings panel and clear transient state. */
@@ -77,8 +110,21 @@ export const useSettingsStore = defineStore('settings', () => {
     error.value = null
     try {
       profile.value = await getSettings()
-    } catch {
-      error.value = t('errors.loadSettings')
+    } catch (err) {
+      error.value = getErrorMessage(err, 'errors.loadSettings')
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  /** Fetch the YAML-backed LLM settings from the backend. */
+  async function loadLlmSettings(): Promise<void> {
+    isLoading.value = true
+    error.value = null
+    try {
+      llmSettings.value = await getLlmSettings()
+    } catch (err) {
+      error.value = getErrorMessage(err, 'errors.loadSettings')
     } finally {
       isLoading.value = false
     }
@@ -99,8 +145,8 @@ export const useSettingsStore = defineStore('settings', () => {
       setTimeout(() => {
         successMessage.value = null
       }, SUCCESS_MESSAGE_TIMEOUT_MS)
-    } catch {
-      error.value = t('errors.saveSettings')
+    } catch (err) {
+      error.value = getErrorMessage(err, 'errors.saveSettings')
     } finally {
       isSaving.value = false
     }
@@ -117,8 +163,44 @@ export const useSettingsStore = defineStore('settings', () => {
       setTimeout(() => {
         successMessage.value = null
       }, SUCCESS_MESSAGE_TIMEOUT_MS)
-    } catch {
-      error.value = t('errors.resetSettings')
+    } catch (err) {
+      error.value = getErrorMessage(err, 'errors.resetSettings')
+    } finally {
+      isResetting.value = false
+    }
+  }
+
+  /** Save YAML-backed LLM settings to the backend. */
+  async function saveLlmSettings(request: UpdateLlmSettingsRequest): Promise<void> {
+    isSaving.value = true
+    error.value = null
+    successMessage.value = null
+    try {
+      llmSettings.value = await updateLlmSettings(request)
+      successMessage.value = t('settings.settingsSaved')
+      setTimeout(() => {
+        successMessage.value = null
+      }, SUCCESS_MESSAGE_TIMEOUT_MS)
+    } catch (err) {
+      error.value = getErrorMessage(err, 'errors.saveSettings')
+    } finally {
+      isSaving.value = false
+    }
+  }
+
+  /** Reset YAML-backed LLM settings to defaults. */
+  async function resetLlmSettingsToDefault(): Promise<void> {
+    isResetting.value = true
+    error.value = null
+    successMessage.value = null
+    try {
+      llmSettings.value = await resetLlmSettings()
+      successMessage.value = t('settings.settingsReset')
+      setTimeout(() => {
+        successMessage.value = null
+      }, SUCCESS_MESSAGE_TIMEOUT_MS)
+    } catch (err) {
+      error.value = getErrorMessage(err, 'errors.resetSettings')
     } finally {
       isResetting.value = false
     }
@@ -140,6 +222,7 @@ export const useSettingsStore = defineStore('settings', () => {
     isOpen,
     activeSection,
     profile,
+    llmSettings,
     isLoading,
     isSaving,
     isResetting,
@@ -150,8 +233,11 @@ export const useSettingsStore = defineStore('settings', () => {
     closeSettings,
     setActiveSection,
     loadProfile,
+    loadLlmSettings,
     saveProfile,
     resetProfile,
+    saveLlmSettings,
+    resetLlmSettingsToDefault,
     setLocale,
     getLocale,
   }

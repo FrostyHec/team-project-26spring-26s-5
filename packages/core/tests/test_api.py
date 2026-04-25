@@ -1,12 +1,14 @@
 """Tests for the FastAPI server endpoints."""
 
-from unittest.mock import AsyncMock, patch
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
 from agent_core.api.server import create_app
 from agent_core.config import AgentConfig
+from agent_core.models.llm_settings import LlmSettingsFile, ProviderSettings
 
 
 @pytest.fixture
@@ -57,6 +59,25 @@ class TestToolsEndpoint:
 class TestChatEndpointErrors:
     """Test error handling for chat endpoint."""
 
+    def test_chat_returns_503_when_no_provider_is_configured(
+        self, tmp_path: Path
+    ) -> None:
+        """Chat should fail per-request instead of crashing app startup."""
+        app = create_app(
+            AgentConfig(
+                openai_api_key="",
+                model_name="gpt-4o-mini",
+                db_path=":memory:",
+                llm_settings_path=str(tmp_path / "llm_settings.yaml"),
+            )
+        )
+
+        with TestClient(app) as client:
+            response = client.post("/chat", json={"message": "Hello"})
+
+        assert response.status_code == 503
+        assert response.json()["detail"] == "No enabled LLM provider configured"
+
     def test_chat_llm_error_returns_502(self, client: TestClient) -> None:
         """Test that LLM API errors return 502 with error detail."""
         with patch(
@@ -88,6 +109,208 @@ class TestChatEndpointErrors:
                 json={"message": "Hello", "skill": "course_assistant"},
             )
             assert response.status_code == 200
+
+    def test_chat_accepts_provider_parameter(self, client: TestClient) -> None:
+        """Test that chat endpoint forwards provider selection."""
+        mock_agent = MagicMock()
+        mock_agent.chat = AsyncMock(return_value="Hello!")
+        with patch(
+            "agent_core.api.routes.chat.get_agent_for_skill",
+            return_value=mock_agent,
+        ) as mock_get_agent_for_skill:
+            response = client.post(
+                "/chat",
+                json={"message": "Hello", "provider_id": "primary"},
+            )
+            assert response.status_code == 200
+            mock_get_agent_for_skill.assert_called_once_with(None, "en", "primary")
+
+    def test_chat_rejects_unknown_provider_parameter(self, client: TestClient) -> None:
+        """Unknown provider_id should fail fast instead of silently falling back."""
+        with patch(
+            "agent_core.api.routes.chat.get_agent_for_skill",
+            side_effect=ValueError("Unknown provider_id: missing"),
+        ):
+            response = client.post(
+                "/chat",
+                json={"message": "Hello", "provider_id": "missing"},
+            )
+            assert response.status_code == 400
+            assert response.json()["detail"] == "Unknown provider_id: missing"
+
+    def test_chat_auto_fallback_tries_next_provider(self, client: TestClient) -> None:
+        """Auto fallback should try the next enabled provider by priority."""
+        create_resp = client.post("/sessions", json={"title": "Fallback"})
+        session_id = create_resp.json()["id"]
+        client.patch(
+            f"/sessions/{session_id}/preferences",
+            json={"selected_provider_id": "primary", "fallback_mode": "auto"},
+        )
+
+        primary_agent = MagicMock()
+        primary_agent.chat = AsyncMock(side_effect=Exception("primary down"))
+        secondary_agent = MagicMock()
+        secondary_agent.chat = AsyncMock(return_value="Recovered")
+
+        with (
+            patch(
+                "agent_core.api.routes.chat.load_llm_settings",
+                return_value=LlmSettingsFile(
+                    providers=[
+                        ProviderSettings(
+                            id="primary",
+                            name="Primary",
+                            priority=0,
+                            api_key="key-1",
+                            enabled=True,
+                        ),
+                        ProviderSettings(
+                            id="secondary",
+                            name="Secondary",
+                            priority=1,
+                            api_key="key-2",
+                            enabled=True,
+                        ),
+                    ]
+                ),
+            ),
+            patch(
+                "agent_core.api.routes.chat.get_agent_for_skill",
+                side_effect=[primary_agent, secondary_agent],
+            ) as mock_get_agent_for_skill,
+        ):
+            response = client.post(
+                "/chat",
+                json={
+                    "message": "Hello",
+                    "session_id": session_id,
+                    "provider_id": "primary",
+                },
+            )
+
+        assert response.status_code == 200
+        assert response.json()["response"] == "Recovered"
+        assert mock_get_agent_for_skill.call_args_list[0].args == (
+            None,
+            "en",
+            "primary",
+        )
+        assert mock_get_agent_for_skill.call_args_list[1].args == (
+            None,
+            "en",
+            "secondary",
+        )
+
+    def test_chat_stream_auto_fallback_tries_next_provider(
+        self, client: TestClient
+    ) -> None:
+        """Streaming fallback should switch providers before any content is emitted."""
+        create_resp = client.post("/sessions", json={"title": "Fallback Stream"})
+        session_id = create_resp.json()["id"]
+        client.patch(
+            f"/sessions/{session_id}/preferences",
+            json={"selected_provider_id": "primary", "fallback_mode": "auto"},
+        )
+
+        primary_agent = MagicMock()
+
+        async def _failing_stream(*_args, **_kwargs):
+            if False:
+                yield {}
+            raise Exception("primary down")
+
+        primary_agent.stream_with_history = _failing_stream
+
+        secondary_agent = MagicMock()
+
+        async def _success_stream(*_args, **_kwargs):
+            yield {"type": "loop_start"}
+            yield {"type": "token", "content": "Recovered"}
+
+        secondary_agent.stream_with_history = _success_stream
+
+        with (
+            patch(
+                "agent_core.api.routes.chat.load_llm_settings",
+                return_value=LlmSettingsFile(
+                    providers=[
+                        ProviderSettings(
+                            id="primary",
+                            name="Primary",
+                            priority=0,
+                            api_key="key-1",
+                            enabled=True,
+                        ),
+                        ProviderSettings(
+                            id="secondary",
+                            name="Secondary",
+                            priority=1,
+                            api_key="key-2",
+                            enabled=True,
+                        ),
+                    ]
+                ),
+            ),
+            patch(
+                "agent_core.api.routes.chat.get_agent_for_skill",
+                side_effect=[primary_agent, secondary_agent],
+            ),
+        ):
+            response = client.post(
+                "/chat/stream",
+                json={
+                    "message": "Hello",
+                    "session_id": session_id,
+                    "provider_id": "primary",
+                },
+            )
+
+        assert response.status_code == 200
+        assert '"type":"provider_switch"' in response.text.replace(" ", "")
+        assert "Recovered" in response.text
+        assert "[DONE]" in response.text
+
+    def test_chat_stream_schedules_first_round_title_generation(
+        self, client: TestClient
+    ) -> None:
+        """Successful first-round streams should schedule async title generation."""
+        create_resp = client.post("/sessions", json={"title": "Async Title"})
+        session_id = create_resp.json()["id"]
+
+        mock_agent = MagicMock()
+        mock_agent.llm = object()
+
+        async def _success_stream(*_args, **_kwargs):
+            yield {"type": "loop_start"}
+            yield {"type": "token", "content": "Answer"}
+            yield {"type": "loop_end"}
+
+        mock_agent.stream_with_history = _success_stream
+
+        with (
+            patch(
+                "agent_core.api.routes.chat.get_agent_for_skill",
+                return_value=mock_agent,
+            ),
+            patch(
+                "agent_core.api.routes.chat._schedule_first_round_title_generation"
+            ) as mock_schedule,
+        ):
+            response = client.post(
+                "/chat/stream",
+                json={
+                    "message": "Hello",
+                    "session_id": session_id,
+                    "provider_id": "primary",
+                },
+            )
+
+        assert response.status_code == 200
+        assert "[DONE]" in response.text
+        mock_schedule.assert_called_once()
+        scheduled_args = mock_schedule.call_args.args
+        assert scheduled_args[1] == session_id
+        assert scheduled_args[3] is mock_agent.llm
 
 
 class TestSkillsEndpoint:

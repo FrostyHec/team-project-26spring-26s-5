@@ -134,8 +134,9 @@ packages/core/output/
 3. store = SessionStore(config.db_path)
    ↓
 4. await store.initialize()
-   - 打开数据库连接
-   - 创建 sessions 和 messages 表
+  - 创建 SQLModel async engine
+  - 创建 sessions 和 messages 表
+  - 对旧库补齐新增列（兼容当前 session/message schema）
 ```
 
 ### 3.2 DeadlineStore 初始化链路

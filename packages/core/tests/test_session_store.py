@@ -1,8 +1,8 @@
-"""Tests for SessionStore — SQLite-backed session and message CRUD."""
+"""Tests for SessionStore - SQLite-backed session and message CRUD."""
 
 import pytest
 
-from agent_core.models.session import MessageRecord, MessageRole
+from agent_core.models.session import MessageRecord, MessageRole, MessageStatus
 from agent_core.persistence.session_store import SessionStore
 
 
@@ -86,6 +86,55 @@ class TestSessionCRUD:
         """Getting a non-existent session returns None."""
         result = await store.get_session("nonexistent")
         assert result is None
+
+    async def test_update_session_preferences(self, store: SessionStore) -> None:
+        """Session-level provider and fallback preferences should persist."""
+        session = await store.create_session("With Preferences")
+
+        updated = await store.update_session_preferences(
+            session.id,
+            {
+                "selected_provider_id": "primary",
+                "fallback_mode": "auto",
+            },
+        )
+
+        assert updated is not None
+        assert updated.selected_provider_id == "primary"
+        assert updated.fallback_mode == "auto"
+
+        fetched = await store.get_session(session.id)
+        assert fetched is not None
+        assert fetched.selected_provider_id == "primary"
+        assert fetched.fallback_mode == "auto"
+
+    async def test_clear_invalid_selected_providers(self, store: SessionStore) -> None:
+        """Clear invalid provider preferences without touching valid ones."""
+        valid_session = await store.create_session("Valid Provider")
+        invalid_session = await store.create_session("Invalid Provider")
+
+        await store.update_session_preferences(
+            valid_session.id,
+            {"selected_provider_id": "primary"},
+        )
+        await store.update_session_preferences(
+            invalid_session.id,
+            {"selected_provider_id": "legacy_provider"},
+        )
+
+        cleared_count = await store.clear_invalid_selected_providers(
+            {"primary", "backup"}
+        )
+
+        assert cleared_count == 1
+
+        refreshed_valid_session = await store.get_session(valid_session.id)
+        refreshed_invalid_session = await store.get_session(invalid_session.id)
+
+        assert refreshed_valid_session is not None
+        assert refreshed_valid_session.selected_provider_id == "primary"
+        assert refreshed_invalid_session is not None
+        assert refreshed_invalid_session.selected_provider_id is None
 
 
 # ---- Message persistence ----
@@ -211,6 +260,39 @@ class TestMessagePersistence:
             )
         )
         assert await store.get_next_ordinal(session.id) == 1
+
+    async def test_persist_interrupted_messages(self, store: SessionStore) -> None:
+        """Interrupted partial output should persist with interrupted status."""
+        session = await store.create_session("Interrupted")
+
+        detail = await store.persist_interrupted_messages(
+            session.id,
+            "hello",
+            "partial answer",
+        )
+
+        assert detail is not None
+        assert len(detail.messages) == 2
+        assert detail.messages[0].role == MessageRole.HUMAN
+        assert detail.messages[1].role == MessageRole.AI
+        assert detail.messages[1].content == "partial answer"
+        assert detail.messages[1].status == MessageStatus.INTERRUPTED
+
+    async def test_persist_partial_response_with_failed_status(
+        self, store: SessionStore
+    ) -> None:
+        """Partial responses can also be persisted with failed status."""
+        session = await store.create_session("Failed")
+
+        detail = await store.persist_partial_response(
+            session.id,
+            "hello",
+            "partial answer",
+            MessageStatus.FAILED,
+        )
+
+        assert detail is not None
+        assert detail.messages[1].status == MessageStatus.FAILED
 
 
 # ---- Pending state ----

@@ -14,7 +14,7 @@ from langchain_core.messages import (
     ToolMessage,
 )
 
-from agent_core.models.session import MessageRecord, MessageRole
+from agent_core.models.session import MessageRecord, MessageRole, MessageStatus
 
 
 def message_to_record(
@@ -47,6 +47,7 @@ def message_to_record(
         content=str(msg.content),
         tool_call_id=tool_call_id,
         tool_calls=tool_calls,
+        status=MessageStatus.COMPLETED,
         created_at=datetime.now(UTC),
         ordinal=ordinal,
     )

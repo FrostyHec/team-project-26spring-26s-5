@@ -42,6 +42,7 @@ onMounted(async () => {
   await chatStore.checkConnection()
   await chatStore.loadSessions()
   await chatStore.loadSkills()
+  await settingsStore.loadLlmSettings()
 })
 
 async function handleNewChat() {

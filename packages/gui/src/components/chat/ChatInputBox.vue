@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Send, Paperclip } from 'lucide-vue-next'
+import { Send, Paperclip, Square } from 'lucide-vue-next'
 import { useChatStore } from '@/stores/chat'
+import { useSettingsStore } from '@/stores/settings'
+import MenuDropdown from '@/components/common/MenuDropdown.vue'
 
 const { t, locale } = useI18n()
 const chatStore = useChatStore()
+const settingsStore = useSettingsStore()
 
 const inputText = ref('')
 const inputRef = ref<HTMLTextAreaElement | null>(null)
@@ -13,6 +16,27 @@ const showSkillMenu = ref(false)
 
 /** Quick skill pills (first 3 skills). */
 const quickSkills = computed(() => chatStore.skills.slice(0, 3))
+
+const providerOptions = computed(() =>
+  [...settingsStore.llmSettings.providers]
+    .filter((provider) => provider.enabled)
+    .sort((left, right) => left.priority - right.priority),
+)
+
+const selectedProvider = computed(
+  () =>
+    providerOptions.value.find((provider) => provider.id === chatStore.selectedProviderId) ?? null,
+)
+
+const selectedProviderLabel = computed(
+  () => selectedProvider.value?.name || selectedProvider.value?.id || t('chat.providerNone'),
+)
+
+onMounted(async () => {
+  if (settingsStore.llmSettings.providers.length === 0) {
+    await settingsStore.loadLlmSettings()
+  }
+})
 
 /**
  * Determine if the `@` at position `atIndex` in `text` is a valid mention trigger.
@@ -85,6 +109,11 @@ function selectSkill(skillId: string, skillName: string) {
   nextTick(() => inputRef.value?.focus())
 }
 
+function selectProvider(providerId: string, closeDropdown: () => void): void {
+  void chatStore.updateActiveSessionPreferences({ selected_provider_id: providerId })
+  closeDropdown()
+}
+
 async function handleSend() {
   if (!inputText.value.trim() || chatStore.isLoading) return
   const msg = inputText.value
@@ -93,6 +122,14 @@ async function handleSend() {
   // Reset textarea height
   if (inputRef.value) inputRef.value.style.height = 'auto'
   await chatStore.sendMessage(msg, locale.value)
+}
+
+async function handlePrimaryAction() {
+  if (chatStore.isLoading) {
+    await chatStore.stopStreaming()
+    return
+  }
+  await handleSend()
 }
 
 /**
@@ -150,43 +187,85 @@ function handleKeydown(e: KeyboardEvent) {
           :placeholder="t('chat.inputPlaceholder', { at: '@' })"
           rows="1"
           class="flex-1 py-4 bg-transparent border-none focus:ring-0 resize-none outline-none text-[15px] leading-7 min-h-[52px] max-h-36 text-gray-800 placeholder:text-gray-400"
-          :disabled="chatStore.isLoading"
           @input="handleInput"
           @keydown="handleKeydown"
         />
 
         <!-- Send button -->
         <button
-          class="p-2.5 m-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 transition-colors duration-150 shadow-sm flex-shrink-0 cursor-pointer"
-          :disabled="!inputText.trim() || chatStore.isLoading"
-          @click="handleSend"
+          class="p-2.5 m-1.5 text-white rounded-lg disabled:bg-gray-200 disabled:text-gray-400 transition-colors duration-150 shadow-sm flex-shrink-0 cursor-pointer"
+          :class="
+            chatStore.isLoading ? 'bg-rose-600 hover:bg-rose-700' : 'bg-blue-600 hover:bg-blue-700'
+          "
+          :disabled="!chatStore.isLoading && !inputText.trim()"
+          :title="chatStore.isLoading ? t('common.stop') : t('chat.send')"
+          @click="handlePrimaryAction"
         >
-          <Send class="w-[18px] h-[18px]" />
+          <Square v-if="chatStore.isLoading" class="w-[18px] h-[18px]" />
+          <Send v-else class="w-[18px] h-[18px]" />
         </button>
       </div>
     </div>
 
-    <!-- Skill Suggestions -->
-    <div
-      v-if="quickSkills.length > 0"
-      class="mt-2.5 flex items-center gap-2 px-1 flex-wrap mx-auto w-full max-w-[920px]"
-    >
-      <span class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider"
-        >{{ t('chat.skills') }}:</span
-      >
-      <button
-        v-for="skill in quickSkills"
-        :key="skill.id"
-        class="text-[10px] font-semibold px-2.5 py-1 rounded-full transition-colors duration-150 cursor-pointer"
-        :class="
-          chatStore.activeSession?.skill === skill.id
-            ? 'bg-blue-600 text-white'
-            : 'text-blue-600 bg-blue-50 hover:bg-blue-100'
-        "
-        @click="selectSkill(skill.id, skill.name)"
-      >
-        @{{ skill.name }}
-      </button>
+    <div class="mt-2.5 mx-auto flex w-full max-w-[920px] flex-wrap items-center gap-2 px-1">
+      <div class="mr-2 flex items-center gap-2">
+        <span class="text-[10px] font-semibold uppercase tracking-wider text-gray-400"
+          >{{ t('chat.providerLabel') }}:</span
+        >
+        <MenuDropdown
+          v-if="providerOptions.length > 0"
+          :label="selectedProviderLabel"
+          button-class="border border-gray-200 bg-white px-2.5 py-1 text-[11px] font-semibold shadow-sm hover:border-blue-300"
+          menu-class="min-w-[12rem]"
+          menu-placement="top"
+        >
+          <template #label>
+            <span :class="selectedProvider ? 'text-gray-700' : 'text-red-600'">
+              {{ selectedProviderLabel }}
+            </span>
+          </template>
+          <template #default="{ closeDropdown }">
+            <button
+              v-for="provider in providerOptions"
+              :key="provider.id"
+              class="w-full px-3 py-2 text-left text-sm transition-colors"
+              :class="
+                chatStore.selectedProviderId === provider.id
+                  ? 'bg-blue-50 font-medium text-blue-600'
+                  : 'text-gray-700 hover:bg-gray-50'
+              "
+              @click="selectProvider(provider.id, closeDropdown)"
+            >
+              {{ provider.name || provider.id }}
+            </button>
+          </template>
+        </MenuDropdown>
+        <span
+          v-else
+          class="rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-600"
+        >
+          {{ t('chat.providerNone') }}
+        </span>
+      </div>
+
+      <template v-if="quickSkills.length > 0">
+        <span class="text-[10px] font-semibold uppercase tracking-wider text-gray-400"
+          >{{ t('chat.skills') }}:</span
+        >
+        <button
+          v-for="skill in quickSkills"
+          :key="skill.id"
+          class="rounded-full px-2.5 py-1 text-[10px] font-semibold transition-colors duration-150 cursor-pointer"
+          :class="
+            chatStore.activeSession?.skill === skill.id
+              ? 'bg-blue-600 text-white'
+              : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+          "
+          @click="selectSkill(skill.id, skill.name)"
+        >
+          @{{ skill.name }}
+        </button>
+      </template>
     </div>
   </div>
 </template>

@@ -14,6 +14,10 @@ export const EVENT_TYPES = {
   LOOP_END: 'loop_end',
   APPROVAL_REQUEST: 'approval_request',
   WIDGET_DISPLAY: 'widget_display',
+  INTERRUPTED: 'interrupted',
+  FAILED: 'failed',
+  PROVIDER_SWITCH: 'provider_switch',
+  TITLE_SUGGESTION: 'title_suggestion',
   ERROR: 'error',
 } as const
 
@@ -40,6 +44,7 @@ export type WidgetType = (typeof WIDGET_TYPES)[keyof typeof WIDGET_TYPES]
 export const MESSAGE_ROLES = {
   USER: 'user',
   ASSISTANT: 'assistant',
+  SYSTEM: 'system',
 } as const
 
 export type MessageRole = (typeof MESSAGE_ROLES)[keyof typeof MESSAGE_ROLES]
@@ -53,6 +58,7 @@ export const TRACE_STEP_TYPES = {
   LOOP_END: 'loop_end',
   APPROVAL_REQUEST: 'approval_request',
   WIDGET_DISPLAY: 'widget_display',
+  PROVIDER_SWITCH: 'provider_switch',
 } as const
 
 export type TraceStepType = (typeof TRACE_STEP_TYPES)[keyof typeof TRACE_STEP_TYPES]
@@ -65,6 +71,16 @@ export const TOOL_CALL_STATUS = {
 } as const
 
 export type ToolCallStatus = (typeof TOOL_CALL_STATUS)[keyof typeof TOOL_CALL_STATUS]
+
+/** Chat message status values. */
+export const MESSAGE_STATUSES = {
+  COMPLETED: 'completed',
+  INTERRUPTED: 'interrupted',
+  FAILED: 'failed',
+  STREAMING: 'streaming',
+} as const
+
+export type MessageStatus = (typeof MESSAGE_STATUSES)[keyof typeof MESSAGE_STATUSES]
 
 /**
  * Persisted message role values from the backend session store.

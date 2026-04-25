@@ -1,5 +1,6 @@
 """Tests for the CLI module."""
 
+import asyncio
 from unittest.mock import patch
 
 import pytest
@@ -37,3 +38,6 @@ class TestCliMain:
             with patch("asyncio.run") as mock_run:
                 main()
                 mock_run.assert_called_once()
+                chat_loop_coro = mock_run.call_args.args[0]
+                assert asyncio.iscoroutine(chat_loop_coro)
+                chat_loop_coro.close()

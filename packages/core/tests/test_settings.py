@@ -4,12 +4,16 @@ Covers: encryption, ProfileStore, ProfileService, and settings API endpoints.
 """
 
 import os
+from pathlib import Path
+from unittest.mock import patch
 
 import pytest
+import yaml
 from fastapi.testclient import TestClient
 
 from agent_core.api.server import create_app
 from agent_core.config import AgentConfig
+from agent_core.models.llm_settings import LlmSettingsFile
 from agent_core.models.settings import (
     SettingsCategory,
     UpdateProfileRequest,
@@ -52,7 +56,7 @@ async def profile_store():
 
 
 @pytest.fixture
-def client(fresh_encryption_key) -> TestClient:
+def client(fresh_encryption_key, tmp_path: Path) -> TestClient:
     """TestClient with a fresh in-memory app (shared encryption key)."""
     os.environ["SETTINGS_ENCRYPTION_KEY"] = fresh_encryption_key
     config = AgentConfig(
@@ -60,6 +64,7 @@ def client(fresh_encryption_key) -> TestClient:
         model_name="gpt-4o-mini",
         db_path=":memory:",
         encryption_key=fresh_encryption_key,
+        llm_settings_path=str(tmp_path / "llm_settings.yaml"),
     )
     app = create_app(config)
     with TestClient(app) as c:
@@ -108,6 +113,29 @@ class TestEncryption:
         key = generate_key()
         reset_fernet(key)
         assert decrypt(encrypt("test")) == "test"
+
+
+class TestAppStartupWithoutLlmProvider:
+    """Regression tests for app startup with empty LLM settings."""
+
+    def test_app_starts_and_settings_remain_available(self, tmp_path: Path) -> None:
+        """The server should boot even before any provider is configured."""
+        app = create_app(
+            AgentConfig(
+                openai_api_key="",
+                model_name="gpt-4o-mini",
+                db_path=":memory:",
+                llm_settings_path=str(tmp_path / "llm_settings.yaml"),
+            )
+        )
+
+        with TestClient(app) as client:
+            health_response = client.get("/health")
+            settings_response = client.get("/settings/llm")
+
+        assert health_response.status_code == 200
+        assert settings_response.status_code == 200
+        assert settings_response.json() == LlmSettingsFile().model_dump()
 
 
 # ===========================================================================
@@ -269,6 +297,12 @@ class TestPydanticModels:
         assert r.email_account is None
         assert r.email_password is None
 
+    def test_llm_settings_file_defaults(self) -> None:
+        settings = LlmSettingsFile()
+        assert settings.temperature == 0.0
+        assert settings.max_iterations == 10
+        assert settings.providers == []
+
 
 # ===========================================================================
 # Settings API endpoint tests
@@ -387,6 +421,227 @@ class TestSettingsEndpoints:
         data = response.json()
         assert data["cas_account"] == ""
         assert data["cas_password_is_set"] is False
+
+    def test_get_llm_settings_returns_defaults(self, client: TestClient) -> None:
+        response = client.get("/settings/llm")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["temperature"] == 0.0
+        assert data["max_iterations"] == 10
+        assert data["providers"] == []
+
+    def test_put_llm_settings_persists_yaml_backed_config(
+        self, client: TestClient
+    ) -> None:
+        response = client.put(
+            "/settings/llm",
+            json={
+                "temperature": 0.4,
+                "max_iterations": 6,
+                "system_prompt": "Configured prompt",
+                "providers": [
+                    {
+                        "id": "backup",
+                        "name": "Backup",
+                        "priority": 1,
+                        "base_url": "https://backup.example/v1",
+                        "api_key": "backup-key",
+                        "model": "backup-model",
+                        "enabled": True,
+                    },
+                    {
+                        "id": "primary",
+                        "name": "Primary",
+                        "priority": 0,
+                        "base_url": "https://primary.example/v1",
+                        "api_key": "primary-key",
+                        "model": "primary-model",
+                        "enabled": True,
+                    },
+                ],
+            },
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["providers"][0]["id"] == "primary"
+        assert data["providers"][1]["id"] == "backup"
+
+        get_response = client.get("/settings/llm")
+        get_data = get_response.json()
+        assert get_data["system_prompt"] == "Configured prompt"
+        assert get_data["providers"][0]["api_key"] == "primary-key"
+
+    def test_put_llm_settings_invalid_enabled_provider_returns_422(
+        self, client: TestClient
+    ) -> None:
+        response = client.put(
+            "/settings/llm",
+            json={
+                "temperature": 0.4,
+                "max_iterations": 6,
+                "providers": [
+                    {
+                        "id": "primary",
+                        "name": "Primary",
+                        "priority": 0,
+                        "base_url": "https://primary.example/v1",
+                        "api_key": "",
+                        "model": "primary-model",
+                        "enabled": True,
+                    }
+                ],
+            },
+        )
+
+        assert response.status_code == 422
+        detail = response.json()["detail"]
+        assert any("has no API key" in str(item) for item in detail)
+
+    def test_put_llm_settings_unexpected_failure_returns_500(
+        self, client: TestClient
+    ) -> None:
+        with patch(
+            "agent_core.api.routes.settings.save_llm_settings",
+            side_effect=RuntimeError("boom"),
+        ):
+            response = client.put(
+                "/settings/llm",
+                json={
+                    "temperature": 0.4,
+                    "max_iterations": 6,
+                    "providers": [],
+                },
+            )
+
+        assert response.status_code == 500
+        assert response.json() == {"detail": "Failed to update LLM settings"}
+
+    def test_get_llm_settings_normalizes_malformed_provider_ids(
+        self, fresh_encryption_key: str, tmp_path: Path
+    ) -> None:
+        llm_settings_path = tmp_path / "llm_settings.yaml"
+        llm_settings_path.write_text(
+            yaml.safe_dump(
+                {
+                    "temperature": 0.1,
+                    "max_iterations": 5,
+                    "system_prompt": "Prompt",
+                    "providers": [
+                        {
+                            "id": " legacy_provider ",
+                            "name": "Primary",
+                            "priority": 0,
+                            "base_url": "https://primary.example/v1",
+                            "api_key": "primary-key",
+                            "model": "primary-model",
+                            "enabled": True,
+                        },
+                        {
+                            "id": "legacy_provider",
+                            "name": "Backup",
+                            "priority": 1,
+                            "base_url": "https://backup.example/v1",
+                            "api_key": "backup-key",
+                            "model": "backup-model",
+                            "enabled": True,
+                        },
+                    ],
+                },
+                sort_keys=False,
+            ),
+            encoding="utf-8",
+        )
+
+        os.environ["SETTINGS_ENCRYPTION_KEY"] = fresh_encryption_key
+        app = create_app(
+            AgentConfig(
+                openai_api_key="test-key",
+                model_name="gpt-4o-mini",
+                db_path=":memory:",
+                encryption_key=fresh_encryption_key,
+                llm_settings_path=str(llm_settings_path),
+            )
+        )
+
+        with TestClient(app) as client:
+            response = client.get("/settings/llm")
+
+        del os.environ["SETTINGS_ENCRYPTION_KEY"]
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["providers"][0]["id"] == "legacy_provider"
+        assert data["providers"][1]["id"] == "provider_2"
+
+    def test_put_llm_settings_clears_stale_session_provider_preferences(
+        self, client: TestClient
+    ) -> None:
+        create_response = client.post(
+            "/sessions", json={"title": "Session With Provider"}
+        )
+        session_id = create_response.json()["id"]
+
+        preferences_response = client.patch(
+            f"/sessions/{session_id}/preferences",
+            json={
+                "selected_provider_id": " legacy_provider ",
+                "fallback_mode": "manual",
+            },
+        )
+        assert preferences_response.status_code == 200
+
+        response = client.put(
+            "/settings/llm",
+            json={
+                "temperature": 0.4,
+                "max_iterations": 6,
+                "system_prompt": "Configured prompt",
+                "providers": [
+                    {
+                        "id": "legacy_provider",
+                        "name": "Primary",
+                        "priority": 0,
+                        "base_url": "https://primary.example/v1",
+                        "api_key": "primary-key",
+                        "model": "primary-model",
+                        "enabled": True,
+                    }
+                ],
+            },
+        )
+
+        assert response.status_code == 200
+
+        session_response = client.get(f"/sessions/{session_id}")
+        assert session_response.status_code == 200
+        assert session_response.json()["session"]["selected_provider_id"] is None
+
+    def test_delete_llm_settings_resets_defaults(self, client: TestClient) -> None:
+        client.put(
+            "/settings/llm",
+            json={
+                "temperature": 0.4,
+                "max_iterations": 6,
+                "system_prompt": "Configured prompt",
+                "providers": [
+                    {
+                        "id": "primary",
+                        "name": "Primary",
+                        "priority": 0,
+                        "base_url": "",
+                        "api_key": "primary-key",
+                        "model": "primary-model",
+                        "enabled": True,
+                    }
+                ],
+            },
+        )
+        response = client.delete("/settings/llm")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["temperature"] == 0.0
+        assert data["max_iterations"] == 10
+        assert data["providers"] == []
 
 
 # ===========================================================================

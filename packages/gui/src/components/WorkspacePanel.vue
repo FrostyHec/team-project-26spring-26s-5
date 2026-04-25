@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { X, ChevronDown } from 'lucide-vue-next'
+import { X } from 'lucide-vue-next'
 import { useChatStore } from '@/stores/chat'
 import { WIDGET_COMPONENTS, WIDGET_TITLE_I18N_KEYS, SELECTABLE_WIDGETS } from './widgets/index'
 import type { WidgetType } from '@/stores/chatConstants'
 import EmptyWidget from './widgets/EmptyWidget.vue'
+import MenuDropdown from './common/MenuDropdown.vue'
 
 const { t } = useI18n()
 const chatStore = useChatStore()
@@ -13,9 +14,6 @@ const chatStore = useChatStore()
 const emit = defineEmits<{
   (e: 'close'): void
 }>()
-
-const dropdownOpen = ref(false)
-const dropdownRef = ref<HTMLElement | null>(null)
 
 const widgetComponent = computed(() => {
   const wt = chatStore.activeWidget.type as WidgetType
@@ -30,28 +28,12 @@ const widgetTitle = computed(() => {
 
 function selectWidget(type: WidgetType): void {
   chatStore.setWidget(type)
-  dropdownOpen.value = false
 }
 
-function toggleDropdown(): void {
-  dropdownOpen.value = !dropdownOpen.value
+function handleWidgetSelection(type: WidgetType, closeDropdown: () => void): void {
+  selectWidget(type)
+  closeDropdown()
 }
-
-function onClickOutside(event: MouseEvent): void {
-  const target = event.target
-  if (!(target instanceof Node)) return
-  if (dropdownRef.value && !dropdownRef.value.contains(target)) {
-    dropdownOpen.value = false
-  }
-}
-
-onMounted(() => {
-  document.addEventListener('click', onClickOutside, true)
-})
-
-onBeforeUnmount(() => {
-  document.removeEventListener('click', onClickOutside, true)
-})
 </script>
 
 <template>
@@ -61,23 +43,8 @@ onBeforeUnmount(() => {
       class="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-white flex-shrink-0"
     >
       <!-- Widget selector dropdown -->
-      <div ref="dropdownRef" class="relative">
-        <button
-          class="flex items-center gap-1 text-sm font-semibold text-gray-800 hover:text-blue-600 transition-colors"
-          @click="toggleDropdown"
-        >
-          {{ widgetTitle }}
-          <ChevronDown
-            class="w-4 h-4 transition-transform"
-            :class="{ 'rotate-180': dropdownOpen }"
-          />
-        </button>
-
-        <!-- Dropdown menu -->
-        <div
-          v-show="dropdownOpen"
-          class="absolute left-0 top-full mt-1 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-20"
-        >
+      <MenuDropdown :label="widgetTitle" class="relative" button-class="px-0 py-0">
+        <template #default="{ closeDropdown }">
           <button
             v-for="w in SELECTABLE_WIDGETS"
             :key="w.type"
@@ -87,12 +54,12 @@ onBeforeUnmount(() => {
                 ? 'bg-blue-50 text-blue-600 font-medium'
                 : 'text-gray-700 hover:bg-gray-50'
             "
-            @click="selectWidget(w.type)"
+            @click="handleWidgetSelection(w.type, closeDropdown)"
           >
             {{ t(w.titleKey) }}
           </button>
-        </div>
-      </div>
+        </template>
+      </MenuDropdown>
 
       <button
         class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"

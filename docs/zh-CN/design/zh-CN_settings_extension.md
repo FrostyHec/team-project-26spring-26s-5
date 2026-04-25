@@ -3,6 +3,7 @@
 ## 概述
 
 Settings 功能为用户提供 CAS（SUSTech 统一认证）与企业邮箱两组服务凭据的安全存储与管理。
+当前扩展服务 section 还额外承担 YAML-backed LLM runtime 设置的维护，包括 provider 列表、temperature、max_iterations、system_prompt 与 `debug_mode`。
 核心设计原则：
 
 - **密码不出境**：密码仅单向写入，API 响应永不返回明文或密文，仅返回是否已设置的布尔标志
@@ -205,7 +206,7 @@ packages/gui/src/
     ├── SettingsSidebar.vue      ← 导航侧边栏（section 切换）
     ├── CasServiceSettings.vue   ← CAS 凭据面板
     ├── EmailServiceSettings.vue ← 邮箱凭据面板
-    ├── ExtensionServiceSettings.vue ← 扩展服务占位面板
+    ├── ExtensionServiceSettings.vue ← LLM runtime / Provider / debug_mode 设置面板
     └── LanguageSettings.vue     ← 语言切换面板
 ```
 

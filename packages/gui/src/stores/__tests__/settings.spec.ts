@@ -22,15 +22,35 @@ vi.mock('@/i18n', () => {
 
 // Mock the API module
 vi.mock('@/api/settings', () => ({
+  createDefaultLlmSettings: vi.fn(() => ({
+    temperature: 0,
+    max_iterations: 10,
+    system_prompt: 'Default prompt',
+    debug_mode: false,
+    providers: [],
+  })),
+  getLlmSettings: vi.fn(),
   getSettings: vi.fn(),
+  resetLlmSettings: vi.fn(),
   updateSettings: vi.fn(),
+  updateLlmSettings: vi.fn(),
   resetSettings: vi.fn(),
 }))
 
-import { getSettings, updateSettings, resetSettings } from '@/api/settings'
+import {
+  getLlmSettings,
+  getSettings,
+  resetLlmSettings,
+  resetSettings,
+  updateLlmSettings,
+  updateSettings,
+} from '@/api/settings'
 
+const mockGetLlmSettings = vi.mocked(getLlmSettings)
 const mockGetSettings = vi.mocked(getSettings)
+const mockResetLlmSettings = vi.mocked(resetLlmSettings)
 const mockUpdateSettings = vi.mocked(updateSettings)
+const mockUpdateLlmSettings = vi.mocked(updateLlmSettings)
 const mockResetSettings = vi.mocked(resetSettings)
 
 const MOCK_PROFILE = {
@@ -45,6 +65,14 @@ const EMPTY_PROFILE = {
   cas_password_is_set: false,
   email_account: '',
   email_password_is_set: false,
+}
+
+const MOCK_LLM_SETTINGS = {
+  temperature: 0.3,
+  max_iterations: 6,
+  system_prompt: 'Configured prompt',
+  debug_mode: true,
+  providers: [],
 }
 
 describe('useSettingsStore', () => {
@@ -69,6 +97,13 @@ describe('useSettingsStore', () => {
     expect(store.isOpen).toBe(false)
     expect(store.activeSection).toBe(SETTINGS_SECTIONS.CAS_SERVICE)
     expect(store.profile).toBeNull()
+    expect(store.llmSettings).toEqual({
+      temperature: 0,
+      max_iterations: 10,
+      system_prompt: 'Default prompt',
+      debug_mode: false,
+      providers: [],
+    })
     expect(store.isLoading).toBe(false)
     expect(store.isSaving).toBe(false)
     expect(store.error).toBeNull()
@@ -78,6 +113,7 @@ describe('useSettingsStore', () => {
   describe('openSettings', () => {
     it('sets isOpen to true', async () => {
       mockGetSettings.mockResolvedValue(EMPTY_PROFILE)
+      mockGetLlmSettings.mockResolvedValue(MOCK_LLM_SETTINGS)
       const store = useSettingsStore()
       await store.openSettings()
       expect(store.isOpen).toBe(true)
@@ -85,6 +121,7 @@ describe('useSettingsStore', () => {
 
     it('resets activeSection to CAS_SERVICE', async () => {
       mockGetSettings.mockResolvedValue(EMPTY_PROFILE)
+      mockGetLlmSettings.mockResolvedValue(MOCK_LLM_SETTINGS)
       const store = useSettingsStore()
       store.setActiveSection(SETTINGS_SECTIONS.EMAIL_SERVICE)
       await store.openSettings()
@@ -93,10 +130,13 @@ describe('useSettingsStore', () => {
 
     it('loads the profile', async () => {
       mockGetSettings.mockResolvedValue(MOCK_PROFILE)
+      mockGetLlmSettings.mockResolvedValue(MOCK_LLM_SETTINGS)
       const store = useSettingsStore()
       await store.openSettings()
       expect(store.profile).toEqual(MOCK_PROFILE)
+      expect(store.llmSettings).toEqual(MOCK_LLM_SETTINGS)
       expect(mockGetSettings).toHaveBeenCalledTimes(1)
+      expect(mockGetLlmSettings).toHaveBeenCalledTimes(1)
     })
   })
 
@@ -148,7 +188,7 @@ describe('useSettingsStore', () => {
       mockGetSettings.mockRejectedValue(new Error('Network error'))
       const store = useSettingsStore()
       await store.loadProfile()
-      expect(store.error).toBe('errors.loadSettings')
+      expect(store.error).toBe('Network error')
       expect(store.profile).toBeNull()
     })
 
@@ -201,7 +241,7 @@ describe('useSettingsStore', () => {
       mockUpdateSettings.mockRejectedValue(new Error('Server error'))
       const store = useSettingsStore()
       await store.saveProfile({ cas_account: 'user' })
-      expect(store.error).toBe('errors.saveSettings')
+      expect(store.error).toBe('Server error')
       expect(store.successMessage).toBeNull()
     })
 
@@ -218,6 +258,35 @@ describe('useSettingsStore', () => {
       mockUpdateSettings.mockResolvedValue(EMPTY_PROFILE)
       await store.saveProfile({})
       expect(store.error).toBeNull()
+    })
+  })
+
+  describe('saveLlmSettings', () => {
+    it('updates llmSettings on success', async () => {
+      mockUpdateLlmSettings.mockResolvedValue(MOCK_LLM_SETTINGS)
+      const store = useSettingsStore()
+      await store.saveLlmSettings(MOCK_LLM_SETTINGS)
+      expect(store.llmSettings).toEqual(MOCK_LLM_SETTINGS)
+      expect(store.successMessage).toBe('settings.settingsSaved')
+    })
+
+    it('sets error on failure', async () => {
+      mockUpdateLlmSettings.mockRejectedValue(
+        new Error("Provider 'provider_2' is enabled but has no API key"),
+      )
+      const store = useSettingsStore()
+      await store.saveLlmSettings(MOCK_LLM_SETTINGS)
+      expect(store.error).toBe("Provider 'provider_2' is enabled but has no API key")
+    })
+  })
+
+  describe('resetLlmSettingsToDefault', () => {
+    it('resets llm settings on success', async () => {
+      mockResetLlmSettings.mockResolvedValue(MOCK_LLM_SETTINGS)
+      const store = useSettingsStore()
+      await store.resetLlmSettingsToDefault()
+      expect(store.llmSettings).toEqual(MOCK_LLM_SETTINGS)
+      expect(store.successMessage).toBe('settings.settingsReset')
     })
   })
 
@@ -248,7 +317,7 @@ describe('useSettingsStore', () => {
       mockResetSettings.mockRejectedValue(new Error('Reset failed'))
       const store = useSettingsStore()
       await store.resetProfile()
-      expect(store.error).toBe('errors.resetSettings')
+      expect(store.error).toBe('Reset failed')
     })
 
     it('sets isResetting to false after completion', async () => {

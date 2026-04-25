@@ -1,11 +1,23 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, toRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Eye, EyeOff, Save, CheckCircle, RotateCcw } from 'lucide-vue-next'
 import { useSettingsStore } from '@/stores/settings'
+import SettingsErrorDialog from './SettingsErrorDialog.vue'
+import { useSettingsErrorDialog } from './useSettingsErrorDialog'
 
 const { t } = useI18n()
 const settingsStore = useSettingsStore()
+const errorDialog = useSettingsErrorDialog(toRef(settingsStore, 'error'), {
+  defaultSummary: () => t('settings.saveErrorSummary'),
+})
+const {
+  visible: errorDialogVisible,
+  summary: errorDialogSummary,
+  hint: errorDialogHint,
+  items: errorDialogItems,
+  close: closeErrorDialog,
+} = errorDialog
 
 // ---------- Form state ----------
 
@@ -163,9 +175,15 @@ async function handleReset(): Promise<void> {
         <CheckCircle class="w-4 h-4" />
         {{ settingsStore.successMessage }}
       </p>
-      <p v-if="settingsStore.error" class="text-sm text-red-600">
-        {{ settingsStore.error }}
-      </p>
     </div>
+
+    <SettingsErrorDialog
+      :visible="errorDialogVisible"
+      :title="t('settings.saveErrorTitle')"
+      :summary="errorDialogSummary"
+      :hint="errorDialogHint"
+      :items="errorDialogItems"
+      @close="closeErrorDialog"
+    />
   </div>
 </template>

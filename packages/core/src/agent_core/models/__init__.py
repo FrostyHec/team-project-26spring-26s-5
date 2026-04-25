@@ -12,26 +12,36 @@ from agent_core.models.events import (
     WidgetType,
 )
 from agent_core.models.session import (
+    ChatNodeRecord,
     MessageRecord,
     MessageRole,
+    NodeLeafBookmarkRecord,
+    NodeSourceKind,
     SessionDetail,
     SessionRecord,
     SessionSummary,
+    SessionVersionGroup,
+    VersionGroupSelectionRecord,
 )
 
 __all__ = [
     "CustomEventName",
     "ErrorEvent",
     "EventType",
+    "ChatNodeRecord",
     "LangGraphEventKind",
     "MessageRecord",
     "MessageRole",
+    "NodeLeafBookmarkRecord",
+    "NodeSourceKind",
     "SessionDetail",
     "SessionRecord",
     "SessionSummary",
+    "SessionVersionGroup",
     "TokenEvent",
     "ToolEndEvent",
     "ToolStartEvent",
+    "VersionGroupSelectionRecord",
     "WidgetData",
     "WidgetType",
 ]

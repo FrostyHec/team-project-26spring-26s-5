@@ -1,7 +1,7 @@
 from unittest.mock import AsyncMock
 
 import pytest
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, HumanMessage
 
 from agent_core.engine.agent import ReactAgent
 from agent_core.models.events import EventType
@@ -82,3 +82,62 @@ async def test_agent_stream_thinking_event():
     dumped = event.model_dump()
     assert dumped["type"] == EventType.THINKING
     assert dumped["content"] == "Let me calculate that for you."
+
+
+@pytest.mark.asyncio
+async def test_agent_stream_with_history_uses_override_without_persistence():
+    """stream_with_history should use caller history and skip persistence by default."""
+    mock_llm = AsyncMock()
+    mock_llm.bind_tools.return_value = mock_llm
+    mock_llm.ainvoke.return_value = AIMessage(content="Hello from branch")
+
+    registry = ToolRegistry()
+    agent = ReactAgent(llm=mock_llm, tool_registry=registry)
+    agent._ensure_session = AsyncMock()  # type: ignore[method-assign]
+    agent._persist_messages = AsyncMock()  # type: ignore[method-assign]
+
+    events = []
+    history = [HumanMessage(content="history message")]
+    async for event in agent.stream_with_history(
+        "branch input",
+        history,
+        session_id="branch-session",
+    ):
+        events.append(event)
+
+    assert events[0]["type"] == EventType.LOOP_START
+    assert events[-1]["type"] == EventType.LOOP_END
+    agent._ensure_session.assert_awaited_once_with("branch-session")
+    agent._persist_messages.assert_not_called()
+    llm_input = mock_llm.ainvoke.await_args.args[0]
+    assert len(llm_input) == 2
+    assert llm_input[0].content == "history message"
+    assert llm_input[1].content == "branch input"
+
+
+@pytest.mark.asyncio
+async def test_agent_stream_from_messages_uses_explicit_messages():
+    """stream_from_messages should run the graph from the provided full message list."""
+    mock_llm = AsyncMock()
+    mock_llm.bind_tools.return_value = mock_llm
+    mock_llm.ainvoke.return_value = AIMessage(content="Hello again")
+
+    registry = ToolRegistry()
+    agent = ReactAgent(llm=mock_llm, tool_registry=registry)
+    agent._ensure_session = AsyncMock()  # type: ignore[method-assign]
+    agent._persist_messages = AsyncMock()  # type: ignore[method-assign]
+
+    messages = [HumanMessage(content="existing user")]
+    events = []
+    async for event in agent.stream_from_messages(
+        messages, session_id="explicit-session"
+    ):
+        events.append(event)
+
+    assert events[0]["type"] == EventType.LOOP_START
+    assert events[-1]["type"] == EventType.LOOP_END
+    agent._ensure_session.assert_awaited_once_with("explicit-session")
+    agent._persist_messages.assert_not_called()
+    llm_input = mock_llm.ainvoke.await_args.args[0]
+    assert len(llm_input) == 1
+    assert llm_input[0].content == "existing user"

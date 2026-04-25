@@ -364,6 +364,22 @@ class TestEmailStore:
         await email_store.set_auto_sync(False)
         assert await email_store.get_auto_sync() is False
 
+        @pytest.mark.asyncio
+        async def test_file_backed_store_recovers_owner_write_permission(
+            self, tmp_path: Path
+        ) -> None:
+            db_path = tmp_path / "email.db"
+            db_path.touch()
+            db_path.chmod(0o444)
+
+            store = EmailStore(str(db_path))
+            await store.initialize()
+            try:
+                await store.set_fetch_days(9)
+                assert await store.get_fetch_days() == 9
+            finally:
+                await store.close()
+
 
 # ===========================================================================
 # EmailClient helper tests (pure functions, no I/O)

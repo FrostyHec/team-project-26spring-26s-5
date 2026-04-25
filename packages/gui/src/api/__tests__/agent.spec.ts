@@ -8,7 +8,14 @@ import {
   listSessions,
   createSession,
   getSession,
+  selectSessionVersion,
+  retrySessionNode,
+  editSessionNode,
   deleteSession,
+  interruptSession,
+  persistPartialResponse,
+  updateSession,
+  updateSessionPreferences,
   fetchDeadlines,
   toggleDeadlineComplete,
   syncPreview,
@@ -106,6 +113,28 @@ describe('API client', () => {
         }),
       )
     })
+
+    it('sends message with providerId', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ response: 'Done' }),
+      })
+
+      await sendMessage('help', 'sess-1', 'course_assistant', 'primary')
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/chat'),
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            message: 'help',
+            session_id: 'sess-1',
+            skill: 'course_assistant',
+            provider_id: 'primary',
+          }),
+        }),
+      )
+    })
   })
 
   describe('approveToolCall', () => {
@@ -164,6 +193,101 @@ describe('API client', () => {
     })
   })
 
+  describe('updateSessionPreferences', () => {
+    it('patches session-level preferences', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            id: 'sess-1',
+            title: 'Chat',
+            created_at: '',
+            updated_at: '',
+            selected_provider_id: 'primary',
+            fallback_mode: 'auto',
+          }),
+      })
+
+      const result = await updateSessionPreferences('sess-1', {
+        selected_provider_id: 'primary',
+        fallback_mode: 'auto',
+      })
+
+      expect(result.selected_provider_id).toBe('primary')
+      expect(result.fallback_mode).toBe('auto')
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/sessions/sess-1/preferences'),
+        expect.objectContaining({
+          method: 'PATCH',
+          body: JSON.stringify({
+            selected_provider_id: 'primary',
+            fallback_mode: 'auto',
+          }),
+        }),
+      )
+    })
+  })
+
+  describe('interruptSession', () => {
+    it('posts interrupted partial output', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            session: { id: 'sess-1', title: 'Chat', created_at: '', updated_at: '' },
+            messages: [],
+          }),
+      })
+
+      await interruptSession('sess-1', {
+        user_message: 'hello',
+        assistant_content: 'partial answer',
+      })
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/sessions/sess-1/interrupt'),
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            user_message: 'hello',
+            assistant_content: 'partial answer',
+          }),
+        }),
+      )
+    })
+  })
+
+  describe('persistPartialResponse', () => {
+    it('posts a failed partial response', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            session: { id: 'sess-1', title: 'Chat', created_at: '', updated_at: '' },
+            messages: [],
+          }),
+      })
+
+      await persistPartialResponse('sess-1', {
+        user_message: 'hello',
+        assistant_content: 'partial answer',
+        assistant_status: 'failed',
+      })
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/sessions/sess-1/partial-response'),
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            user_message: 'hello',
+            assistant_content: 'partial answer',
+            assistant_status: 'failed',
+          }),
+        }),
+      )
+    })
+  })
+
   describe('listSessions', () => {
     it('returns sessions from API', async () => {
       const sessions = [{ id: 's1', title: 'Chat', created_at: '', updated_at: '' }]
@@ -200,6 +324,26 @@ describe('API client', () => {
     })
   })
 
+  describe('updateSession', () => {
+    it('patches session title', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ id: 's1', title: 'Renamed', created_at: '', updated_at: '' }),
+      })
+
+      const result = await updateSession('s1', { title: 'Renamed' })
+
+      expect(result.title).toBe('Renamed')
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/sessions/s1'),
+        expect.objectContaining({
+          method: 'PATCH',
+          body: JSON.stringify({ title: 'Renamed' }),
+        }),
+      )
+    })
+  })
+
   describe('getSession', () => {
     it('fetches session detail by ID', async () => {
       const detail = { session: { id: 's1' }, messages: [] }
@@ -212,6 +356,62 @@ describe('API client', () => {
 
       expect(result).toEqual(detail)
       expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/sessions/s1'))
+    })
+  })
+
+  describe('tree session actions', () => {
+    it('selects a version group node', async () => {
+      const detail = { session: { id: 's1' }, messages: [] }
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(detail),
+      })
+
+      const result = await selectSessionVersion('s1', 'group-1', 'node-2')
+
+      expect(result).toEqual(detail)
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/sessions/s1/version-groups/group-1/select'),
+        expect.objectContaining({
+          method: 'PATCH',
+          body: JSON.stringify({ node_id: 'node-2' }),
+        }),
+      )
+    })
+
+    it('creates a retry version for an assistant node', async () => {
+      const detail = { session: { id: 's1' }, messages: [] }
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(detail),
+      })
+
+      const result = await retrySessionNode('s1', 'assistant-1')
+
+      expect(result).toEqual(detail)
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/sessions/s1/nodes/assistant-1/retry'),
+        expect.objectContaining({ method: 'POST' }),
+      )
+    })
+
+    it('edits a session node', async () => {
+      const detail = { session: { id: 's1' }, messages: [] }
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(detail),
+      })
+
+      const result = await editSessionNode('s1', 'node-1', 'updated content')
+
+      expect(result).toEqual(detail)
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/sessions/s1/nodes/node-1/edit'),
+        expect.objectContaining({
+          method: 'PATCH',
+          body: JSON.stringify({ content: 'updated content' }),
+        }),
+      )
     })
   })
 

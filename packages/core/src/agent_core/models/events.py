@@ -25,6 +25,10 @@ class EventType(StrEnum):
     LOOP_END = "loop_end"
     APPROVAL_REQUEST = "approval_request"
     WIDGET_DISPLAY = "widget_display"
+    INTERRUPTED = "interrupted"
+    FAILED = "failed"
+    PROVIDER_SWITCH = "provider_switch"
+    TITLE_SUGGESTION = "title_suggestion"
     ERROR = "error"
 
 
@@ -220,3 +224,26 @@ class ErrorEvent(BaseModel):
 
     type: EventType = EventType.ERROR
     content: str
+
+
+class InterruptedEvent(BaseModel):
+    """Emitted when a generation is interrupted."""
+
+    type: EventType = EventType.INTERRUPTED
+    content: str = ""
+
+
+class FailedEvent(BaseModel):
+    """Emitted when a generation fails."""
+
+    type: EventType = EventType.FAILED
+    content: str
+
+
+class ProviderSwitchEvent(BaseModel):
+    """Emitted when automatic fallback switches to another provider."""
+
+    type: EventType = EventType.PROVIDER_SWITCH
+    from_provider_id: str | None = None
+    to_provider_id: str
+    reason: str

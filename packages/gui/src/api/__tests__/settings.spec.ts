@@ -1,6 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { getSettings, updateSettings, resetSettings } from '../settings'
-import type { SettingsResponse } from '../settings'
+import {
+  getLlmSettings,
+  getSettings,
+  resetLlmSettings,
+  resetSettings,
+  updateLlmSettings,
+  updateSettings,
+} from '../settings'
+import type { LlmSettingsResponse, SettingsResponse } from '../settings'
 
 const MOCK_RESPONSE: SettingsResponse = {
   cas_account: 'testuser',
@@ -14,6 +21,24 @@ const EMPTY_RESPONSE: SettingsResponse = {
   cas_password_is_set: false,
   email_account: '',
   email_password_is_set: false,
+}
+
+const MOCK_LLM_RESPONSE: LlmSettingsResponse = {
+  temperature: 0.4,
+  max_iterations: 8,
+  system_prompt: 'Configured prompt',
+  debug_mode: true,
+  providers: [
+    {
+      id: 'primary',
+      name: 'Primary',
+      priority: 0,
+      base_url: 'https://example.test/v1',
+      api_key: 'secret-key',
+      model: 'gpt-4o',
+      enabled: true,
+    },
+  ],
 }
 
 // Mock fetch globally
@@ -51,7 +76,7 @@ describe('settings API client', () => {
 
     it('throws on non-OK response', async () => {
       mockFetchResponse({ detail: 'Server error' }, 500)
-      await expect(getSettings()).rejects.toThrow('Failed to fetch settings: 500')
+      await expect(getSettings()).rejects.toThrow('Server error')
     })
   })
 
@@ -77,9 +102,7 @@ describe('settings API client', () => {
 
     it('throws on non-OK response', async () => {
       mockFetchResponse({ detail: 'Bad Request' }, 400)
-      await expect(updateSettings({ cas_account: 'x' })).rejects.toThrow(
-        'Failed to update settings: 400',
-      )
+      await expect(updateSettings({ cas_account: 'x' })).rejects.toThrow('Bad Request')
     })
 
     it('serializes null fields in body', async () => {
@@ -111,7 +134,57 @@ describe('settings API client', () => {
 
     it('throws on non-OK response', async () => {
       mockFetchResponse({ detail: 'Server error' }, 500)
-      await expect(resetSettings()).rejects.toThrow('Failed to reset settings: 500')
+      await expect(resetSettings()).rejects.toThrow('Server error')
+    })
+  })
+
+  describe('LLM settings endpoints', () => {
+    it('calls GET /api/settings/llm', async () => {
+      mockFetchResponse(MOCK_LLM_RESPONSE)
+      await getLlmSettings()
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/settings/llm'),
+        expect.objectContaining({ method: 'GET' }),
+      )
+    })
+
+    it('calls PUT /api/settings/llm with JSON body', async () => {
+      mockFetchResponse(MOCK_LLM_RESPONSE)
+      await updateLlmSettings(MOCK_LLM_RESPONSE)
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/settings/llm'),
+        expect.objectContaining({
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(MOCK_LLM_RESPONSE),
+        }),
+      )
+    })
+
+    it('calls DELETE /api/settings/llm', async () => {
+      mockFetchResponse(MOCK_LLM_RESPONSE)
+      await resetLlmSettings()
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/settings/llm'),
+        expect.objectContaining({ method: 'DELETE' }),
+      )
+    })
+
+    it('surfaces FastAPI validation details from failed LLM saves', async () => {
+      mockFetchResponse(
+        {
+          detail: [
+            {
+              msg: "Value error, Provider 'provider_2' is enabled but has no API key",
+            },
+          ],
+        },
+        422,
+      )
+
+      await expect(updateLlmSettings(MOCK_LLM_RESPONSE)).rejects.toThrow(
+        "Provider 'provider_2' is enabled but has no API key",
+      )
     })
   })
 })

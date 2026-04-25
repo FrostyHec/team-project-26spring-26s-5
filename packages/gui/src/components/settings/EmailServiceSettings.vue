@@ -1,26 +1,26 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, toRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Eye, EyeOff, Save, CheckCircle, RotateCcw, Loader2, Wifi, Trash2 } from 'lucide-vue-next'
 import { useSettingsStore } from '@/stores/settings'
 import { useEmailStore } from '@/stores/email'
+import SettingsErrorDialog from './SettingsErrorDialog.vue'
+import { useSettingsErrorDialog } from './useSettingsErrorDialog'
 
 const { t } = useI18n()
 const settingsStore = useSettingsStore()
 const emailStore = useEmailStore()
 
-// Error modal state
-const showErrorModal = ref(false)
-watch(
-  () => settingsStore.error,
-  (err) => {
-    if (err) showErrorModal.value = true
-  },
-)
-function closeErrorModal() {
-  showErrorModal.value = false
-  settingsStore.error = null
-}
+const errorDialog = useSettingsErrorDialog(toRef(settingsStore, 'error'), {
+  defaultSummary: () => t('settings.saveErrorSummary'),
+})
+const {
+  visible: errorDialogVisible,
+  summary: errorDialogSummary,
+  hint: errorDialogHint,
+  items: errorDialogItems,
+  close: closeErrorDialog,
+} = errorDialog
 
 // ---------- Form state ----------
 
@@ -309,31 +309,14 @@ async function handleClearCache(): Promise<void> {
     </div>
 
     <!-- Error modal -->
-    <div
-      v-if="showErrorModal"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
-      @click.self="showErrorModal = false"
-    >
-      <div class="mx-4 w-full max-w-sm rounded-lg bg-white shadow-xl">
-        <div class="flex items-center justify-between border-b border-gray-200 px-4 py-3">
-          <h3 class="text-sm font-semibold text-gray-700">
-            {{ t('settings.saveErrorTitle') }}
-          </h3>
-          <button class="text-gray-400 hover:text-gray-600" @click="closeErrorModal">✕</button>
-        </div>
-        <div class="px-4 py-4">
-          <p class="text-sm text-gray-600">{{ settingsStore.error }}</p>
-        </div>
-        <div class="flex justify-end border-t border-gray-200 px-4 py-3">
-          <button
-            class="px-4 py-1.5 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700"
-            @click="closeErrorModal"
-          >
-            {{ t('common.close') }}
-          </button>
-        </div>
-      </div>
-    </div>
+    <SettingsErrorDialog
+      :visible="errorDialogVisible"
+      :title="t('settings.saveErrorTitle')"
+      :summary="errorDialogSummary"
+      :hint="errorDialogHint"
+      :items="errorDialogItems"
+      @close="closeErrorDialog"
+    />
 
     <!-- Feedback messages -->
     <div class="space-y-2">

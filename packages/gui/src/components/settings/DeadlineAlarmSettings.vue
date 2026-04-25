@@ -9,11 +9,13 @@ Validation: when enabled=true, all three lists must be non-empty.
 The Save button is disabled when validation fails.
 -->
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, toRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Bell, CheckCircle2 } from 'lucide-vue-next'
 import { useAlarmStore } from '@/stores/alarm'
 import type { AlarmSettings } from '@/stores/alarm'
+import SettingsErrorDialog from './SettingsErrorDialog.vue'
+import { useSettingsErrorDialog } from './useSettingsErrorDialog'
 import {
   ALARM_LEAD_TIMES,
   ALARM_CHANNELS,
@@ -25,6 +27,16 @@ import {
 
 const { t } = useI18n()
 const alarmStore = useAlarmStore()
+const errorDialog = useSettingsErrorDialog(toRef(alarmStore, 'error'), {
+  defaultSummary: () => t('settings.saveErrorSummary'),
+})
+const {
+  visible: errorDialogVisible,
+  summary: errorDialogSummary,
+  hint: errorDialogHint,
+  items: errorDialogItems,
+  close: closeErrorDialog,
+} = errorDialog
 
 // Local editable copy of settings
 const local = ref<AlarmSettings>({
@@ -252,9 +264,6 @@ const PRIORITY_OPTIONS = [
     <!-- Validation error -->
     <p v-if="validationError" class="text-sm text-red-600">{{ validationError }}</p>
 
-    <!-- Error from store -->
-    <p v-if="alarmStore.error" class="text-sm text-red-600">{{ alarmStore.error }}</p>
-
     <!-- Success flash -->
     <div v-if="savedFlash" class="flex items-center gap-1.5 text-sm text-green-600">
       <CheckCircle2 class="w-4 h-4" />
@@ -277,5 +286,14 @@ const PRIORITY_OPTIONS = [
         {{ alarmStore.isSaving ? t('common.saving') : t('common.save') }}
       </button>
     </div>
+
+    <SettingsErrorDialog
+      :visible="errorDialogVisible"
+      :title="t('settings.saveErrorTitle')"
+      :summary="errorDialogSummary"
+      :hint="errorDialogHint"
+      :items="errorDialogItems"
+      @close="closeErrorDialog"
+    />
   </div>
 </template>

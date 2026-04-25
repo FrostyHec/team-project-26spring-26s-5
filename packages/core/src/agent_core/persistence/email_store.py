@@ -11,6 +11,9 @@ No business logic lives here.
 
 from __future__ import annotations
 
+import stat
+from pathlib import Path
+
 from sqlalchemy import func
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlmodel import col, select
@@ -58,14 +61,30 @@ class EmailStore:
         """Return *True* if the engine has been initialised."""
         return self._engine is not None
 
+    def _prepare_database_path(self) -> str:
+        """Ensure the file-backed SQLite path is writable before opening it."""
+        if self.db_path == ":memory:":
+            return self.db_path
+
+        db_file = Path(self.db_path)
+        db_file.parent.mkdir(parents=True, exist_ok=True)
+
+        if db_file.exists():
+            current_mode = db_file.stat().st_mode
+            if not current_mode & stat.S_IWUSR:
+                db_file.chmod(current_mode | stat.S_IWUSR)
+
+        return str(db_file)
+
     async def initialize(self) -> None:
         """Create the async engine and ensure the schema exists."""
-        url = f"sqlite+aiosqlite:///{self.db_path}"
+        db_path = self._prepare_database_path()
+        url = f"sqlite+aiosqlite:///{db_path}"
         self._engine = create_async_engine(url, echo=False)
         async with self._engine.begin() as conn:
             await conn.run_sync(EmailRecord.metadata.create_all)
         await self._migrate()
-        logger.info("Email store initialised at %s", self.db_path)
+        logger.info("Email store initialised at %s", db_path)
 
     async def _migrate(self) -> None:
         """Apply forward-only schema migrations for new columns and PK changes.

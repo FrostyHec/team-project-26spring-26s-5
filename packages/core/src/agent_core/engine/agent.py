@@ -392,6 +392,43 @@ class ReactAgent:
         logger.info("Finished chat.", extra=extra)
         return str(last_message.content)
 
+    async def chat_with_history(
+        self,
+        user_input: str,
+        history: list[BaseMessage],
+        session_id: str | None = None,
+        *,
+        persist_messages: bool = False,
+    ) -> str:
+        """Run a chat turn with caller-provided history.
+
+        This is used by the conversation-tree flow, where the route/service
+        computes the visible branch history and controls persistence.
+        """
+        if not session_id:
+            session_id = str(uuid.uuid4())
+
+        extra = {"session_id": session_id}
+        logger.info(f"Starting chat with input: {user_input}", extra=extra)
+
+        await self._ensure_session(session_id)
+        new_msg = HumanMessage(content=user_input)
+        all_messages = history + [new_msg]
+        initial_state: AgentState = {
+            "messages": all_messages,
+            "pending_tool_call": None,
+        }
+        config = {"configurable": {"session_id": session_id}}
+        result = await self.graph.ainvoke(initial_state, config=config)
+
+        if persist_messages:
+            new_messages = result["messages"][len(history) :]
+            await self._persist_messages(session_id, new_messages, len(history))
+
+        last_message = result["messages"][-1]
+        logger.info("Finished chat.", extra=extra)
+        return str(last_message.content)
+
     async def stream(
         self, user_input: str, session_id: str | None = None
     ) -> AsyncGenerator[dict[str, Any], None]:
@@ -497,3 +534,184 @@ class ReactAgent:
         await self._persist_messages(session_id, new_messages, len(history))
 
         logger.info("Finished stream.", extra=extra)
+
+    async def stream_with_history(
+        self,
+        user_input: str,
+        history: list[BaseMessage],
+        session_id: str | None = None,
+        *,
+        persist_messages: bool = False,
+    ) -> AsyncGenerator[dict[str, Any], None]:
+        """Stream a turn with caller-provided history.
+
+        Used by the conversation-tree flow so routes/services can control
+        branch selection and persistence themselves.
+        """
+        if not session_id:
+            session_id = str(uuid.uuid4())
+
+        extra = {"session_id": session_id}
+        logger.info(f"Starting stream with input: {user_input}", extra=extra)
+
+        await self._ensure_session(session_id)
+        new_msg = HumanMessage(content=user_input)
+        all_messages = history + [new_msg]
+        initial_state: AgentState = {
+            "messages": all_messages,
+            "pending_tool_call": None,
+        }
+        config = {"configurable": {"session_id": session_id}}
+        new_messages: list[BaseMessage] = [new_msg]
+
+        yield LoopStartEvent().model_dump()
+
+        async for event in self.graph.astream_events(
+            initial_state, config=config, version="v2"
+        ):
+            kind = event["event"]
+
+            if kind == LangGraphEventKind.CHAT_MODEL_STREAM:
+                content = event["data"]["chunk"].content
+                if content:
+                    yield TokenEvent(content=content).model_dump()
+
+            elif kind == LangGraphEventKind.CHAT_MODEL_END:
+                ai_msg = event["data"]["output"]
+                if isinstance(ai_msg, AIMessage):
+                    new_messages.append(ai_msg)
+                    if ai_msg.tool_calls and ai_msg.content:
+                        yield ThinkingEvent(content=str(ai_msg.content)).model_dump()
+
+            elif kind == LangGraphEventKind.CUSTOM_EVENT:
+                custom_name = event["name"]
+                if custom_name == CustomEventName.APPROVAL_REQUEST:
+                    yield ApprovalRequestEvent(
+                        tool_name=event["data"]["tool"],
+                        tool_args=event["data"].get("args", {}),
+                        tool_call_id=event["data"].get("tool_call_id", ""),
+                    ).model_dump()
+                elif custom_name == CustomEventName.TOOL_CALL_START:
+                    yield ToolStartEvent(
+                        name=event["data"]["tool"],
+                        input=event["data"].get("args", {}),
+                    ).model_dump()
+                elif custom_name == CustomEventName.TOOL_CALL_END:
+                    tool_name = event["data"]["tool"]
+                    output = event["data"].get("output", "")
+                    yield ToolEndEvent(name=tool_name, output=output).model_dump()
+
+                    adapter = _build_widget_adapter()
+                    if adapter is not None:
+                        try:
+                            widget_obj = adapter.validate_json(output)
+                            if isinstance(widget_obj, WidgetData):
+                                yield WidgetDisplayEvent.from_widget_data(
+                                    widget_obj
+                                ).model_dump()
+                        except (ValidationError, ValueError):
+                            pass
+
+                    new_messages.append(
+                        ToolMessage(
+                            content=output,
+                            name=tool_name,
+                            tool_call_id="",
+                        )
+                    )
+
+        yield LoopEndEvent().model_dump()
+
+        if persist_messages:
+            await self._persist_messages(session_id, new_messages, len(history))
+
+        logger.info("Finished stream.", extra=extra)
+
+    async def stream_from_messages(
+        self,
+        messages: list[BaseMessage],
+        session_id: str | None = None,
+        *,
+        persist_messages: bool = False,
+    ) -> AsyncGenerator[dict[str, Any], None]:
+        """Stream from a caller-provided full message list.
+
+        Used when the caller has already materialized the exact visible branch,
+        including the final user message that should trigger the assistant turn.
+        """
+        if not session_id:
+            session_id = str(uuid.uuid4())
+
+        extra = {"session_id": session_id}
+        logger.info("Starting stream from explicit messages.", extra=extra)
+
+        await self._ensure_session(session_id)
+        initial_state: AgentState = {
+            "messages": messages,
+            "pending_tool_call": None,
+        }
+        config = {"configurable": {"session_id": session_id}}
+        new_messages: list[BaseMessage] = []
+
+        yield LoopStartEvent().model_dump()
+
+        async for event in self.graph.astream_events(
+            initial_state, config=config, version="v2"
+        ):
+            kind = event["event"]
+
+            if kind == LangGraphEventKind.CHAT_MODEL_STREAM:
+                content = event["data"]["chunk"].content
+                if content:
+                    yield TokenEvent(content=content).model_dump()
+
+            elif kind == LangGraphEventKind.CHAT_MODEL_END:
+                ai_msg = event["data"]["output"]
+                if isinstance(ai_msg, AIMessage):
+                    new_messages.append(ai_msg)
+                    if ai_msg.tool_calls and ai_msg.content:
+                        yield ThinkingEvent(content=str(ai_msg.content)).model_dump()
+
+            elif kind == LangGraphEventKind.CUSTOM_EVENT:
+                custom_name = event["name"]
+                if custom_name == CustomEventName.APPROVAL_REQUEST:
+                    yield ApprovalRequestEvent(
+                        tool_name=event["data"]["tool"],
+                        tool_args=event["data"].get("args", {}),
+                        tool_call_id=event["data"].get("tool_call_id", ""),
+                    ).model_dump()
+                elif custom_name == CustomEventName.TOOL_CALL_START:
+                    yield ToolStartEvent(
+                        name=event["data"]["tool"],
+                        input=event["data"].get("args", {}),
+                    ).model_dump()
+                elif custom_name == CustomEventName.TOOL_CALL_END:
+                    tool_name = event["data"]["tool"]
+                    output = event["data"].get("output", "")
+                    yield ToolEndEvent(name=tool_name, output=output).model_dump()
+
+                    adapter = _build_widget_adapter()
+                    if adapter is not None:
+                        try:
+                            widget_obj = adapter.validate_json(output)
+                            if isinstance(widget_obj, WidgetData):
+                                yield WidgetDisplayEvent.from_widget_data(
+                                    widget_obj
+                                ).model_dump()
+                        except (ValidationError, ValueError):
+                            pass
+
+                    new_messages.append(
+                        ToolMessage(
+                            content=output,
+                            name=tool_name,
+                            tool_call_id="",
+                        )
+                    )
+
+        yield LoopEndEvent().model_dump()
+
+        if persist_messages:
+            await self._persist_messages(session_id, new_messages, len(messages))
+
+        logger.info("Finished explicit-message stream.", extra=extra)

@@ -4,15 +4,19 @@ Provides the shared ReactAgent instance and SessionStore via
 FastAPI's Depends system, analogous to Spring Boot's @Autowired.
 """
 
+from dataclasses import replace
 from typing import Any
 
+from fastapi import HTTPException
 from langchain_openai import ChatOpenAI
 
 from agent_core.api.approval import make_api_approval_handler
-from agent_core.config import AgentConfig
+from agent_core.config import AgentConfig, load_llm_settings
 from agent_core.engine.agent import ReactAgent
 from agent_core.logging_utils import get_logger
+from agent_core.models.llm_settings import DEFAULT_MODEL_NAME
 from agent_core.persistence.alarm_store import AlarmStore
+from agent_core.persistence.conversation_tree_store import ConversationTreeStore
 from agent_core.persistence.course_material_store import CourseMaterialStore
 from agent_core.persistence.course_store import CourseStore
 from agent_core.persistence.deadline_store import DeadlineStore
@@ -22,6 +26,7 @@ from agent_core.persistence.session_store import SessionStore
 from agent_core.security.encryption import reset_fernet
 from agent_core.services.alarm_scheduler import AlarmScheduler
 from agent_core.services.alarm_service import AlarmService
+from agent_core.services.conversation_tree_service import ConversationTreeService
 from agent_core.services.email_client import EmailClient
 from agent_core.services.email_service import EmailService
 from agent_core.services.profile_service import ProfileService
@@ -34,6 +39,8 @@ logger = get_logger("api.dependencies")
 # Module-level singletons (initialized during app lifespan)
 _agent: ReactAgent | None = None
 _store: SessionStore | None = None
+_conversation_tree_store: ConversationTreeStore | None = None
+_conversation_tree_service: ConversationTreeService | None = None
 _profile_store: ProfileStore | None = None
 _profile_service: ProfileService | None = None
 _email_store: EmailStore | None = None
@@ -45,6 +52,82 @@ _config: AgentConfig | None = None
 _llm: ChatOpenAI | None = None
 _course_store: CourseStore | None = None
 _course_material_store: CourseMaterialStore | None = None
+
+
+def _resolve_runtime_config(
+    config: AgentConfig,
+    provider_id: str | None = None,
+) -> AgentConfig:
+    """Resolve the concrete LLM runtime config for the requested provider."""
+    llm_settings = load_llm_settings(config.llm_settings_path)
+    provider = None
+    normalized_provider_id = provider_id.strip() if provider_id else None
+
+    if normalized_provider_id:
+        selected_provider = llm_settings.provider_by_id(normalized_provider_id)
+        if selected_provider is None:
+            raise ValueError(f"Unknown provider_id: {provider_id}")
+        if not selected_provider.enabled:
+            raise ValueError(f"Provider is disabled: {provider_id}")
+        provider = selected_provider
+    elif llm_settings.providers:
+        provider = llm_settings.default_provider()
+
+    if provider is not None:
+        if not provider.api_key.strip():
+            raise ValueError(f"Provider '{provider.id}' is enabled but has no API key")
+        return replace(
+            config,
+            openai_api_key=provider.api_key,
+            openai_base_url=provider.base_url,
+            model_name=provider.model or DEFAULT_MODEL_NAME,
+            temperature=llm_settings.temperature,
+            max_iterations=llm_settings.max_iterations,
+            system_prompt=llm_settings.system_prompt,
+        )
+
+    if config.openai_api_key:
+        return config
+
+    raise ValueError("No enabled LLM provider configured")
+
+
+def _resolve_runtime_config(
+    config: AgentConfig,
+    provider_id: str | None = None,
+) -> AgentConfig:
+    """Resolve the concrete LLM runtime config for the requested provider."""
+    llm_settings = load_llm_settings(config.llm_settings_path)
+    provider = None
+    normalized_provider_id = provider_id.strip() if provider_id else None
+
+    if normalized_provider_id:
+        selected_provider = llm_settings.provider_by_id(normalized_provider_id)
+        if selected_provider is None:
+            raise ValueError(f"Unknown provider_id: {provider_id}")
+        if not selected_provider.enabled:
+            raise ValueError(f"Provider is disabled: {provider_id}")
+        provider = selected_provider
+    elif llm_settings.providers:
+        provider = llm_settings.default_provider()
+
+    if provider is not None:
+        if not provider.api_key.strip():
+            raise ValueError(f"Provider '{provider.id}' is enabled but has no API key")
+        return replace(
+            config,
+            openai_api_key=provider.api_key,
+            openai_base_url=provider.base_url,
+            model_name=provider.model or DEFAULT_MODEL_NAME,
+            temperature=llm_settings.temperature,
+            max_iterations=llm_settings.max_iterations,
+            system_prompt=llm_settings.system_prompt,
+        )
+
+    if config.openai_api_key:
+        return config
+
+    raise ValueError("No enabled LLM provider configured")
 
 
 def _create_tool_registry() -> ToolRegistry:
@@ -66,6 +149,7 @@ def create_agent(
     config: AgentConfig | None = None,
     skill_id: str | None = None,
     language: str = "en",
+    provider_id: str | None = None,
 ) -> ReactAgent:
     """Create and configure a ReactAgent instance.
 
@@ -79,22 +163,23 @@ def create_agent(
     """
     if config is None:
         config = AgentConfig.from_env()
+    resolved_config = _resolve_runtime_config(config, provider_id)
 
     llm_kwargs: dict[str, Any] = {
-        "model": config.model_name,
-        "temperature": config.temperature,
+        "model": resolved_config.model_name,
+        "temperature": resolved_config.temperature,
     }
-    if config.openai_api_key:
-        llm_kwargs["api_key"] = config.openai_api_key
-    if config.openai_base_url:
-        llm_kwargs["base_url"] = config.openai_base_url
+    if resolved_config.openai_api_key:
+        llm_kwargs["api_key"] = resolved_config.openai_api_key
+    if resolved_config.openai_base_url:
+        llm_kwargs["base_url"] = resolved_config.openai_base_url
 
     llm = ChatOpenAI(**llm_kwargs)
     registry = _create_tool_registry()
 
     # Use skill-specific system prompt if provided (with language support)
     system_prompt = (
-        get_system_prompt_for_skill(skill_id, language) or config.system_prompt
+        get_system_prompt_for_skill(skill_id, language) or resolved_config.system_prompt
     )
 
     return ReactAgent(
@@ -104,6 +189,20 @@ def create_agent(
     )
 
 
+def _create_shared_llm(config: AgentConfig) -> ChatOpenAI:
+    """Create the shared direct-call LLM instance on demand."""
+    resolved_config = _resolve_runtime_config(config)
+    llm_kwargs: dict[str, Any] = {
+        "model": resolved_config.model_name,
+        "temperature": 0.3,
+    }
+    if resolved_config.openai_api_key:
+        llm_kwargs["api_key"] = resolved_config.openai_api_key
+    if resolved_config.openai_base_url:
+        llm_kwargs["base_url"] = resolved_config.openai_base_url
+    return ChatOpenAI(**llm_kwargs)
+
+
 async def init_dependencies(config: AgentConfig | None = None) -> None:
     """Initialize all singletons (called during lifespan startup).
 
@@ -111,7 +210,8 @@ async def init_dependencies(config: AgentConfig | None = None) -> None:
         config: Optional configuration.
     """
     global _llm
-    global _agent, _store, _profile_store, _profile_service
+    global _agent, _store, _conversation_tree_store, _conversation_tree_service
+    global _profile_store, _profile_service
     global _email_store, _email_service, _alarm_store, _alarm_service
     global _alarm_scheduler, _config, _course_store, _course_material_store
     _config = config or AgentConfig.from_env()
@@ -122,6 +222,15 @@ async def init_dependencies(config: AgentConfig | None = None) -> None:
 
     _store = SessionStore(_config.db_path)
     await _store.initialize()
+    _conversation_tree_store = ConversationTreeStore(
+        _config.db_path,
+        engine=_store.db,
+    )
+    await _conversation_tree_store.initialize()
+    _conversation_tree_service = ConversationTreeService(
+        _store,
+        _conversation_tree_store,
+    )
 
     # Course subsystem
     from pathlib import Path
@@ -210,26 +319,16 @@ async def init_dependencies(config: AgentConfig | None = None) -> None:
     _alarm_scheduler = AlarmScheduler(_alarm_service)
     await _alarm_scheduler.start()
 
-    _agent = create_agent(_config)
-    _agent.session_store = _store
-    _agent.approval_handler = make_api_approval_handler
-
-    # Create shared LLM instance for direct use (e.g., evaluation)
-    llm_kwargs: dict[str, Any] = {
-        "model": _config.model_name,
-        "temperature": 0.3,  # Lower temp for evaluation
-    }
-    if _config.openai_api_key:
-        llm_kwargs["api_key"] = _config.openai_api_key
-    if _config.openai_base_url:
-        llm_kwargs["base_url"] = _config.openai_base_url
-    _llm = ChatOpenAI(**llm_kwargs)
+    # Delay LLM-dependent construction until a chat/evaluate request needs it.
+    _agent = None
+    _llm = None
 
 
 async def shutdown_dependencies() -> None:
     """Release all singletons (called during lifespan shutdown)."""
     global _llm
-    global _agent, _store, _profile_store, _profile_service
+    global _agent, _store, _conversation_tree_store, _conversation_tree_service
+    global _profile_store, _profile_service
     global _email_store, _email_service, _alarm_store, _alarm_service
     global _alarm_scheduler, _config, _course_store, _course_material_store
     if _alarm_scheduler:
@@ -242,6 +341,10 @@ async def shutdown_dependencies() -> None:
     if _store:
         await _store.close()
         _store = None
+    if _conversation_tree_store:
+        await _conversation_tree_store.close()
+        _conversation_tree_store = None
+    _conversation_tree_service = None
     if _profile_store:
         await _profile_store.close()
         _profile_store = None
@@ -285,12 +388,24 @@ def get_agent() -> ReactAgent:
     Raises:
         RuntimeError: If the agent has not been initialized.
     """
+    global _agent
     if _agent is None:
-        raise RuntimeError("Agent not initialized")
+        if _config is None or _store is None:
+            raise RuntimeError("Agent dependencies not initialized")
+        try:
+            _agent = create_agent(_config)
+        except ValueError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        _agent.session_store = _store
+        _agent.approval_handler = make_api_approval_handler
     return _agent
 
 
-def get_agent_for_skill(skill_id: str | None, language: str = "en") -> ReactAgent:
+def get_agent_for_skill(
+    skill_id: str | None,
+    language: str = "en",
+    provider_id: str | None = None,
+) -> ReactAgent:
     """Get an agent configured for a specific skill.
 
     If no skill_id is given (or it matches the default), returns the
@@ -305,10 +420,15 @@ def get_agent_for_skill(skill_id: str | None, language: str = "en") -> ReactAgen
         A ReactAgent with the appropriate system prompt.
     """
     base = get_agent()
-    if not skill_id:
+    if not skill_id and not provider_id:
         return base
 
-    agent = create_agent(_config, skill_id=skill_id, language=language)
+    agent = create_agent(
+        _config,
+        skill_id=skill_id,
+        language=language,
+        provider_id=provider_id,
+    )
     agent.session_store = base.session_store
     agent.approval_handler = base.approval_handler
     return agent
@@ -328,6 +448,20 @@ def get_store() -> SessionStore:
     return _store
 
 
+def get_conversation_tree_service() -> ConversationTreeService:
+    """FastAPI dependency that provides the ConversationTreeService."""
+    if _conversation_tree_service is None:
+        raise RuntimeError("ConversationTreeService not initialized")
+    return _conversation_tree_service
+
+
+def get_conversation_tree_store() -> ConversationTreeStore:
+    """FastAPI dependency that provides the ConversationTreeStore."""
+    if _conversation_tree_store is None:
+        raise RuntimeError("ConversationTreeStore not initialized")
+    return _conversation_tree_store
+
+
 def get_llm() -> ChatOpenAI:
     """FastAPI dependency that provides a shared ChatOpenAI instance.
 
@@ -339,9 +473,22 @@ def get_llm() -> ChatOpenAI:
     Raises:
         RuntimeError: If dependencies have not been initialized.
     """
+    global _llm
     if _llm is None:
-        raise RuntimeError("LLM not initialized")
+        if _config is None:
+            raise RuntimeError("LLM dependencies not initialized")
+        try:
+            _llm = _create_shared_llm(_config)
+        except ValueError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
     return _llm
+
+
+def get_config() -> AgentConfig:
+    """FastAPI dependency that provides the current AgentConfig."""
+    if _config is None:
+        raise RuntimeError("Config not initialized")
+    return _config
 
 
 def get_profile_store() -> ProfileStore:

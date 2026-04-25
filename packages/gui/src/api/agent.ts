@@ -31,12 +31,97 @@ export interface SessionInfo {
   created_at: string
   updated_at: string
   message_count?: number
+  selected_provider_id?: string | null
+  fallback_mode?: FallbackMode
+}
+
+export const FALLBACK_MODES = {
+  MANUAL: 'manual',
+  AUTO: 'auto',
+} as const
+
+export type FallbackMode = (typeof FALLBACK_MODES)[keyof typeof FALLBACK_MODES]
+
+export const NODE_SOURCE_KINDS = {
+  INITIAL: 'initial',
+  RETRY: 'retry',
+  USER_EDIT: 'user_edit',
+  ASSISTANT_EDIT: 'assistant_edit',
+  FALLBACK: 'fallback',
+} as const
+
+export type NodeSourceKind = (typeof NODE_SOURCE_KINDS)[keyof typeof NODE_SOURCE_KINDS]
+
+export interface UpdateSessionPreferencesRequest {
+  selected_provider_id?: string | null
+  fallback_mode?: FallbackMode
 }
 
 /** Session detail with messages. */
 export interface SessionDetail {
   session: SessionInfo
   messages: SessionMessage[]
+  nodes?: SessionNode[]
+  visible_path?: string[]
+  version_groups?: SessionVersionGroup[]
+}
+
+export interface SessionNodeToolCall {
+  name: string
+  input?: Record<string, unknown>
+  output?: string
+  status?: string
+}
+
+export const SESSION_NODE_TRACE_TYPES = {
+  LOOP_START: 'loop_start',
+  THINKING: 'thinking',
+  TOOL_START: 'tool_start',
+  TOOL_END: 'tool_end',
+  LOOP_END: 'loop_end',
+  APPROVAL_REQUEST: 'approval_request',
+  WIDGET_DISPLAY: 'widget_display',
+  PROVIDER_SWITCH: 'provider_switch',
+} as const
+
+export type SessionNodeTraceType =
+  (typeof SESSION_NODE_TRACE_TYPES)[keyof typeof SESSION_NODE_TRACE_TYPES]
+
+export interface SessionNodeTraceStep {
+  type: SessionNodeTraceType
+  content?: string
+  name?: string
+  input?: Record<string, unknown>
+  output?: string
+  fromProviderId?: string | null
+  toProviderId?: string
+  widgetType?: WidgetType
+  widgetData?: Record<string, unknown>
+}
+
+export interface SessionNode {
+  id: string
+  session_id: string
+  parent_id?: string | null
+  role: SessionMessageRole
+  content: string
+  status?: 'completed' | 'interrupted' | 'failed' | 'streaming'
+  version_group_id: string
+  version_index: number
+  source_kind: NodeSourceKind
+  source_node_id?: string | null
+  response_to_node_id?: string | null
+  tool_calls?: SessionNodeToolCall[]
+  trace_steps?: SessionNodeTraceStep[]
+  created_at: string
+  updated_at: string
+}
+
+export interface SessionVersionGroup {
+  version_group_id: string
+  node_ids: string[]
+  selected_node_id: string
+  position_in_path: number
 }
 
 /** A persisted message from the session store. */
@@ -47,6 +132,7 @@ export interface SessionMessage {
   content: string
   tool_call_id?: string
   tool_calls?: unknown[]
+  status?: 'completed' | 'interrupted' | 'failed' | 'streaming'
   created_at: string
   ordinal: number
 }
@@ -63,6 +149,9 @@ export interface AgentEvent {
   tool_call_id?: string
   widget_type?: WidgetType
   data?: Record<string, unknown>
+  from_provider_id?: string | null
+  to_provider_id?: string
+  reason?: string
 }
 
 /**
@@ -72,10 +161,12 @@ export async function sendMessage(
   message: string,
   sessionId?: string,
   skill?: string,
+  providerId?: string,
 ): Promise<string> {
   const body: Record<string, unknown> = { message }
   if (sessionId) body.session_id = sessionId
   if (skill) body.skill = skill
+  if (providerId) body.provider_id = providerId
 
   const response = await fetch(`${API_BASE}/chat`, {
     method: 'POST',
@@ -103,10 +194,13 @@ export async function* streamMessage(
   sessionId?: string,
   skill?: string,
   language: string = 'en',
+  providerId?: string,
+  signal?: AbortSignal,
 ): AsyncGenerator<AgentEvent> {
   const body: Record<string, unknown> = { message }
   if (sessionId) body.session_id = sessionId
   if (skill) body.skill = skill
+  if (providerId) body.provider_id = providerId
 
   const response = await fetch(`${API_BASE}/chat/stream`, {
     method: 'POST',
@@ -115,6 +209,7 @@ export async function* streamMessage(
       'X-Language': language,
     },
     body: JSON.stringify(body),
+    signal,
   })
 
   if (!response.ok) {
@@ -147,6 +242,46 @@ export async function* streamMessage(
       }
     }
   }
+}
+
+/**
+ * Persist a partial assistant response when the user interrupts streaming.
+ */
+export async function interruptSession(
+  sessionId: string,
+  request: { user_message: string; assistant_content: string },
+): Promise<SessionDetail> {
+  const response = await fetch(`${API_BASE}/sessions/${sessionId}/interrupt`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  })
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`)
+  }
+  return response.json()
+}
+
+/**
+ * Persist a partial assistant response with an explicit terminal status.
+ */
+export async function persistPartialResponse(
+  sessionId: string,
+  request: {
+    user_message: string
+    assistant_content: string
+    assistant_status: 'interrupted' | 'failed'
+  },
+): Promise<SessionDetail> {
+  const response = await fetch(`${API_BASE}/sessions/${sessionId}/partial-response`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  })
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`)
+  }
+  return response.json()
 }
 
 /**
@@ -208,6 +343,51 @@ export async function getSession(sessionId: string): Promise<SessionDetail> {
   return response.json()
 }
 
+export async function selectSessionVersion(
+  sessionId: string,
+  versionGroupId: string,
+  nodeId: string,
+): Promise<SessionDetail> {
+  const response = await fetch(
+    `${API_BASE}/sessions/${sessionId}/version-groups/${versionGroupId}/select`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ node_id: nodeId }),
+    },
+  )
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`)
+  }
+  return response.json()
+}
+
+export async function retrySessionNode(sessionId: string, nodeId: string): Promise<SessionDetail> {
+  const response = await fetch(`${API_BASE}/sessions/${sessionId}/nodes/${nodeId}/retry`, {
+    method: 'POST',
+  })
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`)
+  }
+  return response.json()
+}
+
+export async function editSessionNode(
+  sessionId: string,
+  nodeId: string,
+  content: string,
+): Promise<SessionDetail> {
+  const response = await fetch(`${API_BASE}/sessions/${sessionId}/nodes/${nodeId}/edit`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content }),
+  })
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`)
+  }
+  return response.json()
+}
+
 /**
  * Delete a session.
  */
@@ -218,6 +398,42 @@ export async function deleteSession(sessionId: string): Promise<void> {
   if (!response.ok) {
     throw new Error(`API error: ${response.status}`)
   }
+}
+
+/**
+ * Update session-level provider selection and fallback mode.
+ */
+export async function updateSessionPreferences(
+  sessionId: string,
+  request: UpdateSessionPreferencesRequest,
+): Promise<SessionInfo> {
+  const response = await fetch(`${API_BASE}/sessions/${sessionId}/preferences`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  })
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`)
+  }
+  return response.json()
+}
+
+/**
+ * Update mutable session fields such as the title.
+ */
+export async function updateSession(
+  sessionId: string,
+  request: { title: string },
+): Promise<SessionInfo> {
+  const response = await fetch(`${API_BASE}/sessions/${sessionId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  })
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`)
+  }
+  return response.json()
 }
 
 /**

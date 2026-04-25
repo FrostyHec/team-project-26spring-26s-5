@@ -6,47 +6,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-- Course Management (full CRUD — REST API + GUI)
-    - `Course` SQLModel table with fields: id, name, code, credits, instructor, description, tags, semester, timestamps
-    - `CourseStore` async SQLite persistence (SQLModel + aiosqlite)
-    - `CourseService` business logic layer
-    - REST endpoints: `GET/POST /courses`, `GET/PATCH/DELETE /courses/{id}`
-    - `CourseManager.vue`: card list with add/edit/delete modal, course selection flow into FileManager
-    - `courseStore.ts` Pinia store: manages courses + materials state with loading/error tracking
-    - `api/course.ts` typed API client for all course and material endpoints
-    - Cascade delete: deleting a course removes all its material records and physical files
-- Course Material File Storage (upload/download/manage)
-    - `CourseMaterial` SQLModel table: id, course_id, filename, stored_path, file_type, file_size, description, tags, created_at
-    - `CourseMaterialStore` async SQLite persistence; delete also removes physical file from disk
-    - `CourseMaterialService`: validates extension (.pdf/.docx/.pptx/.xlsx/.txt/.md) and size (≤10 MB), generates safe stored paths, handles file I/O
-    - REST endpoints: `GET/POST /course-materials`, `GET/PATCH/DELETE /course-materials/{id}`, `GET /course-materials/{id}/download`
-    - `FileManager.vue`: upload zone with description/tags fields, file list with download/edit/delete, inline modals
-    - File path traversal protection throughout (backend `validate_filename`, frontend size/type guard)
-    - File size limit and allowed extensions now configurable via `COURSE_MATERIAL_MAX_SIZE_MB` and `COURSE_MATERIAL_ALLOWED_EXTENSIONS` in `.env` (defaults: 10 MB, `.pdf,.docx,.pptx,.xlsx,.txt,.md`)
-- PDF Serving with Path Traversal Protection
-    - `GET /pdfs/{filename}` endpoint with `_validate_filename` guard
-    - Rejects non-.pdf, path separators, null bytes; resolves path and checks `is_relative_to` pdfs root
-    - RFC 5987 UTF-8 encoded Content-Disposition for Chinese filenames
-- Course Assistant Skill (AI-powered document analysis + quiz generation)
-    - `generate_quiz` tool: validates question JSON, enforces scoring rules (true_false=1pt, multiple_choice=3pt, fill_blank=5pt, short_answer=10pt), difficulty auto-inference, returns `QuizWidgetData`
-    - `analyze_document` tool: extracts text from .txt/.md/.pdf/.docx/.pptx/.xlsx, calls evaluation service for summary/key-points/difficult-concepts
-    - `read_course_material` tool: fetches file by ID, returns text content for AI processing
-    - Prompt engineering: `course_assistant/system_prompt.{en,zh}.md` with structured output format
-- GUI Widget Improvements
-    - `CourseCardsWidget.vue`: refactored to use new CourseManager component, semester filter support
-    - `PolicySearchWidget.vue`: integrated with updated retriever interface
-    - `QuizSection.vue`: uses `chatConstants.ts` for session ID management
-- i18n: added Chinese and English strings for all new course/file manager components
-- Tests: `test_courses_api.py` and `test_course_materials_api.py` covering full CRUD with mocked DB
-- Short answer scoring: prompt engineering fixes for evaluation service compatibility
-- Policy Search GUI
-    - `PolicySearchWidget`: result cards with title, page, section, snippet; copy citation button; PDF preview trigger
-    - `PdfViewerWidget`: iframe-based browser-native PDF viewer with pagination (50%-300% zoom), new-tab launch
-    - SSE `WidgetDisplayEvent` triggers workspace panel; per-session widget state persistence across tab switches
-    - i18n support for all widget strings (Chinese/English)
-    - Cleanup: removed dead code (`format_results_for_llm`, `FormattedSource`), unused `pdfjs-dist` dependency and PDF.js CDN scripts
-- Quiz: add difficulty field (easy/medium/hard) to questions and quiz sets, auto-inferred from questions, displayed in frontend
-- Quiz: fix short_answer scoring when evaluation service unavailable — not counted in total score, shown as unscored
+
+- Session Management
+    - Refactor `SessionStore` from hand-written `aiosqlite` CRUD to SQLModel async ORM while preserving API behavior
+    - Add provider-aware chat retry flow with `provider_switch` and `failed` stream events enabling graceful fallback
+    - Persist discussion-session state: provider preferences, fallback mode, message completion status, manual titles, and recovery from interrupted/failed responses
+    - Allow API server to start without enabled LLM provider; chat fails gracefully per-request until configured
+    - Implement non-blocking auto-titling for first chat round with separate async LLM request and delayed frontend refresh
+    - Persist `debug_mode` with YAML runtime settings for cross-session visibility preferences
+    - Add discussion-panel controls: provider/fallback selection, stop-streaming with draft retention, blank-session reuse, inline title editing
+    - Surface interrupted/failed assistant states and provider-switch trace steps in chat UI
+
+- Course Management
+    - Course CRUD system: REST API (`GET/POST /courses`, `GET/PATCH/DELETE /courses/{id}`) with SQLModel persistence and cascade delete
+    - Material upload/download workflow: file validation (.pdf/.docx/.pptx/.xlsx/.txt/.md; 10 MB default), safe path generation, secure I/O
+    - Material REST endpoints: `GET/POST /course-materials`, `GET/PATCH/DELETE /course-materials/{id}`, `GET /course-materials/{id}/download`
+    - Security: path traversal protection via backend `validate_filename` and frontend guards; RFC 5987 UTF-8 Content-Disposition for Chinese filenames; configurable size/extension limits in `.env`
+    - PDF serving: `GET /pdfs/{filename}` endpoint with path validation (rejects non-.pdf, separators, null bytes; enforces `is_relative_to` root)
+    - AI-powered Course Assistant: document analysis (`analyze_document`), quiz generation (`generate_quiz` with scoring: true_false=1pt, multiple_choice=3pt, fill_blank=5pt, short_answer=10pt)
+    - Quiz improvements: difficulty field (easy/medium/hard) with auto-inference; fixed short-answer scoring when evaluation unavailable
+
+- Policy Search
+    - Search UI: `PolicySearchWidget` with result cards (title, page, section, snippet), citation copy, PDF preview
+    - PDF viewer: iframe-based browser-native `PdfViewerWidget` with pagination and 50%-300% zoom
+    - State management: SSE `WidgetDisplayEvent` triggers workspace panel; per-session widget state persistence
+    - Code cleanup: removed dead code, unused `pdfjs-dist` dependency, and PDF.js CDN scripts
+
+- Minors
+    - Frontend: Provider settings redesigned as collapsible drag-to-reorder cards; API settings validation with backend error modals; `CourseCardsWidget` (semester filter), `QuizSection` (session ID management)
+    - Documentation: refresh database storage docs for SQLModel-based session initialization and backward-compatible schema upgrades
+    - Testing: `test_courses_api.py` and `test_course_materials_api.py` covering full CRUD with mocked DB
+    - i18n: added Chinese and English strings for course management, file manager, policy search, and settings
 
 ## [0.2.0] - 2025-04-19
 - Support Basic Deadline Management Functionalities 

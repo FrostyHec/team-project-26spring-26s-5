@@ -7,6 +7,7 @@ ReAct Agent 的使用教程和说明。
 | 文档 | 说明 |
 |------|------|
 | [zh-CN_user_guide.md](zh-CN_user_guide.md) | 完整用户指南：安装、配置、使用方式、API 参考 |
+| [zh-CN_discussion_panel_upgrade.md](zh-CN_discussion_panel_upgrade.md) | 对话面板增强版用户指南：中断、分支、debug、多 API 源 |
 
 
 ## API 端点

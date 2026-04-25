@@ -1,10 +1,14 @@
 <script setup lang="ts">
-import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { computed, ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { Bot } from 'lucide-vue-next'
 import { useChatStore } from '@/stores/chat'
+import { MESSAGE_ROLES } from '@/stores/chatConstants'
+import type { ChatMessage } from '@/stores/chatTypes'
+import { useSettingsStore } from '@/stores/settings'
 import ChatMessageBubble from './ChatMessageBubble.vue'
 
 const chatStore = useChatStore()
+const settingsStore = useSettingsStore()
 
 const scrollContainer = ref<HTMLElement | null>(null)
 /** True while the user has scrolled upward and is reading history. */
@@ -29,9 +33,40 @@ function scrollToBottom() {
   })
 }
 
+const visibleMessages = computed<ChatMessage[]>(() => {
+  const baseMessages = chatStore.messages
+  if (!settingsStore.llmSettings.debug_mode) {
+    return baseMessages
+  }
+
+  const debugMessages: ChatMessage[] = []
+  const activeSkillId = chatStore.activeSession?.skill?.trim()
+  const activeSkill = activeSkillId
+    ? chatStore.skills.find((skill) => skill.id === activeSkillId)
+    : undefined
+
+  if (activeSkill?.system_prompt?.trim()) {
+    debugMessages.push({
+      id: `system-skill-${activeSkill.id}`,
+      role: MESSAGE_ROLES.SYSTEM,
+      content: `${activeSkill.name}\n\n${activeSkill.system_prompt.trim()}`,
+      timestamp: new Date(0),
+    })
+  } else if (settingsStore.llmSettings.system_prompt.trim()) {
+    debugMessages.push({
+      id: 'system-default-prompt',
+      role: MESSAGE_ROLES.SYSTEM,
+      content: `${settingsStore.llmSettings.system_prompt.trim()}`,
+      timestamp: new Date(0),
+    })
+  }
+
+  return [...debugMessages, ...baseMessages]
+})
+
 // Watch for new messages only (length change), not every deep mutation
 watch(
-  () => chatStore.messages.length,
+  () => visibleMessages.value.length,
   () => {
     userHasScrolledUp.value = false
     scrollToBottom()
@@ -41,7 +76,7 @@ watch(
 // Also watch the last message's content for streaming updates
 watch(
   () => {
-    const msgs = chatStore.messages
+    const msgs = visibleMessages.value
     return msgs.length > 0 ? msgs[msgs.length - 1]?.content : ''
   },
   () => {
@@ -82,10 +117,10 @@ onUnmounted(() => {
       <!-- Message list -->
       <div v-else class="space-y-6">
         <ChatMessageBubble
-          v-for="(msg, i) in chatStore.messages"
+          v-for="(msg, i) in visibleMessages"
           :key="msg.id"
           :msg="msg"
-          :is-last="i === chatStore.messages.length - 1"
+          :is-last="i === visibleMessages.length - 1"
         />
       </div>
     </div>
