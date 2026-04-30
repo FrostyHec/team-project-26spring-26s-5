@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from agent_core.api.dependencies import get_conversation_tree_service, get_store
+from agent_core.engine.reasoning import has_think_protocol, sanitize_visible_answer
 from agent_core.models.session import (
     FallbackMode,
     MessageStatus,
@@ -22,6 +23,13 @@ type TerminalPartialResponseStatus = Literal[
     MessageStatus.INTERRUPTED,
     MessageStatus.FAILED,
 ]
+
+
+def _sanitize_partial_assistant_content(content: str) -> str:
+    """Normalize partial assistant content before persistence."""
+    if not has_think_protocol(content):
+        return content
+    return sanitize_visible_answer(content)
 
 
 class CreateSessionRequest(BaseModel):
@@ -189,16 +197,17 @@ async def interrupt_session(
     tree_service: ConversationTreeService = Depends(get_conversation_tree_service),
 ) -> SessionDetail:
     """Persist an interrupted user/assistant exchange."""
+    assistant_content = _sanitize_partial_assistant_content(request.assistant_content)
     detail = await tree_service.persist_stream_terminal_state(
         session_id,
-        request.assistant_content,
+        assistant_content,
         MessageStatus.INTERRUPTED,
     )
     if detail is None:
         detail = await store.persist_interrupted_messages(
             session_id,
             request.user_message,
-            request.assistant_content,
+            assistant_content,
         )
     if detail is None:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -213,16 +222,17 @@ async def persist_partial_response(
     tree_service: ConversationTreeService = Depends(get_conversation_tree_service),
 ) -> SessionDetail:
     """Persist partial assistant output with an explicit terminal status."""
+    assistant_content = _sanitize_partial_assistant_content(request.assistant_content)
     detail = await tree_service.persist_stream_terminal_state(
         session_id,
-        request.assistant_content,
+        assistant_content,
         request.assistant_status,
     )
     if detail is None:
         detail = await store.persist_partial_response(
             session_id,
             request.user_message,
-            request.assistant_content,
+            assistant_content,
             request.assistant_status,
         )
     if detail is None:

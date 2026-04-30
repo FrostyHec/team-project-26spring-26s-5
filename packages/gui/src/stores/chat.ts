@@ -888,6 +888,13 @@ export const useChatStore = defineStore('chat', () => {
         break
 
       case EVENT_TYPES.THINKING:
+        if (msg.traceSteps?.length) {
+          const lastStep = msg.traceSteps[msg.traceSteps.length - 1]
+          if (lastStep?.type === TRACE_STEP_TYPES.THINKING) {
+            lastStep.content = `${lastStep.content || ''}${event.content || ''}`
+            break
+          }
+        }
         msg.traceSteps?.push({
           type: TRACE_STEP_TYPES.THINKING,
           content: event.content || '',

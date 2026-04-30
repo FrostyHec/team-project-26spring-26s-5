@@ -71,10 +71,16 @@ def _append_trace_step(
     if event_type == EventType.LOOP_START:
         trace_steps.append({"type": EventType.LOOP_START})
     elif event_type == EventType.THINKING:
+        content = event.get("content", "")
+        if trace_steps and trace_steps[-1].get("type") == EventType.THINKING:
+            trace_steps[-1]["content"] = (
+                f"{trace_steps[-1].get('content', '')}{content}"
+            )
+            return
         trace_steps.append(
             {
                 "type": EventType.THINKING,
-                "content": event.get("content", ""),
+                "content": content,
             }
         )
     elif event_type == EventType.TOOL_START:

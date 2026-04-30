@@ -57,10 +57,7 @@ async function handleNewChat() {
 
     <!-- Center: chat panel -->
     <main class="flex-1 flex flex-col min-w-[320px] bg-white relative">
-      <ChatPanel
-        @toggle-workspace="chatStore.toggleWorkspace"
-        @toggle-sidebar="chatStore.toggleSidebar"
-      />
+      <ChatPanel @toggle-workspace="chatStore.toggleWorkspace" />
     </main>
 
     <!-- Right: workspace panel with resizer -->

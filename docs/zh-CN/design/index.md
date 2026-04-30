@@ -27,6 +27,7 @@ ReAct Agent 核心功能的架构和设计决策。
 - [CLI 实现详解](zh-CN_cli_implementation.md) — argparse 子命令设计、交互式对话循环、服务器启动的实现细节
 - [Vue3 前端实现详解](zh-CN_vue_frontend_implementation.md) — API 客户端层、Pinia 状态管理、ChatView 组件、SSE 解析、Vite 代理配置的实现细节
 - [Sessions 与对话面板设计](sessions/index.md) — discussion panel 增强计划，包括会话树、中断恢复、debug 与多 provider
+- [Think 链路分离计划](think_chain/index.md) — 分析 `think` 如何泄漏到最终回答，并规划后端分流、持久化清洗与回归测试
 - [截止日期管理实现详解](zh-CN_deadline_management.md) — 截止日期功能的后端与前端实现细节
 - [Settings 设置功能实现详解](zh-CN_settings_extension.md) — 用户凭据存储、AES 加密、REST API 设计与前端设置面板架构
 - [Vue I18n 国际化实现详解](zh-CN_i18n_implementation.md) — 中英文双语支持的架构设计、语言包结构、组件接入方式与语言切换机制

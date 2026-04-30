@@ -116,6 +116,7 @@ chainlit.md
 **/output
 .github/skills
 .github/copilot-instructions.md
+.agents
 
 # Runtime databases (auto-created, not part of source)
 *.db

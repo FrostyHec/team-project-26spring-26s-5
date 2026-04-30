@@ -1,10 +1,34 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Send, Paperclip, Square } from 'lucide-vue-next'
+import {
+  BookOpen,
+  Calendar,
+  CircleHelp,
+  Compass,
+  Mail,
+  MessageSquare,
+  Newspaper,
+  Search,
+  Send,
+  Square,
+} from 'lucide-vue-next'
 import { useChatStore } from '@/stores/chat'
 import { useSettingsStore } from '@/stores/settings'
 import MenuDropdown from '@/components/common/MenuDropdown.vue'
+
+const RECENT_SKILLS_COOKIE_KEY = 'recent_skills'
+const RECENT_SKILLS_LIMIT = 3
+
+const SKILL_ICON_COMPONENTS = {
+  bookopen: BookOpen,
+  calendar: Calendar,
+  compass: Compass,
+  mail: Mail,
+  messagesquare: MessageSquare,
+  newspaper: Newspaper,
+  search: Search,
+} as const
 
 const { t, locale } = useI18n()
 const chatStore = useChatStore()
@@ -13,9 +37,24 @@ const settingsStore = useSettingsStore()
 const inputText = ref('')
 const inputRef = ref<HTMLTextAreaElement | null>(null)
 const showSkillMenu = ref(false)
+const recentSkillIds = ref<string[]>(readRecentSkillIds())
 
-/** Quick skill pills (first 3 skills). */
-const quickSkills = computed(() => chatStore.skills.slice(0, 3))
+/** Quick skill pills prioritize the most recently mentioned skills. */
+const quickSkills = computed(() => {
+  const skillMap = new Map(chatStore.skills.map((skill) => [skill.id, skill]))
+  const orderedSkills = recentSkillIds.value
+    .map((skillId) => skillMap.get(skillId))
+    .filter((skill) => skill !== undefined)
+
+  for (const skill of chatStore.skills) {
+    if (orderedSkills.some((current) => current.id === skill.id)) {
+      continue
+    }
+    orderedSkills.push(skill)
+  }
+
+  return orderedSkills.slice(0, RECENT_SKILLS_LIMIT)
+})
 
 const providerOptions = computed(() =>
   [...settingsStore.llmSettings.providers]
@@ -37,6 +76,45 @@ onMounted(async () => {
     await settingsStore.loadLlmSettings()
   }
 })
+
+function normalizeSkillIconName(iconName: string): string {
+  return iconName.replace(/[^a-z]/gi, '').toLowerCase()
+}
+
+function resolveSkillIconComponent(iconName: string) {
+  return SKILL_ICON_COMPONENTS[
+    normalizeSkillIconName(iconName) as keyof typeof SKILL_ICON_COMPONENTS
+  ]
+}
+
+function readRecentSkillIds(): string[] {
+  if (typeof document === 'undefined') return []
+  const cookie = document.cookie
+    .split(';')
+    .map((entry) => entry.trim())
+    .find((entry) => entry.startsWith(`${RECENT_SKILLS_COOKIE_KEY}=`))
+
+  if (!cookie) return []
+
+  return decodeURIComponent(cookie.split('=').slice(1).join('='))
+    .split(',')
+    .map((value) => value.trim())
+    .filter((value, index, values) => value.length > 0 && values.indexOf(value) === index)
+    .slice(0, RECENT_SKILLS_LIMIT)
+}
+
+function writeRecentSkillIds(skillIds: string[]): void {
+  if (typeof document === 'undefined') return
+  document.cookie = `${RECENT_SKILLS_COOKIE_KEY}=${encodeURIComponent(skillIds.join(','))}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`
+}
+
+function recordRecentSkill(skillId: string): void {
+  recentSkillIds.value = [
+    skillId,
+    ...recentSkillIds.value.filter((current) => current !== skillId),
+  ].slice(0, RECENT_SKILLS_LIMIT)
+  writeRecentSkillIds(recentSkillIds.value)
+}
 
 /**
  * Determine if the `@` at position `atIndex` in `text` is a valid mention trigger.
@@ -101,6 +179,7 @@ function selectSkill(skillId: string, skillName: string) {
     inputText.value = `@${skillName} ` + text
   }
   showSkillMenu.value = false
+  recordRecentSkill(skillId)
   if (!chatStore.activeSessionId) {
     chatStore.newSession(skillId)
   } else if (chatStore.activeSession) {
@@ -153,6 +232,7 @@ function handleKeydown(e: KeyboardEvent) {
       <div
         v-if="showSkillMenu && filteredSkills.length > 0"
         class="absolute bottom-full left-0 right-0 mb-2 bg-white border border-gray-200 rounded-xl shadow-lg z-20 max-h-56 overflow-y-auto p-1.5"
+        data-testid="skill-menu"
       >
         <button
           v-for="skill in filteredSkills"
@@ -160,7 +240,12 @@ function handleKeydown(e: KeyboardEvent) {
           class="w-full text-left px-3 py-2.5 rounded-lg text-sm hover:bg-gray-50 transition-colors flex items-center gap-3"
           @click="selectSkill(skill.id, skill.name)"
         >
-          <span class="text-lg shrink-0">{{ skill.icon }}</span>
+          <span
+            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-600"
+            data-testid="skill-menu-icon"
+          >
+            <component :is="resolveSkillIconComponent(skill.icon) || CircleHelp" class="h-4 w-4" />
+          </span>
           <div class="flex flex-col flex-1 min-w-0">
             <span class="font-medium text-gray-800 text-sm">{{ skill.name }}</span>
             <span class="text-xs text-gray-500 truncate">{{ skill.description }}</span>
@@ -172,13 +257,7 @@ function handleKeydown(e: KeyboardEvent) {
       <div
         class="flex items-end border border-gray-300 rounded-xl shadow-sm focus-within:ring-2 focus-within:ring-blue-100 focus-within:border-blue-400 transition-all duration-200 bg-gray-50/50 px-1 py-1"
       >
-        <!-- Paperclip / Attach -->
-        <button
-          class="p-3.5 text-gray-400 hover:text-blue-500 transition-colors duration-150 flex-shrink-0 cursor-pointer"
-          :title="t('chat.attachFile')"
-        >
-          <Paperclip class="w-5 h-5" />
-        </button>
+        <!-- Attachment button hidden until upload support is implemented. -->
 
         <!-- Text input -->
         <textarea
@@ -186,7 +265,7 @@ function handleKeydown(e: KeyboardEvent) {
           v-model="inputText"
           :placeholder="t('chat.inputPlaceholder', { at: '@' })"
           rows="1"
-          class="flex-1 py-4 bg-transparent border-none focus:ring-0 resize-none outline-none text-[15px] leading-7 min-h-[52px] max-h-36 text-gray-800 placeholder:text-gray-400"
+          class="flex-1 py-4 pl-3 bg-transparent border-none focus:ring-0 resize-none outline-none text-[15px] leading-7 min-h-[52px] max-h-36 text-gray-800 placeholder:text-gray-400"
           @input="handleInput"
           @keydown="handleKeydown"
         />
@@ -255,6 +334,7 @@ function handleKeydown(e: KeyboardEvent) {
         <button
           v-for="skill in quickSkills"
           :key="skill.id"
+          data-testid="quick-skill-pill"
           class="rounded-full px-2.5 py-1 text-[10px] font-semibold transition-colors duration-150 cursor-pointer"
           :class="
             chatStore.activeSession?.skill === skill.id

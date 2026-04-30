@@ -9,6 +9,14 @@ from langchain_core.runnables.config import RunnableConfig
 from langgraph.graph import END, StateGraph
 from pydantic import Field, TypeAdapter, ValidationError
 
+from agent_core.engine.reasoning import (
+    ReasoningSegment,
+    ReasoningSegmentKind,
+    ReasoningStreamSplitter,
+    has_think_protocol,
+    sanitize_visible_answer,
+    split_reasoning_segments,
+)
 from agent_core.engine.state import AgentState
 from agent_core.logging_utils import get_logger
 from agent_core.models.events import (
@@ -30,6 +38,32 @@ if TYPE_CHECKING:
     from agent_core.persistence.session_store import SessionStore
 
 logger = get_logger("agent")
+
+
+def _sanitize_ai_message_content(message: BaseMessage) -> BaseMessage:
+    """Strip supported `<think>` blocks from persisted/returned AI text."""
+    if not isinstance(message, AIMessage):
+        return message
+    if not isinstance(message.content, str) or not has_think_protocol(message.content):
+        return message
+    return message.model_copy(
+        update={"content": sanitize_visible_answer(message.content)}
+    )
+
+
+def _emit_reasoning_events(
+    segments: list[ReasoningSegment],
+) -> list[dict[str, Any]]:
+    """Convert split text fragments into protocol events."""
+    events: list[dict[str, Any]] = []
+    for segment in segments:
+        if not segment.content:
+            continue
+        if segment.kind == ReasoningSegmentKind.THINKING:
+            events.append(ThinkingEvent(content=segment.content).model_dump())
+            continue
+        events.append(TokenEvent(content=segment.content).model_dump())
+    return events
 
 
 def _build_widget_adapter() -> TypeAdapter | None:
@@ -385,10 +419,13 @@ class ReactAgent:
         result = await self.graph.ainvoke(initial_state, config=config)
 
         # Persist new messages (everything after history)
-        new_messages = result["messages"][len(history) :]
+        new_messages = [
+            _sanitize_ai_message_content(message)
+            for message in result["messages"][len(history) :]
+        ]
         await self._persist_messages(session_id, new_messages, len(history))
 
-        last_message = result["messages"][-1]
+        last_message = new_messages[-1]
         logger.info("Finished chat.", extra=extra)
         return str(last_message.content)
 
@@ -422,12 +459,97 @@ class ReactAgent:
         result = await self.graph.ainvoke(initial_state, config=config)
 
         if persist_messages:
-            new_messages = result["messages"][len(history) :]
+            new_messages = [
+                _sanitize_ai_message_content(message)
+                for message in result["messages"][len(history) :]
+            ]
             await self._persist_messages(session_id, new_messages, len(history))
 
-        last_message = result["messages"][-1]
+        last_message = _sanitize_ai_message_content(result["messages"][-1])
         logger.info("Finished chat.", extra=extra)
         return str(last_message.content)
+
+    async def _stream_graph_events(
+        self,
+        initial_state: AgentState,
+        config: dict[str, Any],
+        new_messages: list[BaseMessage],
+    ) -> AsyncGenerator[dict[str, Any], None]:
+        """Normalize LangGraph events into the agent streaming protocol."""
+        reasoning_splitter = ReasoningStreamSplitter()
+        saw_stream_content = False
+
+        async for event in self.graph.astream_events(
+            initial_state, config=config, version="v2"
+        ):
+            kind = event["event"]
+
+            if kind == LangGraphEventKind.CHAT_MODEL_STREAM:
+                content = event["data"]["chunk"].content
+                if isinstance(content, str) and content:
+                    saw_stream_content = True
+                    for protocol_event in _emit_reasoning_events(
+                        reasoning_splitter.feed_segments(content)
+                    ):
+                        yield protocol_event
+                elif content:
+                    saw_stream_content = True
+                    yield TokenEvent(content=str(content)).model_dump()
+
+            elif kind == LangGraphEventKind.CHAT_MODEL_END:
+                ai_msg = event["data"]["output"]
+                if isinstance(ai_msg, AIMessage):
+                    if saw_stream_content:
+                        segments = reasoning_splitter.flush_segments()
+                    elif isinstance(ai_msg.content, str):
+                        segments = split_reasoning_segments(ai_msg.content)
+                    else:
+                        segments = []
+
+                    for protocol_event in _emit_reasoning_events(segments):
+                        yield protocol_event
+
+                    new_messages.append(_sanitize_ai_message_content(ai_msg))
+
+                reasoning_splitter = ReasoningStreamSplitter()
+                saw_stream_content = False
+
+            elif kind == LangGraphEventKind.CUSTOM_EVENT:
+                custom_name = event["name"]
+                if custom_name == CustomEventName.APPROVAL_REQUEST:
+                    yield ApprovalRequestEvent(
+                        tool_name=event["data"]["tool"],
+                        tool_args=event["data"].get("args", {}),
+                        tool_call_id=event["data"].get("tool_call_id", ""),
+                    ).model_dump()
+                elif custom_name == CustomEventName.TOOL_CALL_START:
+                    yield ToolStartEvent(
+                        name=event["data"]["tool"],
+                        input=event["data"].get("args", {}),
+                    ).model_dump()
+                elif custom_name == CustomEventName.TOOL_CALL_END:
+                    tool_name = event["data"]["tool"]
+                    output = event["data"].get("output", "")
+                    yield ToolEndEvent(name=tool_name, output=output).model_dump()
+
+                    adapter = _build_widget_adapter()
+                    if adapter is not None:
+                        try:
+                            widget_obj = adapter.validate_json(output)
+                            if isinstance(widget_obj, WidgetData):
+                                yield WidgetDisplayEvent.from_widget_data(
+                                    widget_obj
+                                ).model_dump()
+                        except (ValidationError, ValueError):
+                            pass
+
+                    new_messages.append(
+                        ToolMessage(
+                            content=output,
+                            name=tool_name,
+                            tool_call_id="",
+                        )
+                    )
 
     async def stream(
         self, user_input: str, session_id: str | None = None
@@ -468,65 +590,10 @@ class ReactAgent:
 
         yield LoopStartEvent().model_dump()
 
-        async for event in self.graph.astream_events(
-            initial_state, config=config, version="v2"
+        async for event in self._stream_graph_events(
+            initial_state, config, new_messages
         ):
-            kind = event["event"]
-
-            if kind == LangGraphEventKind.CHAT_MODEL_STREAM:
-                content = event["data"]["chunk"].content
-                if content:
-                    yield TokenEvent(content=content).model_dump()
-
-            elif kind == LangGraphEventKind.CHAT_MODEL_END:
-                # Capture the full AI message for persistence
-                ai_msg = event["data"]["output"]
-                if isinstance(ai_msg, AIMessage):
-                    new_messages.append(ai_msg)
-                    # If the AI produced reasoning text before tool calls,
-                    # emit a thinking event so frontends can show it in
-                    # the trace alongside tool execution details.
-                    if ai_msg.tool_calls and ai_msg.content:
-                        yield ThinkingEvent(content=str(ai_msg.content)).model_dump()
-
-            elif kind == LangGraphEventKind.CUSTOM_EVENT:
-                custom_name = event["name"]
-                if custom_name == CustomEventName.APPROVAL_REQUEST:
-                    yield ApprovalRequestEvent(
-                        tool_name=event["data"]["tool"],
-                        tool_args=event["data"].get("args", {}),
-                        tool_call_id=event["data"].get("tool_call_id", ""),
-                    ).model_dump()
-                elif custom_name == CustomEventName.TOOL_CALL_START:
-                    yield ToolStartEvent(
-                        name=event["data"]["tool"],
-                        input=event["data"].get("args", {}),
-                    ).model_dump()
-                elif custom_name == CustomEventName.TOOL_CALL_END:
-                    tool_name = event["data"]["tool"]
-                    output = event["data"].get("output", "")
-                    yield ToolEndEvent(name=tool_name, output=output).model_dump()
-
-                    # Check if tool output is a typed widget payload
-                    adapter = _build_widget_adapter()
-                    if adapter is not None:
-                        try:
-                            widget_obj = adapter.validate_json(output)
-                            if isinstance(widget_obj, WidgetData):
-                                yield WidgetDisplayEvent.from_widget_data(
-                                    widget_obj
-                                ).model_dump()
-                        except (ValidationError, ValueError):
-                            pass
-
-                    # Capture tool message for persistence
-                    new_messages.append(
-                        ToolMessage(
-                            content=output,
-                            name=tool_name,
-                            tool_call_id="",
-                        )
-                    )
+            yield event
 
         yield LoopEndEvent().model_dump()
 
@@ -566,59 +633,10 @@ class ReactAgent:
 
         yield LoopStartEvent().model_dump()
 
-        async for event in self.graph.astream_events(
-            initial_state, config=config, version="v2"
+        async for event in self._stream_graph_events(
+            initial_state, config, new_messages
         ):
-            kind = event["event"]
-
-            if kind == LangGraphEventKind.CHAT_MODEL_STREAM:
-                content = event["data"]["chunk"].content
-                if content:
-                    yield TokenEvent(content=content).model_dump()
-
-            elif kind == LangGraphEventKind.CHAT_MODEL_END:
-                ai_msg = event["data"]["output"]
-                if isinstance(ai_msg, AIMessage):
-                    new_messages.append(ai_msg)
-                    if ai_msg.tool_calls and ai_msg.content:
-                        yield ThinkingEvent(content=str(ai_msg.content)).model_dump()
-
-            elif kind == LangGraphEventKind.CUSTOM_EVENT:
-                custom_name = event["name"]
-                if custom_name == CustomEventName.APPROVAL_REQUEST:
-                    yield ApprovalRequestEvent(
-                        tool_name=event["data"]["tool"],
-                        tool_args=event["data"].get("args", {}),
-                        tool_call_id=event["data"].get("tool_call_id", ""),
-                    ).model_dump()
-                elif custom_name == CustomEventName.TOOL_CALL_START:
-                    yield ToolStartEvent(
-                        name=event["data"]["tool"],
-                        input=event["data"].get("args", {}),
-                    ).model_dump()
-                elif custom_name == CustomEventName.TOOL_CALL_END:
-                    tool_name = event["data"]["tool"]
-                    output = event["data"].get("output", "")
-                    yield ToolEndEvent(name=tool_name, output=output).model_dump()
-
-                    adapter = _build_widget_adapter()
-                    if adapter is not None:
-                        try:
-                            widget_obj = adapter.validate_json(output)
-                            if isinstance(widget_obj, WidgetData):
-                                yield WidgetDisplayEvent.from_widget_data(
-                                    widget_obj
-                                ).model_dump()
-                        except (ValidationError, ValueError):
-                            pass
-
-                    new_messages.append(
-                        ToolMessage(
-                            content=output,
-                            name=tool_name,
-                            tool_call_id="",
-                        )
-                    )
+            yield event
 
         yield LoopEndEvent().model_dump()
 
@@ -655,59 +673,10 @@ class ReactAgent:
 
         yield LoopStartEvent().model_dump()
 
-        async for event in self.graph.astream_events(
-            initial_state, config=config, version="v2"
+        async for event in self._stream_graph_events(
+            initial_state, config, new_messages
         ):
-            kind = event["event"]
-
-            if kind == LangGraphEventKind.CHAT_MODEL_STREAM:
-                content = event["data"]["chunk"].content
-                if content:
-                    yield TokenEvent(content=content).model_dump()
-
-            elif kind == LangGraphEventKind.CHAT_MODEL_END:
-                ai_msg = event["data"]["output"]
-                if isinstance(ai_msg, AIMessage):
-                    new_messages.append(ai_msg)
-                    if ai_msg.tool_calls and ai_msg.content:
-                        yield ThinkingEvent(content=str(ai_msg.content)).model_dump()
-
-            elif kind == LangGraphEventKind.CUSTOM_EVENT:
-                custom_name = event["name"]
-                if custom_name == CustomEventName.APPROVAL_REQUEST:
-                    yield ApprovalRequestEvent(
-                        tool_name=event["data"]["tool"],
-                        tool_args=event["data"].get("args", {}),
-                        tool_call_id=event["data"].get("tool_call_id", ""),
-                    ).model_dump()
-                elif custom_name == CustomEventName.TOOL_CALL_START:
-                    yield ToolStartEvent(
-                        name=event["data"]["tool"],
-                        input=event["data"].get("args", {}),
-                    ).model_dump()
-                elif custom_name == CustomEventName.TOOL_CALL_END:
-                    tool_name = event["data"]["tool"]
-                    output = event["data"].get("output", "")
-                    yield ToolEndEvent(name=tool_name, output=output).model_dump()
-
-                    adapter = _build_widget_adapter()
-                    if adapter is not None:
-                        try:
-                            widget_obj = adapter.validate_json(output)
-                            if isinstance(widget_obj, WidgetData):
-                                yield WidgetDisplayEvent.from_widget_data(
-                                    widget_obj
-                                ).model_dump()
-                        except (ValidationError, ValueError):
-                            pass
-
-                    new_messages.append(
-                        ToolMessage(
-                            content=output,
-                            name=tool_name,
-                            tool_call_id="",
-                        )
-                    )
+            yield event
 
         yield LoopEndEvent().model_dump()
 

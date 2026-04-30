@@ -984,6 +984,68 @@ describe('useChatStore', () => {
       expect(assistantMsg.loopActive).toBe(false)
     })
 
+    it('preserves thinking trace after server refresh for tree sessions', async () => {
+      mockCreateSession.mockResolvedValue({
+        id: 'sess-think-refresh',
+        title: '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+
+      async function* fakeStream() {
+        yield { type: 'loop_start' as const }
+        yield { type: 'thinking' as const, content: 'Plan A' }
+        yield { type: 'tool_start' as const, name: 'calc', input: { x: 1 } }
+        yield { type: 'tool_end' as const, name: 'calc', output: '1' }
+        yield { type: 'thinking' as const, content: 'Plan B' }
+        yield { type: 'token' as const, content: 'Final answer' }
+        yield { type: 'loop_end' as const }
+      }
+      mockStreamMessage.mockReturnValue(fakeStream())
+      mockGetSession.mockResolvedValue(
+        buildTreeDetail({
+          sessionId: 'sess-think-refresh',
+          assistantContent: 'Final answer',
+          assistantToolCalls: [
+            {
+              name: 'calc',
+              input: { x: 1 },
+              output: '1',
+              status: 'completed',
+            },
+          ],
+          assistantTraceSteps: [
+            { type: 'loop_start' },
+            { type: 'thinking', content: 'Plan A' },
+            { type: 'tool_start', name: 'calc', input: { x: 1 } },
+            { type: 'tool_end', name: 'calc', output: '1' },
+            { type: 'thinking', content: 'Plan B' },
+            { type: 'loop_end' },
+          ],
+        }),
+      )
+
+      const store = useChatStore()
+      await store.sendMessage('compute')
+
+      const assistantMsg = store.messages[1]!
+      expect(mockGetSession).toHaveBeenCalledWith('sess-think-refresh')
+      expect(assistantMsg.content).toBe('Final answer')
+      expect(assistantMsg.traceSteps?.map((step) => step.type)).toEqual([
+        TRACE_STEP_TYPES.LOOP_START,
+        TRACE_STEP_TYPES.THINKING,
+        TRACE_STEP_TYPES.TOOL_START,
+        TRACE_STEP_TYPES.TOOL_END,
+        TRACE_STEP_TYPES.THINKING,
+        TRACE_STEP_TYPES.LOOP_END,
+      ])
+      expect(
+        assistantMsg.traceSteps
+          ?.filter((step) => step.type === TRACE_STEP_TYPES.THINKING)
+          .map((step) => step.content),
+      ).toEqual(['Plan A', 'Plan B'])
+    })
+
     it('handles loop_start and loop_end events', async () => {
       mockCreateSession.mockResolvedValue({
         id: 'sess-loop',
@@ -1022,6 +1084,47 @@ describe('useChatStore', () => {
         yield { type: 'thinking' as const, content: 'Let me analyze...' }
         yield { type: 'tool_start' as const, name: 'add', input: { a: 1, b: 2 } }
         yield { type: 'tool_end' as const, name: 'add', output: '3' }
+        yield { type: 'thinking' as const, content: 'Now I can answer.' }
+        yield { type: 'token' as const, content: 'Done' }
+        yield { type: 'loop_end' as const }
+      }
+      mockStreamMessage.mockReturnValue(fakeStream())
+
+      const store = useChatStore()
+      await store.sendMessage('compute')
+
+      const assistantMsg = store.messages[1]!
+      const thinkingSteps = assistantMsg.traceSteps!.filter(
+        (s) => s.type === TRACE_STEP_TYPES.THINKING,
+      )
+      expect(thinkingSteps).toHaveLength(2)
+      expect(thinkingSteps[0]!.content).toBe('Let me analyze...')
+      expect(thinkingSteps[1]!.content).toBe('Now I can answer.')
+      expect(assistantMsg.traceSteps?.map((step) => step.type)).toEqual([
+        TRACE_STEP_TYPES.LOOP_START,
+        TRACE_STEP_TYPES.THINKING,
+        TRACE_STEP_TYPES.TOOL_START,
+        TRACE_STEP_TYPES.TOOL_END,
+        TRACE_STEP_TYPES.THINKING,
+        TRACE_STEP_TYPES.LOOP_END,
+      ])
+      expect(assistantMsg.content).toBe('Done')
+      expect(assistantMsg.content).not.toContain('Let me analyze...')
+    })
+
+    it('merges consecutive thinking events into a single trace step', async () => {
+      mockCreateSession.mockResolvedValue({
+        id: 'sess-think-merge',
+        title: '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+
+      async function* fakeStream() {
+        yield { type: 'loop_start' as const }
+        yield { type: 'thinking' as const, content: 'Let ' }
+        yield { type: 'thinking' as const, content: 'me ' }
+        yield { type: 'thinking' as const, content: 'analyze...' }
         yield { type: 'token' as const, content: 'Done' }
         yield { type: 'loop_end' as const }
       }
@@ -1037,7 +1140,6 @@ describe('useChatStore', () => {
       expect(thinkingSteps).toHaveLength(1)
       expect(thinkingSteps[0]!.content).toBe('Let me analyze...')
       expect(assistantMsg.content).toBe('Done')
-      expect(assistantMsg.content).not.toContain('Let me analyze...')
     })
 
     it('handles widget_display events for self-fetch widget', async () => {

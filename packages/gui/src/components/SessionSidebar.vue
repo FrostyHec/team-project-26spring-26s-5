@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Plus, MessageSquare, Settings, Trash2 } from 'lucide-vue-next'
+import {
+  PanelLeftClose,
+  PanelLeftOpen,
+  Plus,
+  MessageSquare,
+  Settings,
+  Trash2,
+} from 'lucide-vue-next'
 import { useChatStore, type ChatSession } from '@/stores/chat'
 import { useSettingsStore } from '@/stores/settings'
 
@@ -68,6 +75,10 @@ function handleDeleteSession(id: string, event: Event) {
 function openSettings() {
   settingsStore.openSettings()
 }
+
+function toggleSidebar() {
+  chatStore.toggleSidebar()
+}
 </script>
 
 <template>
@@ -75,8 +86,31 @@ function openSettings() {
     class="flex flex-col h-full bg-gray-50 border-r border-gray-200 flex-shrink-0 transition-[width] duration-200"
     :class="props.collapsed ? 'w-16' : 'w-64'"
   >
-    <!-- New Chat Button -->
-    <div :class="props.collapsed ? 'p-2.5' : 'p-4'">
+    <!-- Session actions -->
+    <div :class="props.collapsed ? 'p-2.5 space-y-2' : 'p-4 space-y-3'">
+      <div class="flex items-center justify-between gap-2">
+        <button
+          data-testid="sidebar-toggle-btn"
+          class="inline-flex items-center justify-center rounded-lg border shadow-sm transition-colors duration-150 cursor-pointer"
+          :class="
+            props.collapsed
+              ? 'h-10 w-full border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100'
+              : 'h-9 w-9 border-gray-200 bg-white text-gray-500 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600'
+          "
+          :title="t('chat.toggleSidebar')"
+          @click="toggleSidebar"
+        >
+          <PanelLeftOpen v-if="props.collapsed" class="w-4 h-4" />
+          <PanelLeftClose v-else class="w-4 h-4" />
+        </button>
+        <span
+          v-if="!props.collapsed"
+          class="flex-1 text-xs font-semibold uppercase tracking-wider text-gray-400"
+        >
+          {{ t('sidebar.newChat') }}
+        </span>
+      </div>
+
       <button
         class="w-full flex items-center justify-center gap-2 bg-blue-600 text-white rounded-lg text-sm font-medium shadow-sm hover:bg-blue-700 transition-colors duration-150 cursor-pointer"
         :class="props.collapsed ? 'h-10 px-0' : 'py-2.5 px-4'"
@@ -146,15 +180,8 @@ function openSettings() {
     <div
       :class="props.collapsed ? 'p-2.5 border-t border-gray-200' : 'p-4 border-t border-gray-200'"
     >
-      <div class="flex items-center gap-3">
-        <div
-          class="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center font-bold text-sm text-gray-500 flex-shrink-0"
-        >
-          U
-        </div>
-        <span v-if="!props.collapsed" class="text-sm font-medium text-gray-700 flex-1">{{
-          t('sidebar.userProfile')
-        }}</span>
+      <div class="flex items-center justify-end gap-3">
+        <!-- User profile block hidden until sidebar account support is implemented. -->
         <button
           data-testid="settings-btn"
           @click="openSettings"

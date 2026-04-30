@@ -207,6 +207,25 @@ class TestInterruptSession:
         data = response.json()
         assert data["messages"][1]["status"] == "failed"
 
+    def test_partial_response_strips_think_blocks_before_persistence(
+        self, client: TestClient
+    ) -> None:
+        create_resp = client.post("/sessions", json={"title": "Think"})
+        session_id = create_resp.json()["id"]
+
+        response = client.post(
+            f"/sessions/{session_id}/partial-response",
+            json={
+                "user_message": "hello",
+                "assistant_content": "<think>internal</think>\n\nvisible answer",
+                "assistant_status": "failed",
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["messages"][1]["content"] == "visible answer"
+
     def test_partial_response_rejects_completed_status(
         self, client: TestClient
     ) -> None:
@@ -288,6 +307,14 @@ class TestConversationTreeSessionRoutes:
                 version_index=0,
                 source_kind=NodeSourceKind.INITIAL,
                 response_to_node_id=user_node.id,
+                trace_steps=[
+                    {"type": "loop_start"},
+                    {"type": "thinking", "content": "Plan A"},
+                    {"type": "tool_start", "name": "calc", "input": {"x": 1}},
+                    {"type": "tool_end", "name": "calc", "output": "1"},
+                    {"type": "thinking", "content": "Plan B"},
+                    {"type": "loop_end"},
+                ],
                 created_at=_now(),
                 updated_at=_now(),
             )
@@ -302,6 +329,14 @@ class TestConversationTreeSessionRoutes:
         assert [message["content"] for message in data["messages"]] == [
             "hello",
             "answer",
+        ]
+        assert data["nodes"][1]["trace_steps"] == [
+            {"type": "loop_start"},
+            {"type": "thinking", "content": "Plan A"},
+            {"type": "tool_start", "name": "calc", "input": {"x": 1}},
+            {"type": "tool_end", "name": "calc", "output": "1"},
+            {"type": "thinking", "content": "Plan B"},
+            {"type": "loop_end"},
         ]
 
     def test_select_version_switches_visible_path(self, client: TestClient) -> None:

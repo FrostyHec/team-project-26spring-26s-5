@@ -6,8 +6,6 @@ import {
   Pencil,
   MessageSquare,
   MoreHorizontal,
-  PanelLeftOpen,
-  PanelLeftClose,
   PanelRightOpen,
   PanelRightClose,
 } from 'lucide-vue-next'
@@ -29,7 +27,6 @@ watch(
 
 const emit = defineEmits<{
   (e: 'toggleWorkspace'): void
-  (e: 'toggleSidebar'): void
 }>()
 
 function startEditingTitle(): void {
@@ -82,20 +79,6 @@ async function saveTitle(): Promise<void> {
       />
     </div>
     <div class="flex items-center gap-2">
-      <!-- Sidebar toggle -->
-      <button
-        class="p-2 rounded-lg transition-colors duration-150 cursor-pointer"
-        :class="
-          chatStore.isSidebarCollapsed
-            ? 'bg-blue-50 text-blue-600'
-            : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
-        "
-        :title="t('chat.toggleSidebar')"
-        @click="emit('toggleSidebar')"
-      >
-        <PanelLeftOpen v-if="chatStore.isSidebarCollapsed" class="w-5 h-5" />
-        <PanelLeftClose v-else class="w-5 h-5" />
-      </button>
       <!-- More button -->
       <button
         class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors duration-150 cursor-pointer"
