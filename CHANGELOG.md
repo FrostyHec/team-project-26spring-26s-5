@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Frontend: Provider settings redesigned as collapsible drag-to-reorder cards; API settings validation with backend error modals; `CourseCardsWidget` (semester filter), `QuizSection` (session ID management)
     - Frontend: Chat input box padding fix; sidebar toggle button added to session management area; removed unused sidebar toggle handler from `ChatView`
     - Chat: split `<think>` reasoning from final answers so GUI trace streams full thinking text while assistant context、CLI output and partial-response persistence stay clean
+    - Memory: add file-backed Agent Memory tools with YAML frontmatter, safe `output/agent_memory/` routing, rewrite backups, and focused backend coverage
     - Documentation: refresh database storage docs for SQLModel-based session initialization and backward-compatible schema upgrades
     - Testing: `test_courses_api.py` and `test_course_materials_api.py` covering full CRUD with mocked DB
     - i18n: added Chinese and English strings for course management, file manager, policy search, and settings

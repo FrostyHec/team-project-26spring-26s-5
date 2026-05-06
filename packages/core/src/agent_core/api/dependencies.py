@@ -364,6 +364,13 @@ async def shutdown_dependencies() -> None:
 
     await set_email_store(None)
     await set_email_service(None)
+    from agent_core.persistence.agent_memory_provider import (
+        set_agent_memory_service,
+        set_agent_memory_store,
+    )
+
+    await set_agent_memory_store(None)
+    await set_agent_memory_service(None)
     from agent_core.persistence.course_material_provider import (
         set_course_material_store,
     )

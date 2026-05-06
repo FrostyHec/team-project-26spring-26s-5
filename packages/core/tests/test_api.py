@@ -43,8 +43,8 @@ class TestToolsEndpoint:
         tools = response.json()
         assert isinstance(tools, list)
         # 4 calculator + 1 weather + 4 widget + 9 deadline
-        #   + 7 email + 5 course + 1 policy_search
-        assert len(tools) == 31
+        #   + 7 email + 5 course + 1 policy_search + 4 agent_memory
+        assert len(tools) == 35
         names = {t["name"] for t in tools}
         assert "add" in names
         assert "subtract" in names
@@ -54,6 +54,10 @@ class TestToolsEndpoint:
         assert "show_document" in names
         assert "analyze_document" in names
         assert "read_file" in names
+        assert "list_memory_topics" in names
+        assert "read_memory_file" in names
+        assert "create_memory_file" in names
+        assert "update_memory_file" in names
 
 
 class TestChatEndpointErrors:
