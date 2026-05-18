@@ -126,9 +126,11 @@ Campus Policy Search 是当前已实现的检索增强生成能力，用于回�
 **相关文件：**
 - `packages/core/src/agent_core/policy_search/ingest.py`
 - `packages/core/src/agent_core/policy_search/embeddings.py`
+- `packages/core/src/agent_core/policy_search/config.py`
 - `packages/core/src/agent_core/policy_search/index.py`
 - `packages/core/src/agent_core/policy_search/retriever.py`
 - `packages/core/src/agent_core/policy_search/build_index.py`
+- `packages/cli/src/agent_cli/main.py`
 - `packages/core/src/agent_core/tools/policy_search.py`
 - `packages/core/src/agent_core/skills/policy_search.py`
 
@@ -143,7 +145,10 @@ PDF 文档 → 文本提取与切片 → Embedding → FAISS 索引
 - 使用本地 FAISS 索引，不依赖独立向量数据库服务
 - 检索结果附带文档名、页码、章节等元数据
 - 工具返回 `[来源 n]` 格式的引用，供 Agent 在回答中使用
-- 第一版只支持中文 PDF 文档，索引通过离线脚本构建
+- 第一版只支持中文 PDF 文档
+- 索引通过主 CLI 命令 `uv run agent-cli build-policy-index` 构建
+- 索引路径和切片参数集中由 `PolicySearchConfig` 与 `.env` 管理
+- 后端启动时会检查索引文件是否存在；缺失时记录 warning，不自动构建
 
 **当前范围：**
 - 已实现后端 `core` + API 侧能力

@@ -13,6 +13,7 @@ Campus Policy Search 是新增的本地 RAG 能力，用于回答校园政策、
 ```text
 packages/core/src/agent_core/policy_search/
 ├── build_index.py   # 离线索引构建入口
+├── config.py        # 索引路径与切片参数配置
 ├── embeddings.py    # Embedding API 封装
 ├── index.py         # FAISS 索引构建/加载/保存
 ├── ingest.py        # PDF 解析与切片
@@ -159,15 +160,33 @@ retriever 使用模块级单例管理 index 状态（`_index`、`_chunks`、`_in
 
 ---
 
-## 8. 索引构建脚本
+## 8. 索引构建入口与配置
 
-**文件：** `packages/core/src/agent_core/policy_search/build_index.py`
+**主要文件：**
+- `packages/cli/src/agent_cli/main.py`
+- `packages/cli/src/agent_cli/policy_index.py`
+- `packages/core/src/agent_core/policy_search/config.py`
+- `packages/core/src/agent_core/policy_search/build_index.py`
 
-离线 CLI 入口，用于从 PDF 目录构建 FAISS 索引：
+Policy Search 索引构建已经接入项目主 CLI。使用者不需要直接调用内部 Python module，而是通过：
 
 ```bash
-uv run python -m agent_core.policy_search.build_index --pdf-dir ./pdfs --output-dir ./output/policy_index
+cd packages/cli
+uv run agent-cli build-policy-index
 ```
+
+`build-policy-index` 是无参数命令。构建配置统一来自 `.env` 与 `PolicySearchConfig`，不允许通过命令行参数临时覆盖：
+
+```env
+POLICY_PDF_DIR=./pdfs
+POLICY_INDEX_DIR=./packages/core/output/policy_index
+POLICY_CHUNK_SIZE=500
+POLICY_CHUNK_OVERLAP=100
+```
+
+后端服务启动时会检查 `POLICY_INDEX_DIR` 下是否存在 `faiss.index` 和 `chunks.jsonl`。如果缺失，服务只记录 warning 并提示运行 `uv run agent-cli build-policy-index`，不会自动构建索引，也不会阻塞服务启动。
+
+内部脚本入口 `python -m agent_core.policy_search.build_index` 仍保留，用于兼容已有开发流程；它同样读取 `PolicySearchConfig`。
 
 使用前需先构建索引，详见用户指南。
 

@@ -41,3 +41,10 @@ class TestCliMain:
                 chat_loop_coro = mock_run.call_args.args[0]
                 assert asyncio.iscoroutine(chat_loop_coro)
                 chat_loop_coro.close()
+
+    def test_build_policy_index_command_parsed(self) -> None:
+        """Test build-policy-index command."""
+        with patch("sys.argv", ["agent-cli", "build-policy-index"]):
+            with patch("agent_cli.main.build_policy_index") as mock_build:
+                main()
+                mock_build.assert_called_once_with()

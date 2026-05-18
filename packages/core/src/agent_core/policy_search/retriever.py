@@ -11,14 +11,12 @@ import faiss
 import numpy as np
 
 from agent_core.logging_utils import get_logger
+from agent_core.policy_search.config import DEFAULT_INDEX_DIR
 from agent_core.policy_search.embeddings import get_query_embedding
 from agent_core.policy_search.index import load_index
 from agent_core.policy_search.models import RetrievalResult, TextChunk
 
 logger = get_logger("policy_search.retriever")
-
-# Default index location
-DEFAULT_INDEX_DIR = Path(__file__).resolve().parents[3] / "output" / "policy_index"
 
 # Module-level singleton
 _index: faiss.Index | None = None

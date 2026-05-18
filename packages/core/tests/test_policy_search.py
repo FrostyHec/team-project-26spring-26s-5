@@ -26,6 +26,51 @@ from agent_core.tools.registry import ToolRegistry
 # ---------------------------------------------------------------------------
 
 
+class TestPolicySearchConfig:
+    """Tests for policy search configuration."""
+
+    def test_config_defaults(self) -> None:
+        from agent_core.policy_search.config import (
+            DEFAULT_CHUNK_OVERLAP,
+            DEFAULT_CHUNK_SIZE,
+            DEFAULT_INDEX_DIR,
+            DEFAULT_PDF_DIR,
+            PolicySearchConfig,
+        )
+
+        config = PolicySearchConfig()
+        assert config.pdf_dir == DEFAULT_PDF_DIR
+        assert config.index_dir == DEFAULT_INDEX_DIR
+        assert config.chunk_size == DEFAULT_CHUNK_SIZE
+        assert config.chunk_overlap == DEFAULT_CHUNK_OVERLAP
+
+    @patch.dict(
+        "os.environ",
+        {
+            "POLICY_PDF_DIR": "custom-pdfs",
+            "POLICY_INDEX_DIR": "custom-index",
+            "POLICY_CHUNK_SIZE": "700",
+            "POLICY_CHUNK_OVERLAP": "90",
+        },
+    )
+    def test_config_from_env(self) -> None:
+        from agent_core.policy_search.config import DEFAULT_PDF_DIR, PolicySearchConfig
+
+        config = PolicySearchConfig.from_env()
+        assert config.pdf_dir == DEFAULT_PDF_DIR.parent / "custom-pdfs"
+        assert config.index_dir == DEFAULT_PDF_DIR.parent / "custom-index"
+        assert config.chunk_size == 700
+        assert config.chunk_overlap == 90
+
+    def test_config_with_overrides(self) -> None:
+        from agent_core.policy_search.config import PolicySearchConfig
+
+        base = PolicySearchConfig(chunk_size=500, chunk_overlap=100)
+        updated = base.with_overrides(chunk_size=800)
+        assert updated.chunk_size == 800
+        assert updated.chunk_overlap == 100
+
+
 class TestModels:
     """Tests for policy search data models."""
 
@@ -180,6 +225,76 @@ class TestIndex:
 
         with pytest.raises(FileNotFoundError):
             load_index(Path("/nonexistent/path"))
+
+    def test_get_missing_index_files(self) -> None:
+        from agent_core.policy_search.index import get_missing_index_files
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            index_dir = Path(tmpdir)
+            missing = get_missing_index_files(index_dir)
+            assert {path.name for path in missing} == {"faiss.index", "chunks.jsonl"}
+
+            (index_dir / "faiss.index").touch()
+            missing = get_missing_index_files(index_dir)
+            assert [path.name for path in missing] == ["chunks.jsonl"]
+
+            (index_dir / "chunks.jsonl").touch()
+            assert get_missing_index_files(index_dir) == []
+
+    def test_log_index_startup_check_warns_when_missing(
+        self,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        import logging
+
+        from agent_core.policy_search.index import log_index_startup_check
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            caplog.set_level(logging.WARNING, logger="agent_core.policy_search.index")
+            log_index_startup_check(Path(tmpdir))
+
+        assert "Policy search index is missing" in caplog.text
+        assert "build-policy-index" in caplog.text
+
+    @patch("agent_core.policy_search.build_index.save_index")
+    @patch("agent_core.policy_search.build_index.build_index")
+    @patch("agent_core.policy_search.build_index.ingest_directory")
+    def test_rebuild_policy_index(
+        self,
+        mock_ingest: MagicMock,
+        mock_build: MagicMock,
+        mock_save: MagicMock,
+    ) -> None:
+        from agent_core.policy_search.build_index import rebuild_policy_index
+
+        chunks = self._make_chunks(2)
+        mock_ingest.return_value = chunks
+        mock_index = MagicMock()
+        mock_index.ntotal = 2
+        mock_build.return_value = (mock_index, chunks)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pdf_dir = Path(tmpdir) / "pdfs"
+            pdf_dir.mkdir()
+            output_dir = Path(tmpdir) / "index"
+            result = rebuild_policy_index(
+                pdf_dir=pdf_dir,
+                output_dir=output_dir,
+                chunk_size=600,
+                chunk_overlap=80,
+            )
+
+        mock_ingest.assert_called_once_with(pdf_dir, 600, 80)
+        mock_build.assert_called_once_with(chunks)
+        mock_save.assert_called_once_with(mock_index, chunks, output_dir)
+        assert result.chunk_count == 2
+        assert result.vector_count == 2
+
+    def test_rebuild_policy_index_missing_pdf_dir_raises(self) -> None:
+        from agent_core.policy_search.build_index import rebuild_policy_index
+
+        with pytest.raises(FileNotFoundError):
+            rebuild_policy_index(pdf_dir=Path("/nonexistent/pdfs"))
 
 
 # ---------------------------------------------------------------------------

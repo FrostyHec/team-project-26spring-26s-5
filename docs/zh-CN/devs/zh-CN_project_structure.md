@@ -273,10 +273,14 @@ server: {
 - 离线索引构建命令：
 
 ```bash
-cd packages/core
-uv run python -m agent_core.policy_search.build_index
+cd packages/cli
+uv run agent-cli build-policy-index
 ```
 
 - 索引产物默认输出到 `packages/core/output/policy_index/`
+- 索引构建配置集中在 `agent_core.policy_search.config.PolicySearchConfig`
+- 可通过 `.env` 配置 `POLICY_PDF_DIR`、`POLICY_INDEX_DIR`、`POLICY_CHUNK_SIZE`、`POLICY_CHUNK_OVERLAP`
+- `build-policy-index` 不接受命令行覆盖参数，避免不同开发者临时构建出不一致索引
+- 后端启动时会检查索引文件是否存在；缺失时只记录 warning，不自动构建
 - 这些索引产物属于本地生成文件，不应提交到 Git
 - 当前实现不包含 GUI 改造，主要落在 `core` 与 API 层

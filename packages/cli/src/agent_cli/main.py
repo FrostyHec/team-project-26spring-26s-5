@@ -14,6 +14,8 @@ from agent_core.engine.agent import ReactAgent
 from agent_core.tools.calculator import register_calculator_tools
 from agent_core.tools.registry import ToolRegistry
 
+from agent_cli.policy_index import build_policy_index
+
 
 def _create_agent_from_config() -> ReactAgent:
     """Create agent from environment configuration.
@@ -107,12 +109,19 @@ def main() -> None:
         "--port", type=int, default=8000, help="Server port (default: 8000)"
     )
 
+    subparsers.add_parser(
+        "build-policy-index",
+        help="Build the policy search FAISS index",
+    )
+
     args = parser.parse_args()
 
     if args.command == "chat":
         asyncio.run(_chat_loop())
     elif args.command == "serve":
         run_server(host=args.host, port=args.port)
+    elif args.command == "build-policy-index":
+        build_policy_index()
     else:
         parser.print_help()
         sys.exit(1)

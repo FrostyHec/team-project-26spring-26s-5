@@ -42,6 +42,12 @@ SYSTEM_PROMPT=You are a helpful AI assistant with calculator tools.
 EMBEDDING_API_KEY=your-dashscope-api-key-here
 EMBEDDING_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 EMBEDDING_MODEL=text-embedding-v4
+
+# Policy Search 索引配置
+POLICY_PDF_DIR=./pdfs
+POLICY_INDEX_DIR=./packages/core/output/policy_index
+POLICY_CHUNK_SIZE=500
+POLICY_CHUNK_OVERLAP=100
 ```
 
 ### 3. 运行
@@ -158,14 +164,17 @@ PDF 文档 → 切片 → Embedding → FAISS 索引
 使用前需要先构建索引：
 
 ```bash
-cd packages/core
-uv run python -m agent_core.policy_search.build_index
+cd packages/cli
+uv run agent-cli build-policy-index
 ```
 
 默认约定：
-- 原始 PDF 放在仓库根目录 `pdfs/`
-- 索引输出到 `packages/core/output/policy_index/`
+- 原始 PDF 放在仓库根目录 `pdfs/`，可通过 `POLICY_PDF_DIR` 配置
+- 索引输出到 `packages/core/output/policy_index/`，可通过 `POLICY_INDEX_DIR` 配置
+- 切片参数通过 `POLICY_CHUNK_SIZE` 和 `POLICY_CHUNK_OVERLAP` 配置
 - 第一版只支持中文 PDF，且只支持本地离线构建索引
+
+`agent-cli build-policy-index` 不提供命令行覆盖参数；索引构建配置统一来自 `.env` 与 `PolicySearchConfig`。启动后端服务时，系统会检查索引文件是否存在；如果缺失，只会记录 warning 并提示先构建索引，不会自动调用 Embedding API 或阻塞服务启动。
 
 当前建议通过 API 使用该能力，而不是通过 `agent-cli chat`。
 原因是当前 CLI 交互入口尚未接入 `policy_search` skill 选择。

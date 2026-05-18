@@ -23,6 +23,16 @@ def client() -> TestClient:
         yield c
 
 
+def test_startup_checks_policy_index() -> None:
+    """Test server startup runs the non-blocking policy index check."""
+    config = AgentConfig(openai_api_key="test-key")
+    with patch("agent_core.api.server.log_index_startup_check") as mock_check:
+        app = create_app(config)
+        with TestClient(app):
+            pass
+    mock_check.assert_called_once()
+
+
 class TestHealthEndpoint:
     """Test the health check endpoint."""
 

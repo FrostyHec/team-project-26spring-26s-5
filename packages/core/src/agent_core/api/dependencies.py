@@ -23,6 +23,8 @@ from agent_core.persistence.deadline_store import DeadlineStore
 from agent_core.persistence.email_store import EmailStore
 from agent_core.persistence.profile_store import ProfileStore
 from agent_core.persistence.session_store import SessionStore
+from agent_core.policy_search.config import PolicySearchConfig
+from agent_core.policy_search.retriever import set_index_dir
 from agent_core.security.encryption import reset_fernet
 from agent_core.services.alarm_scheduler import AlarmScheduler
 from agent_core.services.alarm_service import AlarmService
@@ -215,6 +217,7 @@ async def init_dependencies(config: AgentConfig | None = None) -> None:
     global _email_store, _email_service, _alarm_store, _alarm_service
     global _alarm_scheduler, _config, _course_store, _course_material_store
     _config = config or AgentConfig.from_env()
+    set_index_dir(PolicySearchConfig.from_env().index_dir)
 
     # Configure encryption key if provided
     if _config.encryption_key:

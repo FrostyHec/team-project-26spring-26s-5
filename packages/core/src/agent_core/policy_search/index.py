@@ -21,6 +21,40 @@ _INDEX_FILE = "faiss.index"
 _CHUNKS_FILE = "chunks.jsonl"
 
 
+def get_missing_index_files(index_dir: Path) -> list[Path]:
+    """Return required policy index files that are missing.
+
+    Args:
+        index_dir: Directory expected to contain the policy search index.
+
+    Returns:
+        Required file paths that do not currently exist.
+    """
+    required_files = [index_dir / _INDEX_FILE, index_dir / _CHUNKS_FILE]
+    return [path for path in required_files if not path.exists()]
+
+
+def log_index_startup_check(index_dir: Path) -> None:
+    """Log a startup warning when the policy index has not been built.
+
+    This check is intentionally non-blocking: the API server can still start,
+    while policy search requests will continue to return the existing
+    not-built error from the retriever/tool layer.
+    """
+    missing = get_missing_index_files(index_dir)
+    if not missing:
+        logger.info("Policy search index found at %s", index_dir)
+        return
+
+    missing_names = ", ".join(path.name for path in missing)
+    logger.warning(
+        "Policy search index is missing required file(s): %s. "
+        "Run `uv run agent-cli build-policy-index` from packages/cli "
+        "before using policy search.",
+        missing_names,
+    )
+
+
 def build_index(
     chunks: list[TextChunk],
     api_key: str | None = None,

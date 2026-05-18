@@ -30,6 +30,8 @@ from agent_core.api.routes.skills import router as skills_router
 from agent_core.api.routes.tools import router as tools_router
 from agent_core.config import AgentConfig
 from agent_core.logging_utils import setup_logger
+from agent_core.policy_search.config import PolicySearchConfig
+from agent_core.policy_search.index import log_index_startup_check
 
 
 def create_app(config: AgentConfig | None = None) -> FastAPI:
@@ -47,6 +49,8 @@ def create_app(config: AgentConfig | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await init_dependencies(config)
+        policy_config = PolicySearchConfig.from_env()
+        log_index_startup_check(policy_config.index_dir)
         yield
         await shutdown_dependencies()
 
