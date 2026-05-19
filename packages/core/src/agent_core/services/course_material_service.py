@@ -62,7 +62,24 @@ class CourseMaterialService:
             clean = "file"
         if len(clean) > 200:
             clean = clean[:200]
-        return self._material_dir(course_id) / f"{material_id}_{clean}"
+        base_path = self._material_dir(course_id) / f"{material_id}_{clean}"
+        return self._get_unique_path(base_path)
+
+    def _get_unique_path(self, base_path: Path) -> Path:
+        """Generate a unique file path by appending a number if file exists."""
+        if not base_path.exists():
+            return base_path
+
+        stem = base_path.stem
+        suffix = base_path.suffix
+        parent = base_path.parent
+        counter = 1
+
+        while True:
+            new_path = parent / f"{stem} ({counter}){suffix}"
+            if not new_path.exists():
+                return new_path
+            counter += 1
 
     async def create_from_upload(
         self,
