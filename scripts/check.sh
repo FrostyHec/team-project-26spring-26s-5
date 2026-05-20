@@ -161,19 +161,28 @@ STEP_NUM=$((NEXT_STEP))/$(echo "$TOTAL_STEPS")
 print_header "Step $STEP_NUM: Language Check (Semgrep)"
 
 echo "Checking for CJK characters in source code via Semgrep..."
-if ! command -v semgrep &>/dev/null; then
-    print_error "semgrep not found. Install with: pip install semgrep"
+SEMGREP_CMD=()
+if command -v semgrep &>/dev/null; then
+    SEMGREP_CMD=(semgrep)
+elif command -v uvx &>/dev/null; then
+    print_info "semgrep not found on PATH; running via uvx"
+    SEMGREP_CMD=(uvx --from semgrep semgrep)
+elif command -v uv &>/dev/null; then
+    print_info "semgrep not found on PATH; running via uv tool run"
+    SEMGREP_CMD=(uv tool run --from semgrep semgrep)
+else
+    print_error "semgrep not found. Install with: pip install semgrep, or install uv to run it on demand."
     exit 1
 fi
-if semgrep --config "$PROJECT_ROOT/semgrep-rules.yaml" \
-           --no-git-ignore \
-           --error \
-           --quiet \
-           "$PROJECT_ROOT/packages" \
-           "$PROJECT_ROOT/.github/workflows" \
-           "$PROJECT_ROOT/.github/PULL_REQUEST_TEMPLATE.md" \
-           "$PROJECT_ROOT/.github/ISSUE_TEMPLATE" \
-           "$PROJECT_ROOT/scripts"; then
+if "${SEMGREP_CMD[@]}" --config "$PROJECT_ROOT/semgrep-rules.yaml" \
+                       --no-git-ignore \
+                       --error \
+                       --quiet \
+                       "$PROJECT_ROOT/packages" \
+                       "$PROJECT_ROOT/.github/workflows" \
+                       "$PROJECT_ROOT/.github/PULL_REQUEST_TEMPLATE.md" \
+                       "$PROJECT_ROOT/.github/ISSUE_TEMPLATE" \
+                       "$PROJECT_ROOT/scripts"; then
     print_success "Language check passed"
 else
     print_error "Language check failed: CJK characters found in source code"

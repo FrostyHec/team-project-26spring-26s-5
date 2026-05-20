@@ -1,6 +1,7 @@
 """Tests for the CLI module."""
 
 import asyncio
+import os
 from pathlib import Path
 from unittest.mock import patch
 
@@ -8,6 +9,7 @@ import pytest
 from agent_core.runtime_paths import ENV_FILE_ENV_KEY
 
 from agent_cli.main import main
+from agent_cli.policy_index import build_policy_index
 
 
 @pytest.fixture(autouse=True)
@@ -110,3 +112,25 @@ class TestCliMain:
             with patch("agent_cli.main.build_policy_index") as mock_build:
                 main()
                 mock_build.assert_called_once_with(env_file=str(env_file))
+
+    def test_build_policy_index_env_file_does_not_override_existing_env(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Explicit process env should win over packaged env-file defaults."""
+        env_file = tmp_path / ".env"
+        env_file.write_text(
+            "EMBEDDING_API_KEY=placeholder-key\nDATA_PATH=runtime\n",
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("EMBEDDING_API_KEY", "secret-key")
+
+        with patch(
+            "agent_core.policy_search.build_index.rebuild_policy_index"
+        ) as mock_rebuild:
+            mock_rebuild.return_value.vector_count = 1
+            mock_rebuild.return_value.chunk_count = 1
+            mock_rebuild.return_value.pdf_dir = tmp_path / "pdfs"
+            mock_rebuild.return_value.output_dir = tmp_path / "index"
+            build_policy_index(env_file=str(env_file))
+
+        assert os.environ["EMBEDDING_API_KEY"] == "secret-key"

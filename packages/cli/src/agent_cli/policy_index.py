@@ -12,7 +12,7 @@ def build_policy_index(env_file: str | None = None) -> None:
 
     if env_file:
         set_runtime_env_file(env_file)
-        load_dotenv(env_file, override=True)
+        load_dotenv(env_file, override=False)
     else:
         load_dotenv()
     config = PolicySearchConfig.from_env()
