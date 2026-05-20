@@ -7,7 +7,7 @@ from agent_core.models.skills import SkillDefinition, SkillType
 
 # Load system prompt from external JSON to avoid CJK in source code
 _PROMPT_FILE = Path(__file__).parent / "policy_skill_prompt.json"
-with open(_PROMPT_FILE) as f:
+with open(_PROMPT_FILE, encoding="utf-8") as f:
     _SYSTEM_PROMPT = json.load(f)["system_prompt"]
 
 SKILL = SkillDefinition(

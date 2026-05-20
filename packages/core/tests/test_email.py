@@ -581,7 +581,7 @@ class TestEmailService:
         # Create some cache files
         html_dir = tmp_path / HTML_CACHE_DIR
         html_dir.mkdir(parents=True)
-        (html_dir / "100.html").write_text("<p>hi</p>")
+        (html_dir / "100.html").write_text("<p>hi</p>", encoding="utf-8")
 
         att_dir = tmp_path / ATTACHMENT_CACHE_DIR / "uid_100"
         att_dir.mkdir(parents=True)

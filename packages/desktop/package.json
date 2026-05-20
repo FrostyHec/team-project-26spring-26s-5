@@ -26,6 +26,12 @@
     "electron-builder": "^26.0.0",
     "typescript": "~5.9.3"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "electron-winstaller"
+    ]
+  },
   "build": {
     "extends": "./electron-builder.yml"
   }

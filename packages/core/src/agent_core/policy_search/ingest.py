@@ -27,7 +27,7 @@ _PATTERNS: list[re.Pattern] | None = None
 def _load_patterns() -> list[re.Pattern]:
     """Load section heading patterns from patterns.json."""
     pattern_file = Path(__file__).parent / "patterns.json"
-    with open(pattern_file) as f:
+    with open(pattern_file, encoding="utf-8") as f:
         data = json.load(f)
     return [re.compile(p) for p in data["section_heading_patterns"]]
 
