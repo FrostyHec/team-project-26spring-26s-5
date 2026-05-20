@@ -9,6 +9,8 @@ ReAct Agent 的使用教程和说明。
 | [zh-CN_user_guide.md](zh-CN_user_guide.md) | 完整用户指南：安装、配置、使用方式、API 参考 |
 | [zh-CN_discussion_panel_upgrade.md](zh-CN_discussion_panel_upgrade.md) | 对话面板增强版用户指南：中断、分支、debug、多 API 源 |
 | [zh-CN_agent_memory.md](zh-CN_agent_memory.md) | Agent Memory 用户指南：长期记忆的主题化 Markdown 存储与更新规则 |
+| [zh-CN_course_recommendation.md](zh-CN_course_recommendation.md) | Course Recommendation 用户指南：课程推荐、课程详情、课程对比 |
+| [zh-CN_campus_news.md](zh-CN_campus_news.md) | Campus News 用户指南：校园新闻搜索、每日摘要、邮件来源新闻 |
 
 
 ## API 端点

@@ -391,5 +391,7 @@ class TestSkillUpdate:
     def test_skill_prompt_forbids_fabrication(self) -> None:  # nosemgrep
         skill = get_skill(SkillType.POLICY_SEARCH)
         assert skill is not None
-        # nosemgrep
-        assert "未找到" in skill.system_prompt or "不得" in skill.system_prompt
+        assert (
+            "未找到" in skill.system_prompt  # nosemgrep
+            or "不得" in skill.system_prompt  # nosemgrep
+        )

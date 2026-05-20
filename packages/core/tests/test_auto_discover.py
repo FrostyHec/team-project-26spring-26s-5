@@ -50,6 +50,31 @@ class TestToolAutoDiscover:
         }
         assert expected_deadline.issubset(tool_names)
 
+    def test_discovers_news_tools(self) -> None:
+        registry = ToolRegistry()
+        auto_discover_and_register(registry)
+        tool_names = {t.name for t in registry.list_tools()}
+        expected_news = {
+            "get_latest_news",
+            "get_daily_news",
+            "search_news",
+            "get_news_detail",
+            "create_news_digest",
+        }
+        assert expected_news.issubset(tool_names)
+
+    def test_discovers_course_recommend_tools(self) -> None:
+        registry = ToolRegistry()
+        auto_discover_and_register(registry)
+        tool_names = {t.name for t in registry.list_tools()}
+        expected_course_recommend = {
+            "get_course_catalog",
+            "recommend_courses",
+            "get_course_detail",
+            "compare_courses",
+        }
+        assert expected_course_recommend.issubset(tool_names)
+
     def test_no_duplicate_registration(self) -> None:
         registry = ToolRegistry()
         auto_discover_and_register(registry)

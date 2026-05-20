@@ -94,44 +94,6 @@ def _resolve_runtime_config(
     raise ValueError("No enabled LLM provider configured")
 
 
-def _resolve_runtime_config(
-    config: AgentConfig,
-    provider_id: str | None = None,
-) -> AgentConfig:
-    """Resolve the concrete LLM runtime config for the requested provider."""
-    llm_settings = load_llm_settings(config.llm_settings_path)
-    provider = None
-    normalized_provider_id = provider_id.strip() if provider_id else None
-
-    if normalized_provider_id:
-        selected_provider = llm_settings.provider_by_id(normalized_provider_id)
-        if selected_provider is None:
-            raise ValueError(f"Unknown provider_id: {provider_id}")
-        if not selected_provider.enabled:
-            raise ValueError(f"Provider is disabled: {provider_id}")
-        provider = selected_provider
-    elif llm_settings.providers:
-        provider = llm_settings.default_provider()
-
-    if provider is not None:
-        if not provider.api_key.strip():
-            raise ValueError(f"Provider '{provider.id}' is enabled but has no API key")
-        return replace(
-            config,
-            openai_api_key=provider.api_key,
-            openai_base_url=provider.base_url,
-            model_name=provider.model or DEFAULT_MODEL_NAME,
-            temperature=llm_settings.temperature,
-            max_iterations=llm_settings.max_iterations,
-            system_prompt=llm_settings.system_prompt,
-        )
-
-    if config.openai_api_key:
-        return config
-
-    raise ValueError("No enabled LLM provider configured")
-
-
 def _create_tool_registry() -> ToolRegistry:
     """Create a ToolRegistry with all available tools registered.
 

@@ -11,6 +11,15 @@ from agent_core.models.events import (
     WidgetData,
     WidgetType,
 )
+from agent_core.models.news import (
+    NewsArticle,
+    NewsArticleDetail,
+    NewsDigestWidgetData,
+    NewsHighlight,
+    NewsListResponse,
+    NewsSourceRef,
+    NewsSourceType,
+)
 from agent_core.models.session import (
     ChatNodeRecord,
     MessageRecord,
@@ -32,6 +41,13 @@ __all__ = [
     "LangGraphEventKind",
     "MessageRecord",
     "MessageRole",
+    "NewsArticle",
+    "NewsArticleDetail",
+    "NewsDigestWidgetData",
+    "NewsHighlight",
+    "NewsListResponse",
+    "NewsSourceRef",
+    "NewsSourceType",
     "NodeLeafBookmarkRecord",
     "NodeSourceKind",
     "SessionDetail",

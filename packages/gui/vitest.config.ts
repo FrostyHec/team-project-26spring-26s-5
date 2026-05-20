@@ -9,6 +9,8 @@ export default mergeConfig(
       environment: 'jsdom',
       setupFiles: ['./src/test-setup.ts'],
       exclude: [...configDefaults.exclude, 'e2e/**'],
+      fileParallelism: false,
+      pool: 'forks',
       root: fileURLToPath(new URL('./', import.meta.url)),
     },
   }),

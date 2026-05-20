@@ -39,6 +39,7 @@ rules:
       exclude:
         - "**/*.json"
         - "**/*.lock"
+        - "**/*.log"
         - "**/node_modules/**"
         - "**/.venv/**"
         - "**/dist/**"

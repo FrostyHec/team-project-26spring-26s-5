@@ -12,8 +12,10 @@ SKILL = SkillDefinition(
         "- Highlight events, opportunities, and announcements\n"
         "- Personalize news updates based on student interests\n"
         "- Collect information from official campus media\n"
-        "Use the show_sources tool to display news articles and "
-        "references in the workspace for detailed reading."
+        "Use get_daily_news when the user asks for news on a specific date. "
+        "Use search_news when the user provides a keyword or topic. "
+        "Use create_news_digest when the user asks for a daily digest, summary, "
+        "or wants the news shown in the workspace."
     ),
     icon="Newspaper",
     color="text-yellow-500",

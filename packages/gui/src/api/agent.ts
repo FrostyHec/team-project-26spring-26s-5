@@ -466,6 +466,137 @@ export async function checkHealth(): Promise<boolean> {
   }
 }
 
+// ---------- Campus News ----------
+
+/** Compact campus news article from the backend mock source. */
+export type CampusNewsSourceType =
+  | 'mock'
+  | 'email'
+  | 'wechat'
+  | 'official_site'
+  | 'rss'
+  | 'api'
+  | 'manual'
+  | 'unknown'
+
+export interface CampusNewsArticle {
+  id: string
+  title: string
+  date: string
+  category: string
+  summary: string
+  source: string
+  url: string
+  source_type?: CampusNewsSourceType
+  source_name?: string
+  source_id?: string
+  external_id?: string
+  author?: string
+  tags?: string[]
+  raw_metadata?: Record<string, unknown>
+}
+
+/** Full campus news article detail. */
+export interface CampusNewsArticleDetail extends CampusNewsArticle {
+  content: string
+}
+
+export interface CampusNewsReportArticleRef {
+  id: string
+  title: string
+  date: string
+  category: string
+  source: string
+  source_type?: CampusNewsSourceType
+  summary: string
+}
+
+export interface CampusNewsReport {
+  title: string
+  generated_at: string
+  filter_text: string
+  article_count: number
+  summary: string
+  key_points: string[]
+  action_items: string[]
+  articles: CampusNewsReportArticleRef[]
+}
+
+/** Response for date and keyword campus news queries. */
+export interface CampusNewsListResponse {
+  date: string | null
+  query: string | null
+  mode: 'daily' | 'search' | 'latest'
+  count: number
+  articles: CampusNewsArticle[]
+}
+
+/** Fetch campus news. Date and keyword filters are combined when both are provided. */
+export async function fetchCampusNews(
+  options: {
+    targetDate?: string
+    query?: string
+    source?: CampusNewsSourceType | 'all'
+    limit?: number
+  } = {},
+): Promise<CampusNewsListResponse> {
+  const params = new URLSearchParams()
+  if (options.targetDate) params.set('target_date', options.targetDate)
+  if (options.query) params.set('query', options.query)
+  if (options.source && options.source !== 'all') params.set('source', options.source)
+  if (options.limit) params.set('limit', String(options.limit))
+
+  const qs = params.toString()
+  const response = await fetch(`${API_BASE}/news${qs ? `?${qs}` : ''}`)
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`)
+  }
+  return response.json()
+}
+
+/** Fetch latest campus news, independent of date. */
+export async function fetchLatestCampusNews(limit: number = 10): Promise<CampusNewsListResponse> {
+  const response = await fetch(`${API_BASE}/news/latest?limit=${limit}`)
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`)
+  }
+  return response.json()
+}
+
+/** Fetch full detail for one campus news article. */
+export async function fetchCampusNewsDetail(newsId: string): Promise<CampusNewsArticleDetail> {
+  const response = await fetch(`${API_BASE}/news/${encodeURIComponent(newsId)}`)
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`)
+  }
+  return response.json()
+}
+
+/** Generate an AI campus news report for the current filters. */
+export async function generateCampusNewsReport(
+  options: {
+    targetDate?: string
+    query?: string
+    source?: CampusNewsSourceType | 'all'
+    limit?: number
+  } = {},
+): Promise<CampusNewsReport> {
+  const response = await fetch(`${API_BASE}/news/report`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      target_date: options.targetDate || null,
+      query: options.query || null,
+      source: options.source || 'all',
+      limit: options.limit || 20,
+    }),
+  })
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`)
+  }
+  return response.json()
+}
+
 // ---------- Deadlines ----------
 
 /** Date classification for a deadline task (mirrors backend DateType). */

@@ -23,6 +23,7 @@ from agent_core.api.routes.email import router as email_router
 from agent_core.api.routes.evaluate import router as evaluate_router
 from agent_core.api.routes.files import router as files_router
 from agent_core.api.routes.health import router as health_router
+from agent_core.api.routes.news import router as news_router
 from agent_core.api.routes.notifications import router as notifications_router
 from agent_core.api.routes.sessions import router as sessions_router
 from agent_core.api.routes.settings import router as settings_router
@@ -81,6 +82,7 @@ def create_app(config: AgentConfig | None = None) -> FastAPI:
     app.include_router(evaluate_router)
     app.include_router(settings_router)
     app.include_router(email_router)
+    app.include_router(news_router)
     app.include_router(alarm_settings_router)
     app.include_router(notifications_router)
     app.include_router(files_router, prefix="/files", tags=["files"])

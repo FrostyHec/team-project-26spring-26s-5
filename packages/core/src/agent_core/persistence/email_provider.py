@@ -83,6 +83,16 @@ async def get_email_service() -> EmailService:
     return _email_service
 
 
+def get_current_email_service() -> EmailService | None:
+    """Return the current email service without lazy initialisation.
+
+    Campus News uses this to avoid bootstrapping the whole email subsystem when
+    it is running in a context where FastAPI dependencies have not been
+    initialised yet.
+    """
+    return _email_service
+
+
 async def set_email_store(store: EmailStore | None) -> None:
     """Replace or clear the module-level email store (used by DI / tests)."""
     global _email_store, _email_service

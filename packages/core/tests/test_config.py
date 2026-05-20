@@ -65,15 +65,15 @@ providers:
         assert config.max_iterations == 5
         assert config.system_prompt == "YAML prompt"
 
-    def test_from_env_defaults_without_llm_yaml(self) -> None:
+    def test_from_env_defaults_without_llm_yaml(self, tmp_path: Path) -> None:
         """Missing YAML should use safe default LLM settings."""
-        with patch.dict(os.environ, {}, clear=False):
+        env_vars = {"LLM_SETTINGS_PATH": str(tmp_path / "missing_llm_settings.yaml")}
+        with patch.dict(os.environ, env_vars, clear=False):
             for key in [
                 "OPENAI_API_KEY",
                 "MODEL_NAME",
                 "TEMPERATURE",
                 "MAX_ITERATIONS",
-                "LLM_SETTINGS_PATH",
             ]:
                 os.environ.pop(key, None)
             with patch("agent_core.config.load_dotenv"):

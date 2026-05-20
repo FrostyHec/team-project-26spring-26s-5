@@ -32,6 +32,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - State management: SSE `WidgetDisplayEvent` triggers workspace panel; per-session widget state persistence
     - Code cleanup: removed dead code, unused `pdfjs-dist` dependency, and PDF.js CDN scripts
 
+- Course Recommendation
+    - Add Course Recommender skill with packaged local catalog browsing, personalized recommendation, course detail lookup, and side-by-side comparison tools
+    - Replace hard-coded mock courses with a packaged `course_catalog.json` resource converted from local course CSV data
+    - Implement memory-aware scoring using interests, major, completed courses, preferred language, schedule preferences, quota, credits, and Agent Memory context
+    - Reuse `CourseCardsWidget` through `show_courses` for visual review of recommended and compared courses
+    - Add backend coverage for course catalog filtering, recommendation ranking, completed-course exclusion, memory-context visibility, detail lookup, and comparison output
+
+- Campus News
+    - Add Campus News skill with tools for latest news, daily news, keyword search, article detail lookup, and digest creation
+    - Introduce canonical news models plus `NewsService` aggregation across mock sources and email-backed campus news adapters
+    - Convert cached news-like emails into `NewsArticle` / `NewsArticleDetail` records for digest and report generation from received emails
+    - Add REST routes and Vue API client support for news listing, latest news, article details, digest payloads, and AI-generated daily reports
+    - Add `NewsDigestWidget` with date filtering, keyword search, source filtering, article detail view, source list, and daily report display
+    - Add tests for news tools, multi-source aggregation, email-to-news conversion, filtering, detail dispatch, digest generation, and AI report fallback
+
 - Minors
     - Frontend: Provider settings redesigned as collapsible drag-to-reorder cards; API settings validation with backend error modals; `CourseCardsWidget` (semester filter), `QuizSection` (session ID management)
     - Frontend: Chat input box padding fix; sidebar toggle button added to session management area; removed unused sidebar toggle handler from `ChatView`
