@@ -8,8 +8,9 @@ generation and ciphertext integrity verification.
 
 The encryption key is sourced from the ``SETTINGS_ENCRYPTION_KEY`` environment
 variable (a URL-safe base64-encoded Fernet key, 32 bytes of entropy).  If the
-variable is absent at runtime, a fresh key is generated per-process; in
-production, always configure ``SETTINGS_ENCRYPTION_KEY`` explicitly.
+variable is absent at runtime, a key is loaded from or persisted to
+``DATA_PATH/.encryption_key``; in production, always configure
+``SETTINGS_ENCRYPTION_KEY`` explicitly.
 
 Public surface
 --------------
@@ -26,9 +27,10 @@ generate_key() -> str
 """
 
 import os
-from pathlib import Path
 
 from cryptography.fernet import Fernet
+
+from agent_core.runtime_paths import resolve_data_path
 
 # ---------- Constants ----------
 
@@ -36,9 +38,6 @@ from cryptography.fernet import Fernet
 ENV_KEY = "SETTINGS_ENCRYPTION_KEY"
 # Internal alias for backwards compatibility within this module.
 _ENV_KEY = ENV_KEY
-
-#: Path to the persisted key file used when the env var is absent.
-_KEY_FILE = Path("output") / ".encryption_key"
 
 # Module-level cached Fernet instance (lazy-initialized).
 _fernet: Fernet | None = None
@@ -52,7 +51,7 @@ def _load_or_generate_key() -> bytes:
 
     Priority:
     1. ``SETTINGS_ENCRYPTION_KEY`` environment variable
-    2. Persisted key file at ``output/.encryption_key``
+    2. Persisted key file at ``DATA_PATH/.encryption_key``
     3. Generate a new key and persist it to the key file
 
     Returns:
@@ -61,13 +60,14 @@ def _load_or_generate_key() -> bytes:
     raw = os.getenv(_ENV_KEY, "")
     if raw:
         return raw.encode()
+    key_file = resolve_data_path() / ".encryption_key"
     # Try to load from persisted file (survives server restarts in dev).
-    if _KEY_FILE.exists():
-        return _KEY_FILE.read_bytes().strip()
+    if key_file.exists():
+        return key_file.read_bytes().strip()
     # Generate a fresh key and persist it so subsequent restarts reuse it.
     key: bytes = Fernet.generate_key()
-    _KEY_FILE.parent.mkdir(parents=True, exist_ok=True)
-    _KEY_FILE.write_bytes(key)
+    key_file.parent.mkdir(parents=True, exist_ok=True)
+    key_file.write_bytes(key)
     return key
 
 

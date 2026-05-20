@@ -22,7 +22,7 @@
 
 ### 用户故事 4：记忆目录总是跟随运行时数据目录
 
-- Happy path：当 `db_path` 指向 `./output/sessions.db` 时，记忆目录为同层的 `./output/agent_memory/`。
+- Happy path：当 `db_path` 指向 `./output` 数据库目录时，记忆目录为同层的 `./output/agent_memory/`。
 - Boundary：`db_path=':memory:'` 时，自动切换到临时目录，测试结束后可清理。
 
 ## 前后端调用链
@@ -68,7 +68,7 @@
 
 - 所有文件 I/O 必须在 service / store 层通过 `asyncio.to_thread` 执行
 - 工具层只负责参数接收、错误转义和 JSON / 文本输出，不直接处理路径或 YAML
-- 目标目录从 `Path(cfg.db_path).parent / "agent_memory"` 推导，不在工具里硬编码绝对路径
+- 目标目录从 `cfg.db_path / "agent_memory"` 推导，不在工具里硬编码绝对路径
 
 ## 开发工作项
 

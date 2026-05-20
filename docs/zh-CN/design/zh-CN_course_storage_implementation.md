@@ -65,7 +65,7 @@ class CourseMaterial(SQLModel, table=True):
 
 `packages/core/src/agent_core/persistence/course_store.py`
 
-使用 SQLModel + aiosqlite 异步引擎。SQLite 数据库路径默认为 `courses.db`，运行时由依赖注入层的 provider 决定具体路径。
+使用 SQLModel + aiosqlite 异步引擎。SQLite 数据库文件固定为 `courses.db`，运行时放在 `DB_PATH` 目录下；`DB_PATH` 留空时默认等于 `DATA_PATH`。
 
 **核心方法：**
 
@@ -134,12 +134,7 @@ async def update(course_id, fields) # UPDATE 指定字段
 **Storage Root 推导逻辑**（`routes/course_materials.py` 中 `_get_service`）：
 
 ```python
-# 优先从 db_path 的父目录推导，保持一致性
-_cfg_db = Path(cfg.db_path).resolve()
-if _cfg_db.startswith(_project_root):
-    storage_root = _cfg_db.parent / "course_materials"
-else:
-    storage_root = _project_root / "output" / "course_materials"
+storage_root = Path(cfg.data_path) / "course_materials"
 ```
 
 ### 5.2 PDF 安全提供
@@ -199,7 +194,7 @@ else:
 
 ## 8. 已知约束
 
-- **文件存储根目录**：后端根据 `.env` 中的 `DB_PATH` 推导，无独立配置项。若 `DB_PATH` 不在项目根目录下，则 fallback 到 `project_root/output/course_materials/`。
+- **文件存储根目录**：后端根据 `DATA_PATH` 推导，默认写入 `${DATA_PATH}/course_materials/`。
 - **文件大小**：硬编码 10 MB 前端检查和后端验证双重保证。
 - **并发写入**：同一课程的并发上传使用 UUID 前缀保证文件名不冲突；SQLite 写入本身为串行。
 - **无文件类型深度检测**：仅检查扩展名，不验证文件内容 MIME 类型。

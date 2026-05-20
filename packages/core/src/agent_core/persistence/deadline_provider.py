@@ -5,8 +5,7 @@ eliminating the previous reverse-dependency where routes imported
 from tools to reach the store.
 """
 
-from pathlib import Path
-
+from agent_core.config import database_file
 from agent_core.logging_utils import get_logger
 from agent_core.persistence.deadline_store import DeadlineStore
 
@@ -34,8 +33,7 @@ async def get_deadline_store() -> DeadlineStore:
             from agent_core.config import AgentConfig
 
             cfg = AgentConfig.from_env()
-            # Place the deadline DB beside the session DB
-            db_path = str(Path(cfg.db_path).with_name("deadlines.db"))
+            db_path = database_file(cfg.db_path, "deadlines.db")
         except Exception:
             db_path = ":memory:"
         _store = DeadlineStore(db_path)

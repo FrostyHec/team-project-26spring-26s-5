@@ -175,11 +175,12 @@ cd packages/cli
 uv run agent-cli build-policy-index
 ```
 
-`build-policy-index` 是无参数命令。构建配置统一来自 `.env` 与 `PolicySearchConfig`，不允许通过命令行参数临时覆盖：
+`build-policy-index` 构建配置统一来自 `.env` 与 `PolicySearchConfig`，也可通过 `--env-file` 指定运行时配置文件：
 
 ```env
-POLICY_PDF_DIR=./pdfs
-POLICY_INDEX_DIR=./packages/core/output/policy_index
+DATA_PATH=./output
+POLICY_PDF_DIR=      # 留空时使用 ${DATA_PATH}/pdfs
+POLICY_INDEX_DIR=    # 留空时使用 ${DATA_PATH}/policy_index
 POLICY_CHUNK_SIZE=500
 POLICY_CHUNK_OVERLAP=100
 ```

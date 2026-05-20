@@ -69,6 +69,10 @@ MODEL_NAME=gpt-4o-mini       # 模型名称
 TEMPERATURE=0.0              # 模型温度
 MAX_ITERATIONS=10            # 最大推理循环次数
 SYSTEM_PROMPT=You are a helpful AI assistant with calculator tools.
+DATA_PATH=./output           # 运行时数据根目录
+DB_PATH=                     # 数据库目录；留空时等于 DATA_PATH
+APP_HOST=127.0.0.1           # 后端监听地址
+APP_PORT=8000                # 后端监听端口
 ```
 
 ### 4. 验证安装
@@ -122,7 +126,7 @@ git checkout -b feature/add-new-tool
 根据需要修改代码。启动开发服务器：
 
 ```bash
-# 启动后端 API（端口 8000）
+# 启动后端 API（默认读取 APP_PORT，.env.example 默认 8000）
 task dev:server
 
 # 启动 Vue 前端开发服务器（端口 5173）

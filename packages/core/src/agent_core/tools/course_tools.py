@@ -13,6 +13,7 @@ from typing import Any, Literal
 
 from pydantic import Field
 
+from agent_core.config import AgentConfig
 from agent_core.models.course_assistant import QuizQuestion, QuizWidgetData
 from agent_core.models.events import WidgetData, WidgetType
 from agent_core.tools.registry import ToolRegistry
@@ -451,13 +452,11 @@ def _get_allowed_roots() -> list[str]:
     environment variable (paths separated by ``os.pathsep``).
     """
     repo_root = _get_workspace_root()
+    data_path = AgentConfig.from_env().data_path
     roots = [
         os.path.realpath(repo_root),
         os.path.realpath(tempfile.gettempdir()),
-        # course_materials storage: packages/cli/output/ is the runtime location
-        os.path.realpath(
-            os.path.join(repo_root, "packages", "cli", "output", "course_materials")
-        ),
+        os.path.realpath(os.path.join(data_path, "course_materials")),
     ]
     extra = os.environ.get("COURSE_TOOLS_ALLOWED_ROOTS", "")
     if extra:
@@ -563,13 +562,9 @@ def _resolve_material_path(stored_path: str) -> str:
     """Resolve a stored_path from the DB to a usable absolute path.
 
     The DB stores paths like "output/course_materials/{course_id}/{uuid}_{filename}"
-    which may be relative to either the repo root OR the packages/cli/ directory.
-    This function tries both locations and returns the one where the file exists.
+    and package runtime storage lives under DATA_PATH/course_materials.
     """
-    repo_root = _get_workspace_root()
-    cli_storage = os.path.join(
-        repo_root, "packages", "cli", "output", "course_materials"
-    )
+    data_storage = os.path.join(AgentConfig.from_env().data_path, "course_materials")
 
     # Extract the part after "course_materials/" to preserve course_id subdirectory
     cm_pos = stored_path.find("course_materials/")
@@ -579,18 +574,18 @@ def _resolve_material_path(stored_path: str) -> str:
         else os.path.basename(stored_path)
     )
 
-    # Try packages/cli/output/course_materials/{course_id}/{uuid}_{filename}
-    cli_candidate = os.path.join(cli_storage, rel_path)
-    if os.path.exists(cli_candidate):
-        return os.path.realpath(cli_candidate)
+    data_candidate = os.path.join(data_storage, rel_path)
+    if os.path.exists(data_candidate):
+        return os.path.realpath(data_candidate)
 
     # Fall back: resolve as repo-root-relative path
+    repo_root = _get_workspace_root()
     repo_candidate = os.path.normpath(os.path.join(repo_root, stored_path))
     if os.path.exists(repo_candidate):
         return os.path.realpath(repo_candidate)
 
-    # Last resort: repo-root-relative path; let read_file report errors.
-    return repo_candidate
+    # Last resort: DATA_PATH-relative path; let read_file report errors.
+    return data_candidate
 
 
 def list_course_materials(

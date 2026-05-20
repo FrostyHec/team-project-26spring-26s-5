@@ -54,13 +54,71 @@ class TestPolicySearchConfig:
         },
     )
     def test_config_from_env(self) -> None:
-        from agent_core.policy_search.config import DEFAULT_PDF_DIR, PolicySearchConfig
+        from agent_core.policy_search.config import PolicySearchConfig
 
         config = PolicySearchConfig.from_env()
-        assert config.pdf_dir == DEFAULT_PDF_DIR.parent / "custom-pdfs"
-        assert config.index_dir == DEFAULT_PDF_DIR.parent / "custom-index"
+        assert config.pdf_dir == Path("custom-pdfs")
+        assert config.index_dir == Path("custom-index")
         assert config.chunk_size == 700
         assert config.chunk_overlap == 90
+
+    @patch.dict(
+        "os.environ",
+        {
+            "DATA_PATH": "runtime-data",
+            "POLICY_PDF_DIR": "",
+            "POLICY_INDEX_DIR": "",
+        },
+    )
+    def test_config_derives_paths_from_data_path(self) -> None:
+        from agent_core.policy_search.config import PolicySearchConfig
+
+        config = PolicySearchConfig.from_env()
+        assert config.pdf_dir == Path("runtime-data") / "pdfs"
+        assert config.index_dir == Path("runtime-data") / "policy_index"
+
+    @patch.dict(
+        "os.environ",
+        {
+            "DATA_PATH": "packaged-output",
+            "POLICY_PDF_DIR": "",
+            "POLICY_INDEX_DIR": "",
+        },
+        clear=False,
+    )
+    def test_config_blank_policy_paths_override_ambient_values(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        from dotenv import load_dotenv
+
+        from agent_core.policy_search.config import PolicySearchConfig
+
+        env_file = tmp_path / "config" / ".env"
+        env_file.parent.mkdir()
+        env_file.write_text(
+            "\n".join(
+                [
+                    "DATA_PATH=../output",
+                    "POLICY_PDF_DIR=",
+                    "POLICY_INDEX_DIR=",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        with patch.dict(
+            "os.environ",
+            {
+                "POLICY_PDF_DIR": str(tmp_path / "ambient-pdfs"),
+                "POLICY_INDEX_DIR": str(tmp_path / "ambient-index"),
+            },
+            clear=False,
+        ):
+            load_dotenv(env_file, override=True)
+            config = PolicySearchConfig.from_env()
+
+        assert config.pdf_dir == Path("../output") / "pdfs"
+        assert config.index_dir == Path("../output") / "policy_index"
 
     def test_config_with_overrides(self) -> None:
         from agent_core.policy_search.config import PolicySearchConfig

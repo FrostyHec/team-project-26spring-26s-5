@@ -1,8 +1,8 @@
 [![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/py413vYq)
 
-# ReAct Agent
+# SUSTech Campus Assistant
 
-A ReAct (Reasoning + Acting) AI Agent POC built with LangChain/LangGraph, featuring a modular monorepo architecture.
+A SUSTech campus academic assistant for deadlines, course support, policy search, course recommendation, and campus news, built on a ReAct/LangGraph agent architecture.
 
 ## Architecture
 

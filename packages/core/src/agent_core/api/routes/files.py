@@ -6,10 +6,9 @@ from urllib.parse import quote
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import FileResponse
 
-router = APIRouter()
+from agent_core.policy_search.config import PolicySearchConfig
 
-# PDF storage directory (project root /pdfs/)
-_PDFS_DIR = Path(__file__).resolve().parents[6] / "pdfs"
+router = APIRouter()
 
 
 def _validate_filename(filename: str) -> Path:
@@ -34,8 +33,9 @@ def _validate_filename(filename: str) -> Path:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid filename.",
         )
-    path = (_PDFS_DIR / filename).resolve()
-    if not path.is_relative_to(_PDFS_DIR):
+    pdfs_dir = PolicySearchConfig.from_env().pdf_dir.resolve()
+    path = (pdfs_dir / filename).resolve()
+    if not path.is_relative_to(pdfs_dir):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied.",

@@ -1,0 +1,127 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux
+            os: ubuntu-20.04
+          - name: windows
+            os: windows-latest
+          - name: macos
+            os: macos-latest
+    env:
+      HAS_EMBEDDING_API_KEY: ${{ secrets.EMBEDDING_API_KEY != '' }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Resolve release version
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid release tag: $GITHUB_REF_NAME" >&2
+            echo "Expected tags like v1.2.3 or v1.2.3-beta.1" >&2
+            exit 1
+          fi
+          echo "RELEASE_VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "PACKAGE_VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "DESKTOP_APP_VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: latest
+
+      - name: Install Python dependencies
+        shell: bash
+        run: |
+          cd packages/core && uv sync --all-extras
+          cd ../cli && uv sync --all-extras
+
+      - name: Install Vue dependencies
+        shell: bash
+        run: cd packages/gui && pnpm install
+
+      - name: Run repository checks
+        shell: bash
+        run: bash scripts/check.sh
+
+      - name: Build GUI
+        shell: bash
+        run: pnpm --dir packages/gui build
+
+      - name: Build backend staging
+        shell: bash
+        run: python scripts/packaging/package_backend.py --skip-gui-build --version "$RELEASE_VERSION"
+
+      - name: Prebuild policy index when embedding secret is available
+        if: env.HAS_EMBEDDING_API_KEY == 'true'
+        shell: bash
+        env:
+          EMBEDDING_API_KEY: ${{ secrets.EMBEDDING_API_KEY }}
+        run: |
+          cd packages/cli
+          uv run agent-cli build-policy-index --env-file ../../build/package/backend-staging/config/.env
+
+      - name: Warn when policy index is not bundled
+        if: env.HAS_EMBEDDING_API_KEY != 'true'
+        shell: bash
+        run: |
+          echo "::warning::EMBEDDING_API_KEY is not configured; release artifact will include default PDFs but no prebuilt policy index."
+          echo "### Policy index warning" >> "$GITHUB_STEP_SUMMARY"
+          echo "EMBEDDING_API_KEY is not configured, so this artifact does not include a prebuilt policy index." >> "$GITHUB_STEP_SUMMARY"
+          echo "Users can configure an embedding key and run:" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`agent-cli build-policy-index --env-file config/.env\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Smoke test backend staging
+        shell: bash
+        run: bash scripts/packaging/debug_packaged_app.sh --staging-dir build/package/backend-staging
+
+      - name: Build desktop package
+        shell: bash
+        run: bash scripts/packaging/package_desktop.sh
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: sustech-campus-assistant-${{ matrix.name }}
+          path: |
+            build/package/backend-staging
+            build/package/artifacts/desktop
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/package/artifacts/desktop/**

@@ -91,6 +91,12 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(description="Build policy search index")
     parser.add_argument(
+        "--env-file",
+        type=Path,
+        default=None,
+        help="Path to a .env file for runtime configuration",
+    )
+    parser.add_argument(
         "--pdf-dir",
         type=Path,
         default=None,
@@ -115,6 +121,13 @@ def main() -> None:
         help=f"Character overlap between chunks (default: {config.chunk_overlap})",
     )
     args = parser.parse_args()
+
+    if args.env_file is not None:
+        from agent_core.runtime_paths import set_runtime_env_file
+
+        set_runtime_env_file(args.env_file)
+        load_dotenv(args.env_file, override=True)
+        config = PolicySearchConfig.from_env()
 
     build_config = config.with_overrides(
         pdf_dir=args.pdf_dir,

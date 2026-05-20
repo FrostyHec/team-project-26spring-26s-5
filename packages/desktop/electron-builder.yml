@@ -1,0 +1,36 @@
+appId: app.frosty.campus-assistant
+productName: SUSTech Campus Assistant
+artifactName: sustech-campus-assistant-${env.PACKAGE_VERSION}-${arch}.${ext}
+copyright: Copyright © 2026 SUSTech SE Team 26S-5
+asar: true
+npmRebuild: false
+nodeGypRebuild: false
+afterPack: scripts/after-pack.cjs
+files:
+  - dist/main/**
+  - package.json
+extraResources:
+  - from: ../../build/package/backend-staging/bin
+    to: backend/bin
+  - from: ../../build/package/backend-staging/gui
+    to: backend/gui
+  - from: ../../build/package/backend-staging/config/env.template
+    to: env-template/env.template
+  - from: ../../build/package/backend-staging/output/pdfs
+    to: default-data/pdfs
+linux:
+  target:
+    - AppImage
+    - tar.gz
+  category: Education
+  executableArgs:
+    - --no-sandbox
+win:
+  target:
+    - nsis
+mac:
+  target:
+    - dmg
+    - zip
+directories:
+  output: ../../build/package/artifacts/desktop

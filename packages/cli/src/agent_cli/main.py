@@ -11,6 +11,7 @@ import sys
 from agent_core.api.server import create_app
 from agent_core.config import AgentConfig
 from agent_core.engine.agent import ReactAgent
+from agent_core.runtime_paths import set_runtime_env_file
 from agent_core.tools.calculator import register_calculator_tools
 from agent_core.tools.registry import ToolRegistry
 
@@ -76,16 +77,31 @@ async def _chat_loop() -> None:
             print(f"Error: {e}\n")
 
 
-def run_server(host: str = "0.0.0.0", port: int = 8000) -> None:
+def run_server(
+    host: str = "0.0.0.0",
+    port: int = 8000,
+    env_file: str | None = None,
+    static_dir: str | None = None,
+) -> None:
     """Start the FastAPI server.
 
     Args:
         host: Server host address.
         port: Server port number.
+        env_file: Optional dotenv file to load runtime configuration from.
+        static_dir: Optional Vue dist directory for packaged same-origin serving.
     """
     import uvicorn
 
-    app = create_app()
+    config = AgentConfig.from_env(env_file)
+    if static_dir:
+        from pathlib import Path
+
+        from agent_core.api.packaged import create_packaged_app
+
+        app = create_packaged_app(Path(static_dir), config)
+    else:
+        app = create_app(config)
     uvicorn.run(app, host=host, port=port)
 
 
@@ -103,15 +119,35 @@ def main() -> None:
     # Server subcommand
     server_parser = subparsers.add_parser("serve", help="Start API server")
     server_parser.add_argument(
-        "--host", default="0.0.0.0", help="Server host (default: 0.0.0.0)"
+        "--host",
+        default=None,
+        help="Server host (default: APP_HOST or 0.0.0.0)",
     )
     server_parser.add_argument(
-        "--port", type=int, default=8000, help="Server port (default: 8000)"
+        "--port",
+        type=int,
+        default=None,
+        help="Server port (default: APP_PORT or 8000)",
+    )
+    server_parser.add_argument(
+        "--env-file",
+        default=None,
+        help="Path to a .env file for runtime configuration",
+    )
+    server_parser.add_argument(
+        "--static-dir",
+        default=None,
+        help="Vue dist directory for packaged same-origin serving",
     )
 
-    subparsers.add_parser(
+    policy_parser = subparsers.add_parser(
         "build-policy-index",
         help="Build the policy search FAISS index",
+    )
+    policy_parser.add_argument(
+        "--env-file",
+        default=None,
+        help="Path to a .env file for runtime configuration",
     )
 
     args = parser.parse_args()
@@ -119,9 +155,19 @@ def main() -> None:
     if args.command == "chat":
         asyncio.run(_chat_loop())
     elif args.command == "serve":
-        run_server(host=args.host, port=args.port)
+        if args.env_file:
+            set_runtime_env_file(args.env_file)
+        config = AgentConfig.from_env(args.env_file)
+        run_server(
+            host=args.host or config.app_host,
+            port=args.port or config.app_port,
+            env_file=args.env_file,
+            static_dir=args.static_dir,
+        )
     elif args.command == "build-policy-index":
-        build_policy_index()
+        if args.env_file:
+            set_runtime_env_file(args.env_file)
+        build_policy_index(env_file=args.env_file)
     else:
         parser.print_help()
         sys.exit(1)

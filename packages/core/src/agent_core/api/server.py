@@ -10,7 +10,7 @@ Follows a controller-service layering pattern:
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from agent_core.api.dependencies import init_dependencies, shutdown_dependencies
@@ -34,6 +34,84 @@ from agent_core.logging_utils import setup_logger
 from agent_core.policy_search.config import PolicySearchConfig
 from agent_core.policy_search.index import log_index_startup_check
 
+API_ROUTERS: tuple[APIRouter, ...] = (
+    health_router,
+    tools_router,
+    skills_router,
+    chat_router,
+    sessions_router,
+    deadlines_router,
+    courses_router,
+    course_materials_router,
+    evaluate_router,
+    settings_router,
+    email_router,
+    news_router,
+    alarm_settings_router,
+    notifications_router,
+)
+
+
+def _resolve_config(config: AgentConfig | None = None) -> AgentConfig:
+    """Resolve and initialize runtime configuration shared by app factories."""
+    init_config = config or AgentConfig.from_env()
+    setup_logger(log_level=init_config.log_level, log_file=init_config.log_file)
+    return init_config
+
+
+def _create_lifespan(config: AgentConfig) -> object:
+    """Create a shared FastAPI lifespan handler for all API app variants."""
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+        await init_dependencies(config)
+        policy_config = PolicySearchConfig.from_env()
+        log_index_startup_check(policy_config.index_dir)
+        yield
+        await shutdown_dependencies()
+
+    return lifespan
+
+
+def _configure_middleware(app: FastAPI) -> None:
+    """Configure middleware shared by normal and packaged apps."""
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+
+def _include_api_routers(
+    app: FastAPI,
+    *,
+    prefix: str = "",
+    include_files: bool = True,
+) -> None:
+    """Mount API routers with an optional prefix.
+
+    Args:
+        app: FastAPI application to mutate.
+        prefix: Prefix for business API routers.
+        include_files: Whether to include the top-level files router.
+    """
+    for router in API_ROUTERS:
+        app.include_router(router, prefix=prefix)
+    if include_files:
+        app.include_router(files_router, prefix="/files", tags=["files"])
+
+
+def _create_base_app(config: AgentConfig) -> FastAPI:
+    """Create the shared FastAPI shell before router/static mounting."""
+    return FastAPI(
+        title="ReAct Agent API",
+        description="REST API for the ReAct AI Agent",
+        version="0.1.0",
+        lifespan=_create_lifespan(config),
+    )
+
 
 def create_app(config: AgentConfig | None = None) -> FastAPI:
     """Create the FastAPI application.
@@ -44,47 +122,9 @@ def create_app(config: AgentConfig | None = None) -> FastAPI:
     Returns:
         Configured FastAPI app with all routes mounted.
     """
-    init_config = config or AgentConfig.from_env()
-    setup_logger(log_level=init_config.log_level, log_file=init_config.log_file)
-
-    @asynccontextmanager
-    async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-        await init_dependencies(config)
-        policy_config = PolicySearchConfig.from_env()
-        log_index_startup_check(policy_config.index_dir)
-        yield
-        await shutdown_dependencies()
-
-    app = FastAPI(
-        title="ReAct Agent API",
-        description="REST API for the ReAct AI Agent",
-        version="0.1.0",
-        lifespan=lifespan,
-    )
-
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-
-    # Mount routers (controllers)
-    app.include_router(health_router)
-    app.include_router(tools_router)
-    app.include_router(skills_router)
-    app.include_router(chat_router)
-    app.include_router(sessions_router)
-    app.include_router(deadlines_router)
-    app.include_router(courses_router)
-    app.include_router(course_materials_router)
-    app.include_router(evaluate_router)
-    app.include_router(settings_router)
-    app.include_router(email_router)
-    app.include_router(news_router)
-    app.include_router(alarm_settings_router)
-    app.include_router(notifications_router)
-    app.include_router(files_router, prefix="/files", tags=["files"])
+    init_config = _resolve_config(config)
+    app = _create_base_app(init_config)
+    _configure_middleware(app)
+    _include_api_routers(app)
 
     return app

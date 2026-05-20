@@ -11,7 +11,7 @@ from fastapi import HTTPException
 from langchain_openai import ChatOpenAI
 
 from agent_core.api.approval import make_api_approval_handler
-from agent_core.config import AgentConfig, load_llm_settings
+from agent_core.config import AgentConfig, database_file, load_llm_settings
 from agent_core.engine.agent import ReactAgent
 from agent_core.logging_utils import get_logger
 from agent_core.models.llm_settings import DEFAULT_MODEL_NAME
@@ -185,10 +185,10 @@ async def init_dependencies(config: AgentConfig | None = None) -> None:
     if _config.encryption_key:
         reset_fernet(_config.encryption_key)
 
-    _store = SessionStore(_config.db_path)
+    _store = SessionStore(database_file(_config.db_path, "sessions.db"))
     await _store.initialize()
     _conversation_tree_store = ConversationTreeStore(
-        _config.db_path,
+        database_file(_config.db_path, "sessions.db"),
         engine=_store.db,
     )
     await _conversation_tree_store.initialize()
@@ -198,13 +198,11 @@ async def init_dependencies(config: AgentConfig | None = None) -> None:
     )
 
     # Course subsystem
-    from pathlib import Path
-
-    course_db = str(Path(_config.db_path).with_name("courses.db"))
+    course_db = database_file(_config.db_path, "courses.db")
     _course_store = CourseStore(course_db)
     await _course_store.initialize()
 
-    material_db = str(Path(_config.db_path).with_name("course_materials.db"))
+    material_db = database_file(_config.db_path, "course_materials.db")
     _course_material_store = CourseMaterialStore(
         material_db,
         max_size_bytes=_config.course_material_max_size_mb * 1024 * 1024,
@@ -225,20 +223,19 @@ async def init_dependencies(config: AgentConfig | None = None) -> None:
     await set_course_store(_course_store)
     await set_course_material_store(_course_material_store)
 
-    _profile_store = ProfileStore(_config.db_path)
+    _profile_store = ProfileStore(database_file(_config.db_path, "sessions.db"))
     await _profile_store.initialize()
     _profile_service = ProfileService(_profile_store)
 
     # Email subsystem
     import tempfile
-    from pathlib import Path
 
     if _config.db_path == ":memory:":
         email_db = ":memory:"
         data_root = tempfile.mkdtemp()
     else:
-        email_db = str(Path(_config.db_path).with_name("email.db"))
-        data_root = str(Path(_config.db_path).parent)
+        email_db = database_file(_config.db_path, "email.db")
+        data_root = _config.db_path
     _email_store = EmailStore(email_db)
     await _email_store.initialize()
     _email_service = EmailService(
@@ -257,7 +254,7 @@ async def init_dependencies(config: AgentConfig | None = None) -> None:
     await set_email_service(_email_service)
 
     # Alarm subsystem
-    _alarm_store = AlarmStore(_config.db_path)
+    _alarm_store = AlarmStore(database_file(_config.db_path, "sessions.db"))
     await _alarm_store.initialize()
 
     # Adapter: bridge AlarmService's (subject, body) → EmailService.send_email()
@@ -527,14 +524,9 @@ async def _init_deadline_store_for_alarm(db_path: str) -> DeadlineStore:
     routes and services — avoiding a mismatch between the deadline tool
     layer and the alarm service.
     """
-    from pathlib import Path
-
     from agent_core.persistence.deadline_provider import set_deadline_store
 
-    if db_path == ":memory:":
-        deadline_db = ":memory:"
-    else:
-        deadline_db = str(Path(db_path).with_name("deadlines.db"))
+    deadline_db = database_file(db_path, "deadlines.db")
     store = DeadlineStore(deadline_db)
     await store.initialize()
     await set_deadline_store(store)

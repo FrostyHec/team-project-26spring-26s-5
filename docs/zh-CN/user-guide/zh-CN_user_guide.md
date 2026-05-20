@@ -44,8 +44,10 @@ EMBEDDING_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 EMBEDDING_MODEL=text-embedding-v4
 
 # Policy Search 索引配置
-POLICY_PDF_DIR=./pdfs
-POLICY_INDEX_DIR=./packages/core/output/policy_index
+DATA_PATH=./output
+DB_PATH=                 # 留空时数据库写入 ${DATA_PATH}
+POLICY_PDF_DIR=          # 留空时使用 ${DATA_PATH}/pdfs
+POLICY_INDEX_DIR=        # 留空时使用 ${DATA_PATH}/policy_index
 POLICY_CHUNK_SIZE=500
 POLICY_CHUNK_OVERLAP=100
 ```
@@ -100,6 +102,7 @@ Agent: 3.14 × 2.5 = 7.85
 | `agent-cli chat` | 交互式聊天模式 |
 | `agent-cli serve` | 启动 FastAPI 服务器（同 `task dev:server`） |
 | `agent-cli serve --port 9000` | 指定端口启动服务器 |
+| `agent-cli serve --env-file /path/to/.env` | 使用指定 `.env` 启动服务器 |
 
 ### 方式二：Vue 前端
 
@@ -169,12 +172,12 @@ uv run agent-cli build-policy-index
 ```
 
 默认约定：
-- 原始 PDF 放在仓库根目录 `pdfs/`，可通过 `POLICY_PDF_DIR` 配置
-- 索引输出到 `packages/core/output/policy_index/`，可通过 `POLICY_INDEX_DIR` 配置
+- 原始 PDF 默认读取 `${DATA_PATH}/pdfs`，可通过 `POLICY_PDF_DIR` 配置
+- 索引默认输出到 `${DATA_PATH}/policy_index/`，可通过 `POLICY_INDEX_DIR` 配置
 - 切片参数通过 `POLICY_CHUNK_SIZE` 和 `POLICY_CHUNK_OVERLAP` 配置
 - 第一版只支持中文 PDF，且只支持本地离线构建索引
 
-`agent-cli build-policy-index` 不提供命令行覆盖参数；索引构建配置统一来自 `.env` 与 `PolicySearchConfig`。启动后端服务时，系统会检查索引文件是否存在；如果缺失，只会记录 warning 并提示先构建索引，不会自动调用 Embedding API 或阻塞服务启动。
+`agent-cli build-policy-index` 的索引构建配置统一来自 `.env` 与 `PolicySearchConfig`，也可通过 `--env-file` 指定配置文件。启动后端服务时，系统会检查索引文件是否存在；如果缺失，只会记录 warning 并提示先构建索引，不会自动调用 Embedding API 或阻塞服务启动。
 
 当前建议通过 API 使用该能力，而不是通过 `agent-cli chat`。
 原因是当前 CLI 交互入口尚未接入 `policy_search` skill 选择。

@@ -8,10 +8,14 @@ import yaml
 from dotenv import load_dotenv
 
 from agent_core.models.llm_settings import (
-    DEFAULT_LLM_SETTINGS_PATH,
     DEFAULT_MODEL_NAME,
     DEFAULT_SYSTEM_PROMPT,
     LlmSettingsFile,
+)
+from agent_core.runtime_paths import (
+    resolve_data_path,
+    resolve_path_env,
+    set_runtime_env_file,
 )
 from agent_core.security.encryption import ENV_KEY as _ENCRYPTION_ENV_KEY
 
@@ -20,7 +24,11 @@ def _resolve_llm_settings_path(settings_path: str | Path | None = None) -> Path:
     """Resolve the YAML settings path from an explicit path, env, or default."""
     if settings_path is not None:
         return Path(settings_path)
-    return Path(os.getenv("LLM_SETTINGS_PATH", str(DEFAULT_LLM_SETTINGS_PATH)))
+    data_path = resolve_data_path()
+    return resolve_path_env(
+        "LLM_SETTINGS_PATH",
+        data_path / "llm_settings.yaml",
+    )
 
 
 def load_llm_settings(settings_path: str | Path | None = None) -> LlmSettingsFile:
@@ -55,6 +63,13 @@ def reset_llm_settings(settings_path: str | Path | None = None) -> LlmSettingsFi
     return save_llm_settings(LlmSettingsFile(), settings_path=settings_path)
 
 
+def database_file(db_path: str | Path, filename: str) -> str:
+    """Return a concrete database file path inside the configured DB directory."""
+    if str(db_path) == ":memory:":
+        return ":memory:"
+    return str(Path(db_path) / filename)
+
+
 @dataclass
 class AgentConfig:
     """Configuration for the ReAct agent.
@@ -77,11 +92,14 @@ class AgentConfig:
     max_iterations: int = 10
     log_level: str = "INFO"
     log_file: str = "./output/logs/agent.log"
-    db_path: str = "./output/sessions.db"
+    db_path: str = "./output"
+    data_path: str = "./output"
+    app_host: str = "127.0.0.1"
+    app_port: int = 8000
     course_material_max_size_mb: int = 10
     course_material_allowed_extensions: str = ".pdf,.docx,.pptx,.xlsx,.txt,.md"
     encryption_key: str = ""
-    llm_settings_path: str = str(DEFAULT_LLM_SETTINGS_PATH)
+    llm_settings_path: str = "./output/llm_settings.yaml"
     system_prompt: str = field(default=DEFAULT_SYSTEM_PROMPT)
 
     @staticmethod
@@ -100,12 +118,28 @@ class AgentConfig:
             Configured AgentConfig instance.
         """
         if env_file:
-            load_dotenv(env_file)
+            set_runtime_env_file(env_file)
+            load_dotenv(env_file, override=True)
+            base_dir = Path(env_file).expanduser().resolve().parent
         else:
             load_dotenv()
+            base_dir = None
 
-        llm_settings_path = Path(
-            os.getenv("LLM_SETTINGS_PATH", str(DEFAULT_LLM_SETTINGS_PATH))
+        data_path = resolve_data_path(base_dir=base_dir)
+        db_path = resolve_path_env(
+            "DB_PATH",
+            data_path,
+            base_dir=base_dir,
+        )
+        log_file = resolve_path_env(
+            "LOG_FILE",
+            data_path / "logs" / "agent.log",
+            base_dir=base_dir,
+        )
+        llm_settings_path = resolve_path_env(
+            "LLM_SETTINGS_PATH",
+            data_path / "llm_settings.yaml",
+            base_dir=base_dir,
         )
         llm_settings = cls._load_llm_settings(llm_settings_path)
         provider = llm_settings.default_provider()
@@ -117,8 +151,11 @@ class AgentConfig:
             temperature=llm_settings.temperature,
             max_iterations=llm_settings.max_iterations,
             log_level=os.getenv("LOG_LEVEL", "INFO"),
-            log_file=os.getenv("LOG_FILE", "agent.log"),
-            db_path=os.getenv("DB_PATH", "./output/sessions.db"),
+            log_file=str(log_file),
+            db_path=":memory:" if os.getenv("DB_PATH") == ":memory:" else str(db_path),
+            data_path=str(data_path),
+            app_host=os.getenv("APP_HOST", "127.0.0.1"),
+            app_port=int(os.getenv("APP_PORT", "8000")),
             encryption_key=os.getenv(_ENCRYPTION_ENV_KEY, ""),
             course_material_max_size_mb=int(
                 os.getenv("COURSE_MATERIAL_MAX_SIZE_MB", "10")

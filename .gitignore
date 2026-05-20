@@ -125,3 +125,4 @@ chainlit.md
 *.sqlite3
 
 bb_cached_ddls.json
+build

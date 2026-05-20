@@ -1,7 +1,6 @@
 """Course material store — singleton provider for CourseMaterialStore."""
 
-from pathlib import Path
-
+from agent_core.config import database_file
 from agent_core.logging_utils import get_logger
 from agent_core.persistence.course_material_store import CourseMaterialStore
 
@@ -18,7 +17,7 @@ async def get_course_material_store() -> CourseMaterialStore:
             from agent_core.config import AgentConfig
 
             cfg = AgentConfig.from_env()
-            db_path = str(Path(cfg.db_path).with_name("course_materials.db"))
+            db_path = database_file(cfg.db_path, "course_materials.db")
             max_size_bytes = cfg.course_material_max_size_mb * 1024 * 1024
             allowed_extensions = frozenset(
                 ext.strip().lower()

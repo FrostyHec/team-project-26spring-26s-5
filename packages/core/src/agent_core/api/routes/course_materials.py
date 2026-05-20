@@ -39,19 +39,7 @@ async def _get_service() -> CourseMaterialService:
         from agent_core.config import AgentConfig
 
         cfg = AgentConfig.from_env()
-        # Resolve storage root relative to the project root (packages/core/),
-        # not relative to cfg.db_path, so paths are consistent regardless of
-        # where the server process is started from (project root vs packages/cli/).
-        _pkg_root = Path(__file__).resolve().parents[4]  # packages/core/
-        _project_root = _pkg_root.parent  # repo root
-        _default_db = _project_root / "output" / "sessions.db"
-        _cfg_db = Path(cfg.db_path).resolve()
-        # If db_path is under the project root, derive storage root from it.
-        # Otherwise fall back to project-root relative path.
-        if str(_cfg_db).startswith(str(_project_root)):
-            storage_root = str(_cfg_db.parent / "course_materials")
-        else:
-            storage_root = str(_project_root / "output" / "course_materials")
+        storage_root = str(Path(cfg.data_path) / "course_materials")
     except Exception:
         storage_root = "./output/course_materials"
 

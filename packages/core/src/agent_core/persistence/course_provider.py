@@ -1,7 +1,6 @@
 """Shared course store provider — single source for the CourseStore singleton."""
 
-from pathlib import Path
-
+from agent_core.config import database_file
 from agent_core.logging_utils import get_logger
 from agent_core.persistence.course_store import CourseStore
 
@@ -18,7 +17,7 @@ async def get_course_store() -> CourseStore:
             from agent_core.config import AgentConfig
 
             cfg = AgentConfig.from_env()
-            db_path = str(Path(cfg.db_path).with_name("courses.db"))
+            db_path = database_file(cfg.db_path, "courses.db")
         except Exception:
             db_path = ":memory:"
         _store = CourseStore(db_path)

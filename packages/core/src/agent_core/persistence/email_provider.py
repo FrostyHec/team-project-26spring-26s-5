@@ -7,8 +7,7 @@ The provider lazily constructs an :class:`EmailService` backed by an
 :class:`EmailStore`, :class:`ProfileStore`, and :class:`EmailClient`.
 """
 
-from pathlib import Path
-
+from agent_core.config import database_file
 from agent_core.logging_utils import get_logger
 from agent_core.persistence.email_store import EmailStore
 from agent_core.persistence.profile_store import ProfileStore
@@ -32,7 +31,7 @@ async def get_email_store() -> EmailStore:
             from agent_core.config import AgentConfig
 
             cfg = AgentConfig.from_env()
-            db_path = str(Path(cfg.db_path).with_name("email.db"))
+            db_path = database_file(cfg.db_path, "email.db")
         except Exception:
             db_path = ":memory:"
         _email_store = EmailStore(db_path)
@@ -62,14 +61,14 @@ async def get_email_service() -> EmailService:
         from agent_core.config import AgentConfig
 
         cfg = AgentConfig.from_env()
-        profile_store = ProfileStore(cfg.db_path)
+        profile_store = ProfileStore(database_file(cfg.db_path, "sessions.db"))
         await profile_store.initialize()
 
     try:
         from agent_core.config import AgentConfig
 
         cfg = AgentConfig.from_env()
-        data_root = str(Path(cfg.db_path).parent)
+        data_root = cfg.db_path
     except Exception:
         data_root = "."
 

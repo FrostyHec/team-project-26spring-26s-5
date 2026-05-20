@@ -3,13 +3,18 @@
 import sys
 
 
-def build_policy_index() -> None:
+def build_policy_index(env_file: str | None = None) -> None:
     """Build the policy search index using configured policy search settings."""
     from agent_core.policy_search.build_index import rebuild_policy_index
     from agent_core.policy_search.config import PolicySearchConfig
+    from agent_core.runtime_paths import set_runtime_env_file
     from dotenv import load_dotenv
 
-    load_dotenv()
+    if env_file:
+        set_runtime_env_file(env_file)
+        load_dotenv(env_file, override=True)
+    else:
+        load_dotenv()
     config = PolicySearchConfig.from_env()
 
     try:

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import tempfile
-from pathlib import Path
 
 from agent_core.config import AgentConfig
 from agent_core.persistence.agent_memory_store import AgentMemoryStore
@@ -23,7 +22,7 @@ def _resolve_data_root() -> str:
 
     if config.db_path == ":memory:":
         return tempfile.mkdtemp(prefix="agent-memory-")
-    return str(Path(config.db_path).parent)
+    return config.db_path
 
 
 async def get_agent_memory_store() -> AgentMemoryStore:

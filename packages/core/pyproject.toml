@@ -46,10 +46,20 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/agent_core"]
-include = ["src/agent_core/prompts/**", "src/agent_core/resources/**"]
+include = [
+    "src/agent_core/prompts/**",
+    "src/agent_core/resources/**",
+    "src/agent_core/skills/**/*.json",
+    "src/agent_core/policy_search/**/*.json",
+]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/agent_core/prompts/**", "src/agent_core/resources/**"]
+include = [
+    "src/agent_core/prompts/**",
+    "src/agent_core/resources/**",
+    "src/agent_core/skills/**/*.json",
+    "src/agent_core/policy_search/**/*.json",
+]
 
 [tool.ruff]
 target-version = "py312"

@@ -1,6 +1,6 @@
 # 分发与部署
 
-本文档描述 ReAct Agent 项目的构建、打包、发布和部署流程。
+本文档描述 SUSTech Campus Assistant 项目的构建、打包、发布和部署流程。
 
 ## Python 包构建
 
@@ -50,6 +50,7 @@ agent-cli = "agent_cli.main:main"
 ```bash
 agent-cli chat     # 交互式聊天
 agent-cli serve    # 启动 API 服务器
+agent-cli serve --env-file /path/to/.env  # 使用指定运行时配置
 ```
 
 ## PyPI 发布
@@ -125,6 +126,8 @@ packages/gui/dist/
 - 开发环境下 Vite 代理 `/api` → `localhost:8000`
 - 生产环境需要 Nginx 或类似工具配置相同的代理规则
 
+运行时数据默认由 `DATA_PATH` 控制。`DB_PATH` 留空时等于 `DATA_PATH`，运行时数据库会以固定文件名写入该目录，例如 `sessions.db`、`courses.db`、`course_materials.db`、`email.db`、`deadlines.db`。`LOG_FILE`、`LLM_SETTINGS_PATH`、`POLICY_PDF_DIR`、`POLICY_INDEX_DIR` 留空时会分别派生到 `DATA_PATH` 下的日志、LLM 设置、PDF 与索引目录。
+
 ```nginx
 # Nginx 配置示例
 server {
@@ -141,12 +144,117 @@ server {
 }
 ```
 
+## 桌面应用与本地 Web 打包
+
+当前桌面分发采用：
+
+- PyInstaller 打包 `agent-cli serve` 作为后端 sidecar。
+- Electron 启动后端 sidecar，并打开同一个本地 Web 应用。
+- Vite 构建后的 `packages/gui/dist` 由后端 packaged app 同源托管。
+
+打包后的路由结构：
+
+| 路径 | 用途 |
+|------|------|
+| `/api/*` | 后端业务 API |
+| `/files/*` | PDF 与文件访问，保持顶层路径 |
+| `/*` | Vue 静态资源与 history fallback |
+
+### 本地打包当前平台
+
+```bash
+bash scripts/packaging/package_all_local.sh
+```
+
+该脚本只构建当前运行环境对应的平台产物：
+
+| 本机环境 | 本地目标 |
+|----------|----------|
+| Linux | AppImage + tar.gz |
+| Windows | NSIS exe |
+| macOS | dmg + zip |
+
+不支持在单个本机环境中可靠地交叉打出三平台产物。原因是 PyInstaller 不是通用交叉编译器，且本项目包含 `faiss-cpu`、`PyMuPDF`、`cryptography` 等 native 依赖。正式三平台产物由 GitHub Actions release matrix 分别在 `ubuntu-20.04`、`windows-latest`、`macos-latest` 上构建。
+
+本地打包默认使用内部版本号 `internal`，桌面包内部的 Electron semver 会临时写为 `0.0.0-internal`，产物文件名使用 `internal`。如果需要本地指定显示版本，可执行：
+
+```bash
+PACKAGE_VERSION=demo DESKTOP_APP_VERSION=0.0.0-demo bash scripts/packaging/package_desktop.sh
+```
+
+Release workflow 只在 `v*` tag 上运行，并校验 tag 形如 `v1.2.3` 或 `v1.2.3-beta.1`。CI 会从 tag 自动提取版本，传给 backend manifest、桌面 `package.json.version` 和桌面产物文件名。
+
+### 后端 staging 调试
+
+可单独生成并调试后端 staging：
+
+```bash
+pnpm --dir packages/gui build
+python scripts/packaging/package_backend.py --skip-gui-build
+bash scripts/packaging/debug_packaged_app.sh --staging-dir build/package/backend-staging
+```
+
+调试脚本默认复制 staging 到临时目录运行，因此健康检查产生的数据库和日志不会污染待上传的 staging 产物。只有需要保留现场时才使用 `--in-place`。
+
+staging 结构：
+
+```text
+backend-staging/
+├── bin/
+│   └── react-agent-backend(.exe)
+├── gui/
+│   ├── index.html
+│   └── assets/
+├── config/
+│   └── .env
+├── output/
+│   └── pdfs/
+└── package-manifest.json
+```
+
+`config/.env` 是用户可编辑配置文件。打包脚本会把发行包内默认值写为 `DATA_PATH=../output`，因此在 `config/.env` 旁边的上级发行目录中使用 `output/` 作为默认数据目录。仓库根目录 `pdfs/` 下的文件会复制到默认 `output/pdfs/`，未配置 `POLICY_PDF_DIR` 时可直接通过 `/files/pdfs/<filename>` 访问。
+
+桌面发行包内的初始化模板使用 `resources/env-template/env.template`，首次启动时复制为用户可编辑的 `config/.env`。Linux 桌面产物会在 electron-builder 的 `linux.executableArgs` 中写入 Chromium `--no-sandbox` 参数，并通过 `afterPack` hook 把 Linux 可执行文件替换为 wrapper，使 AppImage 直接执行时也会在进入 Electron 前自动追加 `--no-sandbox`；应用启动后也会保留同名 Electron command-line switch 作为兜底，以避免部分 Ubuntu/AppImageLauncher 环境中 `chrome-sandbox` 不能以 root/setuid 权限挂载导致启动前崩溃。
+
+### 清理打包缓存
+
+清理本地打包产物和打包缓存：
+
+```bash
+bash scripts/packaging/clear_package_build.sh
+```
+
+默认清理 `build/package`、历史遗留的 `.nonpublic/build/package`、以及 `packages/desktop/dist`。如果需要同时清理桌面端依赖或用户运行时配置，可显式执行：
+
+```bash
+bash scripts/packaging/clear_package_build.sh --desktop-deps
+bash scripts/packaging/clear_package_build.sh --runtime-config
+```
+
+### Policy Index 预构建
+
+Release workflow 会在存在 `EMBEDDING_API_KEY` secret 时执行：
+
+```bash
+agent-cli build-policy-index --env-file config/.env
+```
+
+如果缺少该 secret，release 不会失败，只会打包默认 PDF，并在 workflow 日志与 summary 中输出 warning。用户后续配置 embedding key 后，可以在发行包目录中手动执行同一命令生成 `${DATA_PATH}/policy_index`。
+
+### Linux AppImage 说明
+
+Linux 主产物为 AppImage，同时提供 tar.gz fallback。部分 Linux 环境缺少 FUSE 时可能无法直接运行 AppImage；这种情况下优先使用 tar.gz fallback，或按系统要求安装 `libfuse2`。
+
 ## 发布脚本
 
 项目 `scripts/` 目录下规划了以下发布相关脚本：
 
 | 脚本 | 用途 | 状态 |
 |------|------|------|
+| `scripts/packaging/package_backend.py` | 构建 PyInstaller 后端 sidecar 与 backend staging | 已实现 |
+| `scripts/packaging/debug_packaged_app.sh` | 调试 backend staging 的配置、静态资源、健康检查和 PDF 访问 | 已实现 |
+| `scripts/packaging/package_desktop.sh` | 调用 Electron Builder 构建当前平台桌面产物 | 已实现 |
+| `scripts/packaging/package_all_local.sh` | 本地一键检查并打包当前平台 | 已实现 |
 | `scripts/test_release.sh` | 测试发布流程（发布到 TestPyPI） | 计划中 |
 | `scripts/final_release.sh` | 正式发布流程（发布到 PyPI） | 计划中 |
 
@@ -181,12 +289,14 @@ MAJOR.MINOR.PATCH
 | `agent-cli` | 0.1.0 |
 | `agent-poc-frontend` | 0.1.0 |
 | `gui` | 0.0.0 |
+| `desktop` | 0.0.0-internal |
 
 ### 版本同步策略
 
 - 各包版本独立管理，不强制同步
 - `agent-core` 的 MAJOR/MINOR 版本变更需要同步更新依赖包
-- 使用 Git Tag 标记发布版本：`core-v0.1.0`、`cli-v0.1.0`
+- 桌面 release 使用 Git Tag 标记发布版本：`v1.2.3` 或 `v1.2.3-beta.1`
+- release CI 会从 tag 自动推导版本；本地打包默认使用 `internal`
 
 ### CHANGELOG
 
