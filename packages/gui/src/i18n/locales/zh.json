@@ -193,7 +193,8 @@
     "newsDigest": "新闻摘要",
     "inbox": "收件箱",
     "empty": "工作区",
-    "policySearch": "政策搜索"
+    "policySearch": "政策搜索",
+    "wrongQuestionBook": "错题本"
   },
   "policySearch": {
     "copy": "复制引用",
@@ -226,6 +227,8 @@
     "enableAiGrading": "启用AI评分（填空题和简答题将获得详细反馈）",
     "submitAnswers": "提交答案",
     "autoScored": "（自动评分）",
+    "addToWrongBook": "加入错题本",
+    "addToWrongBookSelected": "将 {count} 道题加入错题本",
     "choiceNoManual": "（选择题无需人工评分）",
     "noAnswerProvided": "（未作答）",
     "noAnalysisAvailable": "（暂无分析）",
@@ -237,7 +240,23 @@
       "easy": "简单",
       "medium": "中等",
       "hard": "困难"
-    }
+    },
+    "questions": "道题目"
+  },
+  "wrongQuestionBook": {
+    "batchMode": "批量练习",
+    "singleMode": "单题练习",
+    "groupByType": "按类型分组",
+    "empty": "错题本为空",
+    "previous": "上一题",
+    "next": "下一题",
+    "finish": "完成",
+    "retake": "重新答题",
+    "deleteQuestion": "删除此题",
+    "deleteConfirmTitle": "确认删除",
+    "deleteConfirmMessage": "确定要删除这道错题吗？此操作无法撤销。",
+    "cancel": "取消",
+    "delete": "删除"
   },
   "course": {
     "documentAnalysis": "文档分析",

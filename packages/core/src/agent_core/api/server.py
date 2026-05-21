@@ -29,6 +29,7 @@ from agent_core.api.routes.sessions import router as sessions_router
 from agent_core.api.routes.settings import router as settings_router
 from agent_core.api.routes.skills import router as skills_router
 from agent_core.api.routes.tools import router as tools_router
+from agent_core.api.routes.wrong_questions import router as wrong_questions_router
 from agent_core.config import AgentConfig
 from agent_core.logging_utils import setup_logger
 from agent_core.policy_search.config import PolicySearchConfig
@@ -49,6 +50,7 @@ API_ROUTERS: tuple[APIRouter, ...] = (
     news_router,
     alarm_settings_router,
     notifications_router,
+    wrong_questions_router,
 )
 
 

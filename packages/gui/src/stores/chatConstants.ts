@@ -36,6 +36,7 @@ export const WIDGET_TYPES = {
   QUIZ: 'quiz',
   EMPTY: 'empty',
   POLICY_SEARCH: 'policy_search',
+  WRONG_QUESTION_BOOK: 'wrong_question_book',
 } as const
 
 export type WidgetType = (typeof WIDGET_TYPES)[keyof typeof WIDGET_TYPES]

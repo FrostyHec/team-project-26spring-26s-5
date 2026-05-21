@@ -23,6 +23,7 @@ from agent_core.persistence.deadline_store import DeadlineStore
 from agent_core.persistence.email_store import EmailStore
 from agent_core.persistence.profile_store import ProfileStore
 from agent_core.persistence.session_store import SessionStore
+from agent_core.persistence.wrong_question_store import WrongQuestionStore
 from agent_core.policy_search.config import PolicySearchConfig
 from agent_core.policy_search.retriever import set_index_dir
 from agent_core.security.encryption import reset_fernet
@@ -32,6 +33,7 @@ from agent_core.services.conversation_tree_service import ConversationTreeServic
 from agent_core.services.email_client import EmailClient
 from agent_core.services.email_service import EmailService
 from agent_core.services.profile_service import ProfileService
+from agent_core.services.wrong_question_service import WrongQuestionService
 from agent_core.skills import get_system_prompt_for_skill
 from agent_core.tools import auto_discover_and_register
 from agent_core.tools.registry import ToolRegistry
@@ -54,6 +56,8 @@ _config: AgentConfig | None = None
 _llm: ChatOpenAI | None = None
 _course_store: CourseStore | None = None
 _course_material_store: CourseMaterialStore | None = None
+_wrong_question_store: WrongQuestionStore | None = None
+_wrong_question_service: WrongQuestionService | None = None
 
 
 def _resolve_runtime_config(
@@ -178,6 +182,7 @@ async def init_dependencies(config: AgentConfig | None = None) -> None:
     global _profile_store, _profile_service
     global _email_store, _email_service, _alarm_store, _alarm_service
     global _alarm_scheduler, _config, _course_store, _course_material_store
+    global _wrong_question_store, _wrong_question_service
     _config = config or AgentConfig.from_env()
     set_index_dir(PolicySearchConfig.from_env().index_dir)
 
@@ -253,6 +258,15 @@ async def init_dependencies(config: AgentConfig | None = None) -> None:
     await set_email_store(_email_store)
     await set_email_service(_email_service)
 
+    # Wrong question book subsystem
+    if _config.db_path == ":memory:":
+        wrong_question_db = ":memory:"
+    else:
+        wrong_question_db = database_file(_config.db_path, "wrong_questions.db")
+    _wrong_question_store = WrongQuestionStore(wrong_question_db)
+    await _wrong_question_store.initialize()
+    _wrong_question_service = WrongQuestionService(_wrong_question_store)
+
     # Alarm subsystem
     _alarm_store = AlarmStore(database_file(_config.db_path, "sessions.db"))
     await _alarm_store.initialize()
@@ -293,6 +307,7 @@ async def shutdown_dependencies() -> None:
     global _profile_store, _profile_service
     global _email_store, _email_service, _alarm_store, _alarm_service
     global _alarm_scheduler, _config, _course_store, _course_material_store
+    global _wrong_question_store, _wrong_question_service
     if _alarm_scheduler:
         await _alarm_scheduler.stop()
         _alarm_scheduler = None
@@ -315,6 +330,10 @@ async def shutdown_dependencies() -> None:
         await _email_store.close()
         _email_store = None
     _email_service = None
+    if _wrong_question_store:
+        await _wrong_question_store.close()
+        _wrong_question_store = None
+    _wrong_question_service = None
     _agent = None
     _config = None
     _llm = None
@@ -514,6 +533,20 @@ def get_alarm_service() -> AlarmService:
     if _alarm_service is None:
         raise RuntimeError("AlarmService not initialized")
     return _alarm_service
+
+
+def get_wrong_question_service() -> WrongQuestionService:
+    """FastAPI dependency that provides the WrongQuestionService.
+
+    Returns:
+        The initialized WrongQuestionService.
+
+    Raises:
+        RuntimeError: If the service has not been initialized.
+    """
+    if _wrong_question_service is None:
+        raise RuntimeError("WrongQuestionService not initialized")
+    return _wrong_question_service
 
 
 async def _init_deadline_store_for_alarm(db_path: str) -> DeadlineStore:

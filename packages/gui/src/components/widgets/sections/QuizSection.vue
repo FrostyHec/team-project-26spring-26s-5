@@ -1,6 +1,15 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { HelpCircle, CheckCircle2, XCircle, RotateCcw, Eye, EyeOff, Loader2 } from 'lucide-vue-next'
+import {
+  HelpCircle,
+  CheckCircle2,
+  XCircle,
+  RotateCcw,
+  Eye,
+  EyeOff,
+  Loader2,
+  BookOpen,
+} from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import {
   evaluateQuiz,
@@ -8,6 +17,7 @@ import {
   type QuizEvaluationResult,
   type QuestionEvaluation,
 } from '@/api/agent'
+import { addWrongQuestion } from '@/api/wrongQuestions'
 import type { QuizQuestion } from '../types'
 
 const { t, locale } = useI18n()
@@ -26,6 +36,8 @@ const showAnswers = ref(false)
 const isEvaluating = ref(false)
 const useAiGrading = ref(true)
 const evaluationResults = ref<Record<string, QuestionEvaluation>>({})
+const selectedForWrongBook = ref<Set<number>>(new Set())
+const addingToWrongBook = ref(false)
 
 // Reset state when questions change (e.g., new quiz arrives)
 watch(
@@ -35,6 +47,7 @@ watch(
     submitted.value = false
     showAnswers.value = false
     evaluationResults.value = {}
+    selectedForWrongBook.value = new Set()
   },
 )
 
@@ -295,6 +308,41 @@ function defaultScore(q: QuizQuestion): number {
           : 10)
   )
 }
+
+async function addSelectedToWrongBook() {
+  if (addingToWrongBook.value) return
+  addingToWrongBook.value = true
+  try {
+    for (const qid of Array.from(selectedForWrongBook.value)) {
+      const question = props.questions.find((q) => q.id === qid)
+      if (question) {
+        await addWrongQuestion({
+          question_id: question.id,
+          question_type: question.type,
+          question: question.question,
+          options: question.options ?? null,
+          correct_answer: question.correct_answer,
+          explanation: question.explanation ?? null,
+        })
+      }
+    }
+    selectedForWrongBook.value = new Set()
+  } catch (err) {
+    console.error('Failed to add to wrong book:', err)
+  } finally {
+    addingToWrongBook.value = false
+  }
+}
+
+function toggleWrongBookSelection(questionId: number) {
+  const newSet = new Set(selectedForWrongBook.value)
+  if (newSet.has(questionId)) {
+    newSet.delete(questionId)
+  } else {
+    newSet.add(questionId)
+  }
+  selectedForWrongBook.value = newSet
+}
 </script>
 
 <template>
@@ -361,6 +409,18 @@ function defaultScore(q: QuizQuestion): number {
         >
           <RotateCcw class="w-4 h-4" />
           {{ t('quiz.resetQuiz') }}
+        </button>
+      </div>
+      <!-- Add to wrong book button -->
+      <div v-if="submitted && selectedForWrongBook.size > 0" class="mt-3">
+        <button
+          class="w-full flex items-center justify-center gap-2 px-3 py-2 bg-purple-50 border border-purple-200 rounded-lg text-sm text-purple-600 hover:bg-purple-100 transition-colors"
+          :disabled="addingToWrongBook"
+          @click="addSelectedToWrongBook"
+        >
+          <Loader2 v-if="addingToWrongBook" class="w-4 h-4 animate-spin" />
+          <BookOpen v-else class="w-4 h-4" />
+          {{ t('quiz.addToWrongBookSelected', { count: selectedForWrongBook.size }) }}
         </button>
       </div>
       <!-- Quiz type badge -->
@@ -482,9 +542,23 @@ function defaultScore(q: QuizQuestion): number {
                 </span>
               </div>
               <!-- Result icon -->
-              <div v-if="submitted" class="flex-shrink-0">
+              <div v-if="submitted" class="flex-shrink-0 flex items-center gap-2">
                 <CheckCircle2 v-if="isCorrect(question) === true" class="w-5 h-5 text-green-600" />
                 <XCircle v-else-if="isCorrect(question) === false" class="w-5 h-5 text-red-600" />
+                <!-- Add to wrong book button -->
+                <button
+                  v-if="submitted"
+                  class="flex-shrink-0 p-1.5 rounded-lg border transition-colors"
+                  :class="
+                    selectedForWrongBook.has(question.id)
+                      ? 'border-purple-300 bg-purple-100 text-purple-600'
+                      : 'border-gray-200 text-gray-400 hover:border-purple-300 hover:text-purple-500 hover:bg-purple-50'
+                  "
+                  :title="t('quiz.addToWrongBook')"
+                  @click.stop="toggleWrongBookSelection(question.id)"
+                >
+                  <BookOpen class="w-4 h-4" />
+                </button>
               </div>
             </div>
           </div>

@@ -23,6 +23,9 @@ export const WIDGET_COMPONENTS: Record<WidgetType, Component> = {
   [WIDGET_TYPES.INBOX]: defineAsyncComponent(() => import('./InboxWidget.vue')),
   [WIDGET_TYPES.EMPTY]: defineAsyncComponent(() => import('./EmptyWidget.vue')),
   [WIDGET_TYPES.POLICY_SEARCH]: defineAsyncComponent(() => import('./PolicySearchWidget.vue')),
+  [WIDGET_TYPES.WRONG_QUESTION_BOOK]: defineAsyncComponent(
+    () => import('./sections/WrongQuestionBookWidget.vue'),
+  ),
 }
 
 /** i18n key for each widget title, resolved at runtime via t(). */
@@ -38,6 +41,7 @@ export const WIDGET_TITLE_I18N_KEYS: Record<WidgetType, string> = {
   [WIDGET_TYPES.QUIZ]: 'widgets.quiz',
   [WIDGET_TYPES.DOCUMENT_ANALYSIS]: 'widgets.documentAnalysis',
   [WIDGET_TYPES.POLICY_SEARCH]: 'widgets.policySearch',
+  [WIDGET_TYPES.WRONG_QUESTION_BOOK]: 'widgets.wrongQuestionBook',
 }
 
 /**

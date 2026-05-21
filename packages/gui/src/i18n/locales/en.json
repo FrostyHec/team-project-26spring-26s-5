@@ -193,7 +193,8 @@
     "newsDigest": "News Digest",
     "inbox": "Inbox",
     "empty": "Workspace",
-    "policySearch": "Policy Search"
+    "policySearch": "Policy Search",
+    "wrongQuestionBook": "Wrong Question Book"
   },
   "policySearch": {
     "copy": "Copy citation",
@@ -226,6 +227,8 @@
     "enableAiGrading": "Enable AI grading (Fill-in-blank and short answer questions will receive detailed feedback)",
     "submitAnswers": "Submit Answers",
     "autoScored": "(Auto-scored)",
+    "addToWrongBook": "Add to Wrong Question Book",
+    "addToWrongBookSelected": "Add {count} questions to Wrong Question Book",
     "choiceNoManual": "(Choice questions don't require manual grading)",
     "noAnswerProvided": "(No answer provided)",
     "noAnalysisAvailable": "(No analysis available)",
@@ -237,7 +240,23 @@
       "easy": "Easy",
       "medium": "Medium",
       "hard": "Hard"
-    }
+    },
+    "questions": "questions"
+  },
+  "wrongQuestionBook": {
+    "batchMode": "Batch Practice",
+    "singleMode": "Single Practice",
+    "groupByType": "Group by Type",
+    "empty": "Wrong question book is empty",
+    "previous": "Previous",
+    "next": "Next",
+    "finish": "Finish",
+    "retake": "Retake",
+    "deleteQuestion": "Delete this question",
+    "deleteConfirmTitle": "Confirm Delete",
+    "deleteConfirmMessage": "Are you sure you want to delete this question? This action cannot be undone.",
+    "cancel": "Cancel",
+    "delete": "Delete"
   },
   "course": {
     "documentAnalysis": "Document Analysis",
