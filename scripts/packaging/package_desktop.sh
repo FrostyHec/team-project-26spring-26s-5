@@ -6,6 +6,15 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT/packages/desktop"
 
+REQUIRED_PNPM_VERSION="${PACKAGING_PNPM_VERSION:-10.32.1}"
+ACTUAL_PNPM_VERSION="$(pnpm --version)"
+if [[ "$ACTUAL_PNPM_VERSION" != "$REQUIRED_PNPM_VERSION" ]]; then
+  echo "Desktop packaging requires pnpm $REQUIRED_PNPM_VERSION, but found $ACTUAL_PNPM_VERSION." >&2
+  echo "Use: corepack prepare pnpm@$REQUIRED_PNPM_VERSION --activate" >&2
+  exit 1
+fi
+echo "Using Node $(node --version) and pnpm $ACTUAL_PNPM_VERSION for desktop packaging."
+
 export PACKAGE_VERSION="${PACKAGE_VERSION:-internal}"
 DESKTOP_APP_VERSION="${DESKTOP_APP_VERSION:-0.0.0-internal}"
 ORIGINAL_PACKAGE_JSON="$(mktemp)"

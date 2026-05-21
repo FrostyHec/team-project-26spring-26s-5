@@ -12,6 +12,9 @@ concurrency:
 permissions:
   contents: write
 
+env:
+  PNPM_VERSION: "10.32.1"
+
 jobs:
   build:
     name: Build ${{ matrix.name }}
@@ -61,7 +64,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: latest
+          version: ${{ env.PNPM_VERSION }}
 
       - name: Install Python dependencies
         shell: bash

@@ -17,6 +17,9 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  PNPM_VERSION: "10.32.1"
+
 jobs:
   lint:
     name: Lint & Format Check
@@ -40,7 +43,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: latest
+          version: ${{ env.PNPM_VERSION }}
 
       - name: Install Python dependencies
         run: |
@@ -151,7 +154,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: latest
+          version: ${{ env.PNPM_VERSION }}
 
       - name: Install dependencies
         run: cd packages/gui && pnpm install

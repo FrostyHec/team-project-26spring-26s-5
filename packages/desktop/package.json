@@ -13,6 +13,7 @@
   ],
   "license": "Apache-2.0",
   "main": "dist/main/main.js",
+  "packageManager": "pnpm@10.32.1",
   "type": "commonjs",
   "scripts": {
     "build:main": "tsc -p tsconfig.json || pnpm --dir ../gui exec tsc -p ../desktop/tsconfig.json",
