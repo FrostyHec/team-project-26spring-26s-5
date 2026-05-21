@@ -11,12 +11,21 @@ export interface DesktopPaths {
   defaultPdfDir: string
 }
 
+export interface EditableEnvFileOptions {
+  envOverride?: string
+  isPackaged: boolean
+  platform: NodeJS.Platform
+  releaseRoot: string
+  userDataPath: string
+}
+
 export function getDesktopPaths(): DesktopPaths {
   const resourcesPath =
     (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath ??
     process.cwd()
   const releaseRoot = getReleaseRoot()
-  const backendName = process.platform === 'win32' ? 'react-agent-backend.exe' : 'react-agent-backend'
+  const backendName =
+    process.platform === 'win32' ? 'react-agent-backend.exe' : 'react-agent-backend'
   return {
     releaseRoot,
     backendBin:
@@ -24,8 +33,13 @@ export function getDesktopPaths(): DesktopPaths {
       path.join(resourcesPath, 'backend', 'bin', backendName),
     staticDir:
       process.env.REACT_AGENT_STATIC_DIR ?? path.join(resourcesPath, 'backend', 'gui'),
-    editableEnvFile:
-      process.env.REACT_AGENT_ENV_FILE ?? path.join(releaseRoot, 'config', '.env'),
+    editableEnvFile: resolveEditableEnvFile({
+      envOverride: process.env.REACT_AGENT_ENV_FILE,
+      isPackaged: app.isPackaged,
+      platform: process.platform,
+      releaseRoot,
+      userDataPath: app.getPath('userData'),
+    }),
     envTemplate:
       process.env.REACT_AGENT_ENV_TEMPLATE ??
       path.join(resourcesPath, 'env-template', 'env.template'),
@@ -33,6 +47,16 @@ export function getDesktopPaths(): DesktopPaths {
       process.env.REACT_AGENT_DEFAULT_PDF_DIR ??
       path.join(resourcesPath, 'default-data', 'pdfs'),
   }
+}
+
+export function resolveEditableEnvFile(options: EditableEnvFileOptions): string {
+  if (options.envOverride?.trim()) {
+    return options.envOverride
+  }
+  if (options.isPackaged && options.platform === 'darwin') {
+    return path.join(options.userDataPath, 'config', '.env')
+  }
+  return path.join(options.releaseRoot, 'config', '.env')
 }
 
 export function ensureEditableRuntime(paths: DesktopPaths): DesktopPaths {

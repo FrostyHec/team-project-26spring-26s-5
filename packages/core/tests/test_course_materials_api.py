@@ -13,7 +13,10 @@ from agent_core.persistence.course_material_provider import set_course_material_
 from agent_core.persistence.course_material_store import CourseMaterialStore
 from agent_core.persistence.course_provider import set_course_store
 from agent_core.persistence.course_store import CourseStore
-from agent_core.services.course_material_service import CourseMaterialService
+from agent_core.services.course_material_service import (
+    CourseMaterialService,
+    resolve_course_material_storage_root,
+)
 from agent_core.services.course_service import CourseService
 
 
@@ -68,6 +71,26 @@ def mock_material_service(material_service: CourseMaterialService):
         "agent_core.api.routes.course_materials._get_service",
         new=AsyncMock(return_value=material_service),
     )
+
+
+def test_default_storage_root_uses_data_path(monkeypatch, tmp_path: Path) -> None:
+    """Default service storage follows DATA_PATH instead of the process cwd."""
+    data_path = tmp_path / "runtime-data"
+    monkeypatch.setenv("DATA_PATH", str(data_path))
+
+    assert resolve_course_material_storage_root() == data_path / "course_materials"
+
+
+def test_default_storage_root_fast_fails_on_config_error() -> None:
+    """Storage path resolution must not hide runtime config failures."""
+    with (
+        patch(
+            "agent_core.config.AgentConfig.from_env",
+            side_effect=RuntimeError("bad config"),
+        ),
+        pytest.raises(RuntimeError, match="bad config"),
+    ):
+        resolve_course_material_storage_root()
 
 
 # ---------------------------------------------------------------------------

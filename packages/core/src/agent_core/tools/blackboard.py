@@ -568,6 +568,10 @@ def download_bb_resources(
         List of downloaded file paths.
     """
     try:
+        if not url:
+            logger.error("Blackboard resource download skipped: URL is empty")
+            return []
+
         if url.startswith("/bbcswebdav/pid-") or url.startswith(
             f"{BB_BASE_URL}/bbcswebdav/pid-"
         ):
@@ -833,6 +837,7 @@ async def download_bb_resources_to_db(
     from agent_core.persistence.course_provider import get_course_store
     from agent_core.services.course_material_service import (
         CourseMaterialService,
+        resolve_course_material_storage_root,
     )
     from agent_core.services.course_service import CourseService
 
@@ -853,6 +858,21 @@ async def download_bb_resources_to_db(
             f"course_id={course_id}&content_id={content_id}"
         )
         logger.info("Generated URL from course_id and content_id: %s", resolved_url)
+
+    if not resolved_url:
+        return json.dumps(
+            {
+                "success": False,
+                "course_id": resolved_course_id,
+                "course_name": "",
+                "materials": [],
+                "downloaded": 0,
+                "errors": [
+                    "Blackboard content URL could not be resolved. "
+                    "Provide course_id with content_id, or a Blackboard URL."
+                ],
+            }
+        )
 
     try:
         # 2. Get services
@@ -937,7 +957,11 @@ async def download_bb_resources_to_db(
 
         # 6. Save files to database
         material_store = await get_course_material_store()
-        material_service = CourseMaterialService(material_store, course_service)
+        material_service = CourseMaterialService(
+            material_store,
+            course_service,
+            storage_root=str(resolve_course_material_storage_root()),
+        )
 
         for file_path in downloaded_files:
             try:

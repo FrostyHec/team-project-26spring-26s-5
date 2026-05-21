@@ -15,6 +15,7 @@ from agent_core.services.course_material_service import (
     CourseMaterialService,
     MaterialNotFoundError,
     MaterialValidationError,
+    resolve_course_material_storage_root,
 )
 from agent_core.services.course_service import CourseNotFoundError, CourseService
 
@@ -33,23 +34,13 @@ class MaterialDeleteResponse(BaseModel):
 
 
 async def _get_service() -> CourseMaterialService:
-    from pathlib import Path
-
-    try:
-        from agent_core.config import AgentConfig
-
-        cfg = AgentConfig.from_env()
-        storage_root = str(Path(cfg.data_path) / "course_materials")
-    except Exception:
-        storage_root = "./output/course_materials"
-
     course_store = await get_course_store()
     material_store = await get_course_material_store()
     course_service = CourseService(course_store)
     return CourseMaterialService(
         store=material_store,
         course_service=course_service,
-        storage_root=storage_root,
+        storage_root=str(resolve_course_material_storage_root()),
     )
 
 

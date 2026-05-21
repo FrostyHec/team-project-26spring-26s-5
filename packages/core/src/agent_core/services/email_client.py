@@ -25,6 +25,7 @@ from email.utils import parseaddr, parsedate_to_datetime
 from pathlib import Path
 from typing import Any
 
+import certifi
 from pathvalidate import sanitize_filename as _sanitize_filename
 
 from agent_core.logging_utils import get_logger
@@ -106,6 +107,23 @@ def _imap_quote(folder: str) -> str:
     return folder
 
 
+def _create_ssl_context() -> ssl.SSLContext:
+    """Create an SSL context using the bundled Mozilla CA certificate store."""
+    return ssl.create_default_context(cafile=certifi.where())
+
+
+def _mask_account_for_log(account: str) -> str:
+    """Return an email account safe enough for diagnostic logs."""
+    local, separator, domain = account.partition("@")
+    if not separator:
+        return "<redacted>"
+    if len(local) <= 2:
+        masked_local = "*" * max(len(local), 1)
+    else:
+        masked_local = f"{local[0]}***{local[-1]}"
+    return f"{masked_local}@{domain}"
+
+
 # ---------------------------------------------------------------------------
 # EmailClient class
 # ---------------------------------------------------------------------------
@@ -163,7 +181,7 @@ class EmailClient:
         cutoff_str = cutoff_date.strftime("%d-%b-%Y")
 
         # Connect to IMAP
-        context = ssl.create_default_context()
+        context = _create_ssl_context()
         imap = imaplib.IMAP4_SSL(
             ImapDefaults.IMAP_HOST, int(ImapDefaults.IMAP_PORT), ssl_context=context
         )
@@ -570,7 +588,7 @@ class EmailClient:
         Tencent Exmail does **not** auto-set ``\\Seen`` on an RFC822 fetch,
         so the explicit STORE is the only reliable method.
         """
-        context = ssl.create_default_context()
+        context = _create_ssl_context()
         imap = imaplib.IMAP4_SSL(
             ImapDefaults.IMAP_HOST, int(ImapDefaults.IMAP_PORT), ssl_context=context
         )
@@ -696,7 +714,7 @@ class EmailClient:
             msg.attach(MIMEText(html_body, "html", "utf-8"))
 
         # Connect to SMTP and send
-        context = ssl.create_default_context()
+        context = _create_ssl_context()
         with smtplib.SMTP_SSL(
             ImapDefaults.SMTP_HOST, int(ImapDefaults.SMTP_PORT), context=context
         ) as smtp:
@@ -756,7 +774,7 @@ class EmailClient:
             logger.warning("Unknown flag: %s", flag)
             return False
 
-        context = ssl.create_default_context()
+        context = _create_ssl_context()
         imap = imaplib.IMAP4_SSL(
             ImapDefaults.IMAP_HOST, int(ImapDefaults.IMAP_PORT), ssl_context=context
         )
@@ -888,7 +906,7 @@ class EmailClient:
         folder: str = "INBOX",
     ) -> tuple[str, int]:
         """Synchronous: fetch RFC822, find MIME part matching *att_filename*, save."""
-        context = ssl.create_default_context()
+        context = _create_ssl_context()
         imap = imaplib.IMAP4_SSL(
             ImapDefaults.IMAP_HOST, int(ImapDefaults.IMAP_PORT), ssl_context=context
         )
@@ -969,7 +987,7 @@ class EmailClient:
         )
 
     def _sync_expunge(self, account: str, password: str, uid: int, folder: str) -> bool:
-        context = ssl.create_default_context()
+        context = _create_ssl_context()
         imap = imaplib.IMAP4_SSL(
             ImapDefaults.IMAP_HOST, int(ImapDefaults.IMAP_PORT), ssl_context=context
         )
@@ -1012,7 +1030,7 @@ class EmailClient:
         src_folder: str,
         dst_folder: str,
     ) -> bool:
-        context = ssl.create_default_context()
+        context = _create_ssl_context()
         imap = imaplib.IMAP4_SSL(
             ImapDefaults.IMAP_HOST, int(ImapDefaults.IMAP_PORT), ssl_context=context
         )
@@ -1060,7 +1078,7 @@ class EmailClient:
 
         # Test IMAP
         try:
-            context = ssl.create_default_context()
+            context = _create_ssl_context()
             imap = imaplib.IMAP4_SSL(
                 ImapDefaults.IMAP_HOST,
                 int(ImapDefaults.IMAP_PORT),
@@ -1073,11 +1091,21 @@ class EmailClient:
             imap_ok = True
             messages.append("IMAP connection successful")
         except Exception as e:
+            logger.warning(
+                "IMAP connection test failed: host=%s port=%s account=%s "
+                "error_type=%s error=%s",
+                ImapDefaults.IMAP_HOST,
+                ImapDefaults.IMAP_PORT,
+                _mask_account_for_log(account),
+                type(e).__name__,
+                e,
+                exc_info=True,
+            )
             messages.append(f"IMAP failed: {str(e)}")
 
         # Test SMTP
         try:
-            context = ssl.create_default_context()
+            context = _create_ssl_context()
             with smtplib.SMTP_SSL(
                 ImapDefaults.SMTP_HOST,
                 int(ImapDefaults.SMTP_PORT),
@@ -1087,6 +1115,16 @@ class EmailClient:
             smtp_ok = True
             messages.append("SMTP connection successful")
         except Exception as e:
+            logger.warning(
+                "SMTP connection test failed: host=%s port=%s account=%s "
+                "error_type=%s error=%s",
+                ImapDefaults.SMTP_HOST,
+                ImapDefaults.SMTP_PORT,
+                _mask_account_for_log(account),
+                type(e).__name__,
+                e,
+                exc_info=True,
+            )
             messages.append(f"SMTP failed: {str(e)}")
 
         success = imap_ok and smtp_ok

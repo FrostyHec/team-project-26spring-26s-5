@@ -5,6 +5,7 @@ REST API endpoints, LLM tools, and skill registration.
 """
 
 import json
+import ssl
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -31,7 +32,9 @@ from agent_core.models.email import (
 from agent_core.persistence.email_store import EmailStore
 from agent_core.services.email_client import (
     EmailClient,
+    _create_ssl_context,
     _decode_header,
+    _mask_account_for_log,
     _parse_address,
     _parse_address_list,
     _parse_date,
@@ -424,10 +427,54 @@ class TestEmailClientHelpers:
         result = _parse_date("not a date")
         assert result == "not a date"
 
+    def test_mask_account_for_log(self) -> None:
+        assert _mask_account_for_log("alice@example.com") == "a***e@example.com"
+        assert _mask_account_for_log("ab@example.com") == "**@example.com"
+        assert _mask_account_for_log("not-an-email") == "<redacted>"
+
+    def test_create_ssl_context_uses_certifi_bundle(self) -> None:
+        with (
+            patch(
+                "agent_core.services.email_client.certifi.where",
+                return_value="/tmp/cacert.pem",
+            ),
+            patch(
+                "agent_core.services.email_client.ssl.create_default_context",
+                return_value="context",
+            ) as create_context,
+        ):
+            assert _create_ssl_context() == "context"
+
+        create_context.assert_called_once_with(cafile="/tmp/cacert.pem")
+
     def test_parse_uid_from_meta(self) -> None:
         client = EmailClient()
         assert client._parse_uid_from_meta("1 (UID 123 FLAGS (\\Seen))") == 123
         assert client._parse_uid_from_meta("1 (FLAGS (\\Seen))") is None
+
+    def test_connection_failure_logs_protocol_context(self, caplog) -> None:
+        client = EmailClient()
+
+        with (
+            patch(
+                "agent_core.services.email_client.imaplib.IMAP4_SSL",
+                side_effect=ssl.SSLError("bad cert"),
+            ),
+            patch(
+                "agent_core.services.email_client.smtplib.SMTP_SSL",
+                side_effect=ssl.SSLError("bad cert"),
+            ),
+            caplog.at_level("WARNING", logger="agent_core.services.email_client"),
+        ):
+            result = client._sync_test_connection("alice@example.com", "secret")
+
+        assert result.success is False
+        assert result.imap_ok is False
+        assert result.smtp_ok is False
+        assert "IMAP connection test failed" in caplog.text
+        assert "SMTP connection test failed" in caplog.text
+        assert "a***e@example.com" in caplog.text
+        assert "secret" not in caplog.text
 
     def test_parse_flags_from_meta(self) -> None:
         client = EmailClient()

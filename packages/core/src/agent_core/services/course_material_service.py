@@ -16,6 +16,13 @@ from agent_core.services.course_service import CourseService
 logger = get_logger("services.course_material")
 
 
+def resolve_course_material_storage_root() -> Path:
+    """Return the runtime directory used for physical course material files."""
+    from agent_core.config import AgentConfig
+
+    return Path(AgentConfig.from_env().data_path) / "course_materials"
+
+
 class MaterialValidationError(Exception):
     """Raised when file validation fails."""
 
@@ -43,9 +50,10 @@ class CourseMaterialService:
     ) -> None:
         self._store = store
         self._course_service = course_service
-        self._storage_root = (
-            Path(storage_root) if storage_root else Path("./output/course_materials")
-        )
+        if storage_root:
+            self._storage_root = Path(storage_root)
+        else:
+            self._storage_root = resolve_course_material_storage_root()
         self._storage_root.mkdir(parents=True, exist_ok=True)
 
     def _material_dir(self, course_id: str) -> Path:
@@ -187,4 +195,5 @@ __all__ = [
     "CourseMaterialService",
     "MaterialNotFoundError",
     "MaterialValidationError",
+    "resolve_course_material_storage_root",
 ]

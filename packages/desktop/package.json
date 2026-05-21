@@ -17,7 +17,7 @@
   "type": "commonjs",
   "scripts": {
     "build:main": "tsc -p tsconfig.json || pnpm --dir ../gui exec tsc -p ../desktop/tsconfig.json",
-    "test:unit": "npm run build:main && node src/env.test.mjs && node src/backend.test.mjs",
+    "test:unit": "npm run build:main && node src/env.test.mjs && node src/backend.test.mjs && node src/paths.test.mjs",
     "dev": "npm run build:main && electron .",
     "dist": "npm run build:main && electron-builder --publish never"
   },

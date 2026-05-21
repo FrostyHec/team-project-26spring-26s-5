@@ -632,13 +632,18 @@ def list_course_materials(
             from agent_core.persistence.course_provider import get_course_store
             from agent_core.services.course_material_service import (
                 CourseMaterialService,
+                resolve_course_material_storage_root,
             )
             from agent_core.services.course_service import CourseService
 
             course_store = await get_course_store()
             material_store = await get_course_material_store()
             course_service = CourseService(course_store)
-            svc = CourseMaterialService(material_store, course_service)
+            svc = CourseMaterialService(
+                material_store,
+                course_service,
+                storage_root=str(resolve_course_material_storage_root()),
+            )
 
             resolved_course_id = course_id
             if not resolved_course_id and course_name:

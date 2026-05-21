@@ -14,10 +14,12 @@ datas = collect_data_files(
     "agent_core",
     includes=[
         "prompts/**",
+        "resources/**",
         "skills/**/*.json",
         "policy_search/**/*.json",
     ],
 )
+datas += collect_data_files("certifi")
 hiddenimports = (
     collect_submodules("agent_core")
     + collect_submodules("agent_cli")

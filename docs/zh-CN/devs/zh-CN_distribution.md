@@ -214,7 +214,7 @@ backend-staging/
 
 `config/.env` 是用户可编辑配置文件。打包脚本会把发行包内默认值写为 `DATA_PATH=../output`，因此在 `config/.env` 旁边的上级发行目录中使用 `output/` 作为默认数据目录。仓库根目录 `pdfs/` 下的文件会复制到默认 `output/pdfs/`，未配置 `POLICY_PDF_DIR` 时可直接通过 `/files/pdfs/<filename>` 访问。
 
-桌面发行包内的初始化模板使用 `resources/env-template/env.template`，首次启动时复制为用户可编辑的 `config/.env`。Linux 桌面产物会在 electron-builder 的 `linux.executableArgs` 中写入 Chromium `--no-sandbox` 参数，并通过 `afterPack` hook 把 Linux 可执行文件替换为 wrapper，使 AppImage 直接执行时也会在进入 Electron 前自动追加 `--no-sandbox`；应用启动后也会保留同名 Electron command-line switch 作为兜底，以避免部分 Ubuntu/AppImageLauncher 环境中 `chrome-sandbox` 不能以 root/setuid 权限挂载导致启动前崩溃。
+桌面发行包内的初始化模板使用 `resources/env-template/env.template`，首次启动时复制为用户可编辑的 `config/.env`。macOS 打包版会直接把该文件放在 Electron `userData` 目录下，例如 `~/Library/Application Support/SUSTech Campus Assistant/config/.env`，对应默认数据目录为 `~/Library/Application Support/SUSTech Campus Assistant/output`；这避免应用尝试写入 `/Applications`。Linux 桌面产物会在 electron-builder 的 `linux.executableArgs` 中写入 Chromium `--no-sandbox` 参数，并通过 `afterPack` hook 把 Linux 可执行文件替换为 wrapper，使 AppImage 直接执行时也会在进入 Electron 前自动追加 `--no-sandbox`；应用启动后也会保留同名 Electron command-line switch 作为兜底，以避免部分 Ubuntu/AppImageLauncher 环境中 `chrome-sandbox` 不能以 root/setuid 权限挂载导致启动前崩溃。
 
 ### 清理打包缓存
 

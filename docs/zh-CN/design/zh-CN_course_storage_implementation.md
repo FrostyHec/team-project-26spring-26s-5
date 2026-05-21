@@ -131,11 +131,13 @@ async def update(course_id, fields) # UPDATE 指定字段
 | `routes/course_materials.py` | `/course-materials` | Material CRUD + 上传/下载 |
 | `routes/files.py` | `/pdfs` | 安全 PDF 文件服务 |
 
-**Storage Root 推导逻辑**（`routes/course_materials.py` 中 `_get_service`）：
+**Storage Root 推导逻辑**（`services/course_material_service.py` 中 `resolve_course_material_storage_root`）：
 
 ```python
 storage_root = Path(cfg.data_path) / "course_materials"
 ```
+
+REST 上传、Blackboard 下载和课程资料工具均使用同一目录，避免打包运行时依赖进程当前工作目录。
 
 ### 5.2 PDF 安全提供
 
