@@ -13,10 +13,12 @@ import { WIDGET_TYPES, type WidgetType } from '@/stores/chatConstants'
 /** Lazy-loaded Vue component per widget type. */
 export const WIDGET_COMPONENTS: Record<WidgetType, Component> = {
   [WIDGET_TYPES.CALENDAR]: defineAsyncComponent(() => import('./DeadlinePanelWidget.vue')),
-  [WIDGET_TYPES.DOCUMENT]: defineAsyncComponent(() => import('./DocumentWidget.vue')),
+  [WIDGET_TYPES.DOCUMENT]: defineAsyncComponent(() => import('./EmptyWidget.vue')), // Disabled: show_document not registered in backend
   [WIDGET_TYPES.COURSE_CARDS]: defineAsyncComponent(() => import('./CourseCardsWidget.vue')),
   [WIDGET_TYPES.SOURCES]: defineAsyncComponent(() => import('./SourcesWidget.vue')),
-  [WIDGET_TYPES.WEB_PREVIEW]: defineAsyncComponent(() => import('./WebPreviewWidget.vue')),
+  [WIDGET_TYPES.WEB_PREVIEW]: defineAsyncComponent(() => import('./EmptyWidget.vue')), // Disabled: show_web_preview not registered in backend
+  // [WIDGET_TYPES.NEWS_DIGEST]: defineAsyncComponent(() => import('./EmptyWidget.vue')),
+  // [WIDGET_TYPES.WEB_PREVIEW]: defineAsyncComponent(() => import('./WebPreviewWidget.vue')),
   [WIDGET_TYPES.NEWS_DIGEST]: defineAsyncComponent(() => import('./NewsDigestWidget.vue')),
   [WIDGET_TYPES.QUIZ]: defineAsyncComponent(() => import('./CourseCardsWidget.vue')),
   [WIDGET_TYPES.DOCUMENT_ANALYSIS]: defineAsyncComponent(() => import('./CourseCardsWidget.vue')),
@@ -52,6 +54,9 @@ const HIDDEN_WIDGET_TYPES: ReadonlySet<WidgetType> = new Set([
   WIDGET_TYPES.EMPTY,
   WIDGET_TYPES.QUIZ,
   WIDGET_TYPES.DOCUMENT_ANALYSIS,
+  // Backend widget tools are disabled (still registered here but point to EmptyWidget)
+  WIDGET_TYPES.DOCUMENT,
+  WIDGET_TYPES.WEB_PREVIEW,
 ])
 
 /** A selectable widget entry for the dropdown. */

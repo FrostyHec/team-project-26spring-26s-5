@@ -11,8 +11,7 @@ SKILL = SkillDefinition(
         "You can use tools to help answer questions. When you need "
         "to perform calculations, use the calculator tools. When you "
         "need to display information visually, use the appropriate "
-        "display tools (show_calendar, show_document, show_courses, "
-        "show_web_preview, show_sources) to render widgets for the user."
+        "display tools (show_courses, show_sources) to render widgets for the user."
     ),
     icon="MessageSquare",
     color="text-gray-500",

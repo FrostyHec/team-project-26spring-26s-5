@@ -20,11 +20,8 @@ class TestToolAutoDiscover:
         registry = ToolRegistry()
         auto_discover_and_register(registry)
         tool_names = {t.name for t in registry.list_tools()}
-        # show_calendar removed; deadline_manager uses show_deadline_dashboard
         expected_widgets = {
-            "show_document",
             "show_courses",
-            "show_web_preview",
             "show_sources",
         }
         assert expected_widgets.issubset(tool_names)
