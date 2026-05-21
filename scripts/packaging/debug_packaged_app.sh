@@ -107,7 +107,14 @@ curl -fsS "$BASE_URL/settings" >/dev/null
 FIRST_PDF="$(find "$STAGING_DIR/output/pdfs" -maxdepth 1 -type f -name '*.pdf' | head -n 1 || true)"
 if [[ -n "$FIRST_PDF" ]]; then
   PDF_NAME="$(basename "$FIRST_PDF")"
-  curl -fsS "$BASE_URL/files/pdfs/$PDF_NAME" >/dev/null
+  PDF_URL_NAME="$(PDF_NAME="$PDF_NAME" python3 - <<'PY'
+import os
+from urllib.parse import quote
+
+print(quote(os.environ["PDF_NAME"]))
+PY
+)"
+  curl -fsS "$BASE_URL/files/pdfs/$PDF_URL_NAME" >/dev/null
 else
   echo "warning: no bundled PDF found under output/pdfs; skipping PDF route check" >&2
 fi

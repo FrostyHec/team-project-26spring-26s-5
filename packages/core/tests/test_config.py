@@ -90,8 +90,8 @@ providers:
         assert config.max_iterations == 10
         assert config.data_path == "output"
         assert config.db_path == "output"
-        assert config.log_file == "output/logs/agent.log"
-        assert config.llm_settings_path == "output/llm_settings.yaml"
+        assert config.log_file == str(Path("output") / "logs" / "agent.log")
+        assert config.llm_settings_path == str(Path("output") / "llm_settings.yaml")
         assert config.app_host == "127.0.0.1"
         assert config.app_port == 8000
 
