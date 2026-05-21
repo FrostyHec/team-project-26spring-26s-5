@@ -82,6 +82,7 @@ cleanup() {
   if [[ "$KEEP_RUNNING" -eq 0 && -n "${WORK_ROOT:-}" ]]; then
     rm -rf "$WORK_ROOT"
   fi
+  rm -f "${CURL_OUTPUT:-}"
 }
 trap cleanup EXIT
 
@@ -93,16 +94,21 @@ trap cleanup EXIT
 BACKEND_PID=$!
 
 BASE_URL="http://127.0.0.1:$PORT"
+CURL_OUTPUT="$(mktemp)"
+curl_discard() {
+  curl -fsS --output "$CURL_OUTPUT" "$1"
+}
+
 for _ in $(seq 1 60); do
-  if curl -fsS "$BASE_URL/api/health" >/dev/null 2>&1; then
+  if curl_discard "$BASE_URL/api/health" >/dev/null 2>&1; then
     break
   fi
   sleep 1
 done
 
-curl -fsS "$BASE_URL/api/health" >/dev/null
-curl -fsS "$BASE_URL/" >/dev/null
-curl -fsS "$BASE_URL/settings" >/dev/null
+curl_discard "$BASE_URL/api/health"
+curl_discard "$BASE_URL/"
+curl_discard "$BASE_URL/settings"
 
 FIRST_PDF="$(find "$STAGING_DIR/output/pdfs" -maxdepth 1 -type f -name '*.pdf' | head -n 1 || true)"
 if [[ -n "$FIRST_PDF" ]]; then
@@ -114,7 +120,7 @@ from urllib.parse import quote
 print(quote(os.environ["PDF_NAME"]))
 PY
 )"
-  curl -fsS "$BASE_URL/files/pdfs/$PDF_URL_NAME" >/dev/null
+  curl_discard "$BASE_URL/files/pdfs/$PDF_URL_NAME"
 else
   echo "warning: no bundled PDF found under output/pdfs; skipping PDF route check" >&2
 fi
