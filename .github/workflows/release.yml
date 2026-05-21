@@ -129,6 +129,8 @@ jobs:
     needs: build
     if: startsWith(github.ref, 'refs/tags/')
     steps:
+      - uses: actions/checkout@v6
+
       - name: Download desktop artifacts
         uses: actions/download-artifact@v8
         with:
@@ -136,7 +138,12 @@ jobs:
           path: release-artifacts
           merge-multiple: false
 
+      - name: Prepare release files
+        shell: bash
+        run: bash scripts/packaging/prepare_release_files.sh release-artifacts release-files
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: release-artifacts/**/artifacts/desktop/**
+          files: release-files/*
+          fail_on_unmatched_files: true
