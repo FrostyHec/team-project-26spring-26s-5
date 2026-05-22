@@ -23,14 +23,18 @@ linux:
     - AppImage
     - tar.gz
   category: Education
+  icon: assets/icons/sustech-campus-agent.png
   executableArgs:
     - --no-sandbox
 win:
+  icon: assets/icons/sustech-campus-agent.ico
   target:
     - nsis
 mac:
+  icon: assets/icons/sustech-campus-agent.icns
   target:
     - dmg
     - zip
 directories:
+  buildResources: assets
   output: ../../build/package/artifacts/desktop
