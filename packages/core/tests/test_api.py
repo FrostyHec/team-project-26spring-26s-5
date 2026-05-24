@@ -52,12 +52,12 @@ class TestToolsEndpoint:
         assert response.status_code == 200
         tools = response.json()
         assert isinstance(tools, list)
-        # 4 calculator + 1 weather + 2 widget + 9 deadline
+        # 4 calculator + 1 weather + 1 widget (show_courses) + 9 deadline
         #   + 7 email + 5 course assistant + 4 course recommendation
         #   + 5 campus news + 1 policy_search + 4 agent_memory
         #   + 3 blackboard tools (get_bb_courses, get_bb_course_contents,
         #     download_bb_resources_to_db)
-        assert len(tools) == 45
+        assert len(tools) == 44
         names = {t["name"] for t in tools}
         assert "add" in names
         assert "subtract" in names
@@ -65,7 +65,6 @@ class TestToolsEndpoint:
         assert "divide" in names
         assert "get_weather" in names
         assert "show_courses" in names
-        assert "show_sources" in names
         assert "analyze_document" in names
         assert "read_file" in names
         assert "get_course_catalog" in names

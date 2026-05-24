@@ -52,11 +52,11 @@ class CourseCardsWidgetData(WidgetData):
 #     title: str = ""
 
 
-class SourcesWidgetData(WidgetData):
-    """Payload for the sources/references widget."""
-
-    widget_type: Literal[WidgetType.SOURCES] = WidgetType.SOURCES
-    sources: list[dict[str, Any]] = []
+# class SourcesWidgetData(WidgetData):
+#     """Payload for the sources/references widget."""
+#
+#     widget_type: Literal[WidgetType.SOURCES] = WidgetType.SOURCES
+#     sources: list[dict[str, Any]] = []
 
 
 class PolicySearchWidgetData(WidgetData):
@@ -70,10 +70,7 @@ class PolicySearchWidgetData(WidgetData):
 
 # Discriminated union used by TypeAdapter in the agent for isinstance checks.
 AnyWidgetData = Annotated[
-    CalendarWidgetData
-    | CourseCardsWidgetData
-    | SourcesWidgetData
-    | PolicySearchWidgetData,
+    CalendarWidgetData | CourseCardsWidgetData | PolicySearchWidgetData,
     Field(discriminator="widget_type"),
 ]
 
@@ -137,24 +134,24 @@ def show_courses(courses: str) -> str:
 #     return WebPreviewWidgetData(url=url, title=title or url).model_dump_json()
 
 
-def show_sources(sources: str) -> str:
-    """Display a sources/references widget with highlighted excerpts.
-
-    Args:
-        sources: JSON string of source references. Each source should
-            have 'title', 'content' (excerpt), 'type' (official/article),
-            and optional 'url' fields.
-
-    Returns:
-        Confirmation message with widget display instruction.
-    """
-    try:
-        parsed = json.loads(sources)
-    except (json.JSONDecodeError, TypeError):
-        parsed = [{"title": "Reference", "content": sources, "type": "article"}]
-
-    sources_list = parsed if isinstance(parsed, list) else [parsed]
-    return SourcesWidgetData(sources=sources_list).model_dump_json()
+# def show_sources(sources: str) -> str:
+#     """Display a sources/references widget with highlighted excerpts.
+#
+#     Args:
+#         sources: JSON string of source references. Each source should
+#             have 'title', 'content' (excerpt), 'type' (official/article),
+#             and optional 'url' fields.
+#
+#     Returns:
+#         Confirmation message with widget display instruction.
+#     """
+#     try:
+#         parsed = json.loads(sources)
+#     except (json.JSONDecodeError, TypeError):
+#         parsed = [{"title": "Reference", "content": sources, "type": "article"}]
+#
+#     sources_list = parsed if isinstance(parsed, list) else [parsed]
+#     return SourcesWidgetData(sources=sources_list).model_dump_json()
 
 
 def register_widget_tools(registry: ToolRegistry) -> None:
@@ -181,12 +178,11 @@ def register_widget_tools(registry: ToolRegistry) -> None:
         #     "Display a web page preview widget. Use this to show official "
         #     "university pages, policy documents, or external resources.",
         # ),
-        (
-            show_sources,
-            "Display a sources/references widget with highlighted excerpts. "
-            "Use this to show policy documents, academic references, or news articles "
-            "with key passages highlighted.",
-        ),
+        # (
+        #     show_sources,
+        #     "Display a sources/references widget with highlighted excerpts. "
+        #     "Use this to show policy documents or academic references.",
+        # ),
     ]
 
     for func, description in _tools:

@@ -22,7 +22,6 @@ class TestToolAutoDiscover:
         tool_names = {t.name for t in registry.list_tools()}
         expected_widgets = {
             "show_courses",
-            "show_sources",
         }
         assert expected_widgets.issubset(tool_names)
 

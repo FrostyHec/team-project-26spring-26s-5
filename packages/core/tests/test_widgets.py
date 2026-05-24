@@ -9,11 +9,9 @@ from agent_core.tools.registry import ToolRegistry
 from agent_core.tools.widgets import (
     AnyWidgetData,
     CourseCardsWidgetData,
-    SourcesWidgetData,
     WidgetData,
     register_widget_tools,
     show_courses,
-    show_sources,
 )
 
 _WIDGET_ADAPTER: TypeAdapter[AnyWidgetData] = TypeAdapter(AnyWidgetData)
@@ -97,28 +95,28 @@ class TestShowCourses:
 #         assert result.widget_type == WidgetType.WEB_PREVIEW
 
 
-class TestShowSources:
-    """Tests for the show_sources tool."""
-
-    def test_valid_sources(self) -> None:
-        sources = json.dumps(
-            [
-                {
-                    "title": "Housing Policy 2024",
-                    "content": "Section 4.2: Extended absence...",
-                    "type": "official",
-                }
-            ]
-        )
-        result = _parse_widget(show_sources(sources))
-        assert isinstance(result, SourcesWidgetData)
-        assert result.widget_type == WidgetType.SOURCES
-        assert len(result.sources) == 1
-
-    def test_plain_string_fallback(self) -> None:
-        result = _parse_widget(show_sources("Some reference text"))
-        assert isinstance(result, SourcesWidgetData)
-        assert result.sources[0]["content"] == "Some reference text"
+# class TestShowSources:
+#     """Tests for the show_sources tool."""
+#
+#     def test_valid_sources(self) -> None:
+#         sources = json.dumps(
+#             [
+#                 {
+#                     "title": "Housing Policy 2024",
+#                     "content": "Section 4.2: Extended absence...",
+#                     "type": "official",
+#                 }
+#             ]
+#         )
+#         result = _parse_widget(show_sources(sources))
+#         assert isinstance(result, SourcesWidgetData)
+#         assert result.widget_type == WidgetType.SOURCES
+#         assert len(result.sources) == 1
+#
+#     def test_plain_string_fallback(self) -> None:
+#         result = _parse_widget(show_sources("Some reference text"))
+#         assert isinstance(result, SourcesWidgetData)
+#         assert result.sources[0]["content"] == "Some reference text"
 
 
 class TestRegisterWidgetTools:
@@ -131,7 +129,6 @@ class TestRegisterWidgetTools:
         tool_names = {t.name for t in tools}
         expected = {
             "show_courses",
-            "show_sources",
         }
         assert expected == tool_names
 

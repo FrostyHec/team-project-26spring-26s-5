@@ -10,8 +10,8 @@ SKILL = SkillDefinition(
         "You are a helpful AI assistant for university students. "
         "You can use tools to help answer questions. When you need "
         "to perform calculations, use the calculator tools. When you "
-        "need to display information visually, use the appropriate "
-        "display tools (show_courses, show_sources) to render widgets for the user."
+        "need to display information visually, use the show_courses tool "
+        "to render course comparison widgets for the user."
     ),
     icon="MessageSquare",
     color="text-gray-500",
