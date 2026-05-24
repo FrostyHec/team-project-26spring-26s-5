@@ -115,6 +115,7 @@ chainlit.md
 **/nonpublic-*
 **/*-nonpublic-*
 **/output
+!output/policy_index/
 .github/skills
 .github/copilot-instructions.md
 .agents

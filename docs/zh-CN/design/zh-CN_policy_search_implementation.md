@@ -189,11 +189,32 @@ POLICY_CHUNK_OVERLAP=100
 
 内部脚本入口 `python -m agent_core.policy_search.build_index` 仍保留，用于兼容已有开发流程；它同样读取 `PolicySearchConfig`。
 
-使用前需先构建索引，详见用户指南。
+当前仓库已包含预构建的索引（`output/policy_index/`），clone 后即可使用，无需配置 Embedding API Key。
 
 ---
 
-## 9. 相关文档
+## 9. 数据源
 
-- [用户指南](../user-guide/zh-CN_user_guide.md) — 使用方式与快速开始
+当前索引覆盖 21 份来自南科大教务处的官方 PDF，共 1,667 个向量，涵盖以下类别：
+
+| 类别 | 数量 | 涵盖内容 |
+|------|------|----------|
+| 培养方案 | 5 | 2024/2025 级全专业合集、2022 级通识/航空/信工 |
+| 学籍管理 | 4 | 学籍管理规定、转专业办法、推免管理办法 |
+| 学位与考试 | 2 | 学位授予细则、考试成绩管理条例 |
+| 毕业论文 | 1 | 毕业论文工作若干规定 |
+| 国际交流 | 2 | 学分认定办法、操作指南 |
+| 实践教学 | 4 | 实习管理、实习安全、基地建设、经费管理 |
+| 竞赛与创新 | 3 | 竞赛资助/奖励细则、大创项目管理 |
+
+部分 PDF 为扫描件，已通过 `ocrmypdf -l chi_sim` 进行 OCR 处理后入库。
+
+添加新 PDF 的流程详见 [Policy Search 用户指南](../user-guide/zh-CN_policy_search.md)。
+
+---
+
+## 10. 相关文档
+
+- [Policy Search 用户指南](../user-guide/zh-CN_policy_search.md) — 使用方法、示例问题、添加 PDF 流程
+- [用户指南](../user-guide/zh-CN_user_guide.md) — 环境配置与快速开始
 - [项目结构](../devs/zh-CN_project_structure.md) — 模块目录说明
