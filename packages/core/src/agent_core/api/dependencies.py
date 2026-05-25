@@ -21,6 +21,7 @@ from agent_core.persistence.course_material_store import CourseMaterialStore
 from agent_core.persistence.course_store import CourseStore
 from agent_core.persistence.deadline_store import DeadlineStore
 from agent_core.persistence.email_store import EmailStore
+from agent_core.persistence.news_push_store import NewsPushStore
 from agent_core.persistence.profile_store import ProfileStore
 from agent_core.persistence.session_store import SessionStore
 from agent_core.persistence.wrong_question_store import WrongQuestionStore
@@ -32,6 +33,11 @@ from agent_core.services.alarm_service import AlarmService
 from agent_core.services.conversation_tree_service import ConversationTreeService
 from agent_core.services.email_client import EmailClient
 from agent_core.services.email_service import EmailService
+from agent_core.services.news_push_scheduler import NewsPushScheduler
+from agent_core.services.news_push_service import NewsPushService
+from agent_core.services.news_service import (
+    create_default_news_service,
+)
 from agent_core.services.profile_service import ProfileService
 from agent_core.services.wrong_question_service import WrongQuestionService
 from agent_core.skills import get_system_prompt_for_skill
@@ -52,6 +58,9 @@ _email_service: EmailService | None = None
 _alarm_store: AlarmStore | None = None
 _alarm_service: AlarmService | None = None
 _alarm_scheduler: AlarmScheduler | None = None
+_news_push_store: NewsPushStore | None = None
+_news_push_service: NewsPushService | None = None
+_news_push_scheduler: NewsPushScheduler | None = None
 _config: AgentConfig | None = None
 _llm: ChatOpenAI | None = None
 _course_store: CourseStore | None = None
@@ -183,6 +192,7 @@ async def init_dependencies(config: AgentConfig | None = None) -> None:
     global _email_store, _email_service, _alarm_store, _alarm_service
     global _alarm_scheduler, _config, _course_store, _course_material_store
     global _wrong_question_store, _wrong_question_service
+    global _news_push_store, _news_push_service, _news_push_scheduler
     _config = config or AgentConfig.from_env()
     set_index_dir(PolicySearchConfig.from_env().index_dir)
 
@@ -295,6 +305,44 @@ async def init_dependencies(config: AgentConfig | None = None) -> None:
     _alarm_scheduler = AlarmScheduler(_alarm_service)
     await _alarm_scheduler.start()
 
+    # Daily campus news push subsystem
+    _news_push_store = NewsPushStore(database_file(_config.db_path, "sessions.db"))
+    await _news_push_store.initialize()
+
+    async def _news_push_send_email(subject: str, body: str) -> None:
+        from agent_core.models.email import SendEmailRequest
+
+        profile = await _profile_store.get_profile()
+        if not profile.email_account:
+            raise RuntimeError(
+                "Cannot send news push email: no email account configured in profile"
+            )
+        logger.info("Sending news push email to %s", profile.email_account)
+        await _email_service.send_email(
+            SendEmailRequest(to=profile.email_account, subject=subject, plain_body=body)
+        )
+        logger.info("News push email sent to %s", profile.email_account)
+
+    # Try to construct the shared LLM eagerly for news push report generation.
+    # If no provider is configured we fall through to NewsService's
+    # deterministic fallback report.
+    try:
+        news_push_llm: ChatOpenAI | None = _create_shared_llm(_config)
+    except ValueError as exc:
+        logger.warning(
+            "News push will use fallback report (no LLM configured): %s", exc
+        )
+        news_push_llm = None
+
+    _news_push_service = NewsPushService(
+        store=_news_push_store,
+        news_service=await create_default_news_service(include_mock=False),
+        send_email_fn=_news_push_send_email,
+        llm=news_push_llm,
+    )
+    _news_push_scheduler = NewsPushScheduler(_news_push_service)
+    await _news_push_scheduler.start()
+
     # Delay LLM-dependent construction until a chat/evaluate request needs it.
     _agent = None
     _llm = None
@@ -308,9 +356,17 @@ async def shutdown_dependencies() -> None:
     global _email_store, _email_service, _alarm_store, _alarm_service
     global _alarm_scheduler, _config, _course_store, _course_material_store
     global _wrong_question_store, _wrong_question_service
+    global _news_push_store, _news_push_service, _news_push_scheduler
     if _alarm_scheduler:
         await _alarm_scheduler.stop()
         _alarm_scheduler = None
+    if _news_push_scheduler:
+        await _news_push_scheduler.stop()
+        _news_push_scheduler = None
+    if _news_push_store:
+        await _news_push_store.close()
+        _news_push_store = None
+    _news_push_service = None
     if _alarm_store:
         await _alarm_store.close()
         _alarm_store = None
@@ -533,6 +589,20 @@ def get_alarm_service() -> AlarmService:
     if _alarm_service is None:
         raise RuntimeError("AlarmService not initialized")
     return _alarm_service
+
+
+def get_news_push_service() -> NewsPushService:
+    """FastAPI dependency that provides the NewsPushService.
+
+    Returns:
+        The initialized NewsPushService.
+
+    Raises:
+        RuntimeError: If the service has not been initialized.
+    """
+    if _news_push_service is None:
+        raise RuntimeError("NewsPushService not initialized")
+    return _news_push_service
 
 
 def get_wrong_question_service() -> WrongQuestionService:

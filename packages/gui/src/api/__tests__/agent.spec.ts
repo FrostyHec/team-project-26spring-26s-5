@@ -24,6 +24,8 @@ import {
   updateDeadline,
   createDeadline,
   evaluateQuiz,
+  fetchNewsPushSettings,
+  saveNewsPushSettings,
 } from '../agent'
 
 // Mock global fetch
@@ -753,6 +755,61 @@ describe('API client', () => {
       mockFetch.mockResolvedValue({ ok: false, status: 500 })
 
       await expect(evaluateQuiz(mockQuestions, mockUserAnswers)).rejects.toThrow('API error: 500')
+    })
+  })
+
+  describe('news push settings', () => {
+    const defaultSettings = {
+      enabled: false,
+      push_time: '08:30',
+      limit: 20,
+    }
+
+    it('fetches news push settings', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(defaultSettings),
+      })
+
+      const settings = await fetchNewsPushSettings()
+
+      expect(settings).toEqual(defaultSettings)
+      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/news/push/settings'))
+    })
+
+    it('throws when fetching settings fails', async () => {
+      mockFetch.mockResolvedValue({ ok: false, status: 500 })
+
+      await expect(fetchNewsPushSettings()).rejects.toThrow('API error: 500')
+    })
+
+    it('saves news push settings via PUT', async () => {
+      const payload = {
+        enabled: true,
+        push_time: '09:30',
+        limit: 10,
+      }
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(payload),
+      })
+
+      const saved = await saveNewsPushSettings(payload)
+
+      expect(saved).toEqual(payload)
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/news/push/settings'),
+        expect.objectContaining({
+          method: 'PUT',
+          headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
+        }),
+      )
+    })
+
+    it('throws when saving settings fails', async () => {
+      mockFetch.mockResolvedValue({ ok: false, status: 422 })
+
+      await expect(saveNewsPushSettings(defaultSettings)).rejects.toThrow('API error: 422')
     })
   })
 })

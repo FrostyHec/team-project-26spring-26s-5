@@ -388,9 +388,13 @@ class NewsService:
             )
 
 
-async def create_default_news_service(include_email: bool = True) -> NewsService:
+async def create_default_news_service(
+    include_email: bool = True, include_mock: bool = True
+) -> NewsService:
     """Build a NewsService with all currently available source adapters."""
-    sources: list[NewsSourceAdapter] = [MockNewsSource()]
+    sources: list[NewsSourceAdapter] = []
+    if include_mock:
+        sources.append(MockNewsSource())
     if include_email:
         try:
             from agent_core.persistence.email_provider import get_current_email_service

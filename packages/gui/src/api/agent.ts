@@ -597,6 +597,34 @@ export async function generateCampusNewsReport(
   return response.json()
 }
 
+// ---------- Daily Campus News Push ----------
+
+export interface NewsPushSettings {
+  enabled: boolean
+  push_time: string
+  limit: number
+}
+
+export async function fetchNewsPushSettings(): Promise<NewsPushSettings> {
+  const response = await fetch(`${API_BASE}/news/push/settings`)
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`)
+  }
+  return response.json()
+}
+
+export async function saveNewsPushSettings(settings: NewsPushSettings): Promise<NewsPushSettings> {
+  const response = await fetch(`${API_BASE}/news/push/settings`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(settings),
+  })
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`)
+  }
+  return response.json()
+}
+
 // ---------- Deadlines ----------
 
 /** Date classification for a deadline task (mirrors backend DateType). */

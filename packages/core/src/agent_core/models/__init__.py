@@ -20,6 +20,11 @@ from agent_core.models.news import (
     NewsSourceRef,
     NewsSourceType,
 )
+from agent_core.models.news_push import (
+    NewsPushLogEntry,
+    NewsPushSettings,
+    NewsPushStatus,
+)
 from agent_core.models.session import (
     ChatNodeRecord,
     MessageRecord,
@@ -46,6 +51,9 @@ __all__ = [
     "NewsDigestWidgetData",
     "NewsHighlight",
     "NewsListResponse",
+    "NewsPushLogEntry",
+    "NewsPushSettings",
+    "NewsPushStatus",
     "NewsSourceRef",
     "NewsSourceType",
     "NodeLeafBookmarkRecord",

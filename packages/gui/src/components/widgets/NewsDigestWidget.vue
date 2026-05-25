@@ -15,11 +15,14 @@ import {
 import {
   fetchCampusNews,
   fetchCampusNewsDetail,
+  fetchNewsPushSettings,
   generateCampusNewsReport,
+  saveNewsPushSettings,
   type CampusNewsArticle,
   type CampusNewsArticleDetail,
   type CampusNewsReport,
   type CampusNewsSourceType,
+  type NewsPushSettings,
 } from '@/api/agent'
 
 type NewsSourceFilter = CampusNewsSourceType | 'all'
@@ -60,6 +63,15 @@ const dailyReport = ref<CampusNewsReport | null>(null)
 const selectedReport = ref<CampusNewsReport | null>(null)
 const reportLoading = ref(false)
 const reportError = ref('')
+
+const pushSettings = ref<NewsPushSettings>({
+  enabled: false,
+  push_time: '08:30',
+  limit: 20,
+})
+const pushLoading = ref(false)
+const pushError = ref('')
+const pushStatus = ref('')
 
 const digestHighlights = computed<NewsHighlight[]>(() =>
   Array.isArray(props.data?.highlights) ? (props.data.highlights as NewsHighlight[]) : [],
@@ -258,7 +270,33 @@ function closeDetail(): void {
   detailError.value = ''
 }
 
-onMounted(loadNews)
+async function loadPushSettings(): Promise<void> {
+  pushError.value = ''
+  try {
+    pushSettings.value = await fetchNewsPushSettings()
+  } catch (e) {
+    pushError.value = e instanceof Error ? e.message : 'Failed to load push settings'
+  }
+}
+
+async function savePushConfig(): Promise<void> {
+  pushLoading.value = true
+  pushError.value = ''
+  pushStatus.value = ''
+  try {
+    pushSettings.value = await saveNewsPushSettings(pushSettings.value)
+    pushStatus.value = 'Daily push settings saved.'
+  } catch (e) {
+    pushError.value = e instanceof Error ? e.message : 'Failed to save push settings'
+  } finally {
+    pushLoading.value = false
+  }
+}
+
+onMounted(() => {
+  void loadNews()
+  void loadPushSettings()
+})
 </script>
 
 <template>
@@ -331,6 +369,34 @@ onMounted(loadNews)
               </option>
             </select>
           </label>
+
+          <div class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-3">
+            <div class="flex items-center justify-between gap-3">
+              <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                <input v-model="pushSettings.enabled" type="checkbox" class="h-4 w-4" />
+                Daily email push
+              </label>
+              <input
+                v-model="pushSettings.push_time"
+                type="time"
+                class="rounded-md border border-gray-200 bg-white px-2 py-1 text-sm text-gray-700"
+              />
+            </div>
+
+            <div class="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                class="rounded-md bg-gray-700 px-3 py-1.5 text-xs font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+                :disabled="pushLoading"
+                @click="savePushConfig"
+              >
+                Save Push
+              </button>
+            </div>
+
+            <p v-if="pushStatus" class="mt-2 text-xs text-green-600">{{ pushStatus }}</p>
+            <p v-if="pushError" class="mt-2 text-xs text-red-600">{{ pushError }}</p>
+          </div>
         </div>
 
         <div class="mt-4 flex flex-wrap items-center gap-2">
