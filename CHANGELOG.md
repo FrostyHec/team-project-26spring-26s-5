@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-05-25
+
 - Session Management
     - Refactor `SessionStore` from hand-written `aiosqlite` CRUD to SQLModel async ORM while preserving API behavior
     - Add provider-aware chat retry flow with `provider_switch` and `failed` stream events enabling graceful fallback
