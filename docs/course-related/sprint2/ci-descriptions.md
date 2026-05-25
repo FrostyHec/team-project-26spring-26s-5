@@ -1,5 +1,11 @@
 # CI/CD Pipeline Report
 
+## Success Screenshot
+
+![alt text](image.png)
+
+More are available at our repo's [GitHub Actions Page](https://github.com/sustech-cs304/team-project-26spring-26s-5/actions).
+
 ## Overview
 
 This project implements a comprehensive CI/CD pipeline using **GitHub Actions** as the primary automation platform, supplemented by local tooling via `Taskfile.yml` and `scripts/check.sh`. The pipeline covers code quality enforcement, automated testing, Docker image management, and multi-platform release publishing.
