@@ -66,6 +66,8 @@ dmypy.json
 
 # uv
 uv.lock
+!packages/core/uv.lock
+!packages/cli/uv.lock
 
 # Jupyter Notebook
 .ipynb_checkpoints
