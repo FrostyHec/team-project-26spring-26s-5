@@ -22,17 +22,28 @@ ReAct Agent 核心功能的架构和设计决策。
 
 ## 文档列表
 
-- [已实现功能模块概览](zh-CN_feature_overview.md) — 所有已实现模块的功能概述，涵盖引擎核心、工具系统、API 层、CLI、Vue3 前端
-- [Core 核心引擎实现详解](zh-CN_core_implementation.md) — ReactAgent 类架构、LangGraph 状态图、ToolRegistry 工具系统、FastAPI 服务器、配置管理的深入分析
-- [CLI 实现详解](zh-CN_cli_implementation.md) — argparse 子命令设计、交互式对话循环、服务器启动的实现细节
-- [Vue3 前端实现详解](zh-CN_vue_frontend_implementation.md) — API 客户端层、Pinia 状态管理、ChatView 组件、SSE 解析、Vite 代理配置的实现细节
-- [Sessions 与对话面板设计](sessions/index.md) — discussion panel 增强计划，包括会话树、中断恢复、debug 与多 provider
-- [Think 链路分离计划](think_chain/index.md) — 分析 `think` 如何泄漏到最终回答，并规划后端分流、持久化清洗与回归测试
-- [Agent Memory 设计](agent_memory/index.md) — 多文件 Wiki 路由记忆规划，包含 Markdown Frontmatter 存储、工具接口与测试计划
-- [截止日期管理实现详解](zh-CN_deadline_management.md) — 截止日期功能的后端与前端实现细节
-- [Settings 设置功能实现详解](zh-CN_settings_extension.md) — 用户凭据存储、AES 加密、REST API 设计与前端设置面板架构
-- [Vue I18n 国际化实现详解](zh-CN_i18n_implementation.md) — 中英文双语支持的架构设计、语言包结构、组件接入方式与语言切换机制
-- [Deadline 管理设计](zh-CN_deadline_management.md) — 三层架构参考实现：Controller–Service–Store 分层、SQLModel ORM、类型安全校验
-- [CRUD 开发指南](zh-CN_crud_development_guide.md) — SQLModel 异步 ORM 标准模式、三层校验分工、常见陷阱和检查清单
-- [Email 功能实现详解](zh-CN_email_implementation.md) — IMAP/SMTP 邮件功能全栈实现：数据模型、EmailStore 保留策略、EmailClient 线程模型、懒加载正文、附件两阶段下载、`\Seen` 同步可靠性修复、Vue3 前端
+### 架构与总览
+
+- [功能模块概览](zh-CN_feature_overview.md) — 引擎核心、工具系统、API 层、CLI、Vue3 前端
+- [Core 核心引擎](zh-CN_core_implementation.md) — ReactAgent、LangGraph 状态图、ToolRegistry、FastAPI、配置管理
+- [CLI 实现](zh-CN_cli_implementation.md) — argparse 子命令、交互式对话、服务器启动
+- [Vue3 前端](zh-CN_vue_frontend_implementation.md) — API 客户端、Pinia 状态管理、SSE 解析、Vite 代理
+
+### 功能模块
+
+- [Policy Search (RAG)](zh-CN_policy_search_implementation.md) — PDF 摄取、Embedding、FAISS 索引、检索、来源引用
+- [Deadline Management](deadline_management/zh-CN_deadline_management.md) — 截止日期功能的后端与前端实现
+- [Email](zh-CN_email_implementation.md) — IMAP/SMTP 全栈实现、懒加载正文、附件下载
+- [Sessions 与对话面板](sessions/index.md) — 会话树、中断恢复、debug 与多 provider
+- [Agent Memory](agent_memory/index.md) — 多文件 Wiki 路由记忆、Markdown Frontmatter 存储
+- [Think 链路分离](think_chain/index.md) — think 泄漏分析、后端分流与清洗
+- [Settings](zh-CN_settings_extension.md) — 用户凭据、AES 加密、REST API、前端设置面板
+- [I18n 国际化](zh-CN_i18n_implementation.md) — 中英文双语、语言包结构、语言切换
+
+### 开发参考
+
+- [CRUD 开发指南](zh-CN_crud_development_guide.md) — SQLModel 异步 ORM 标准模式、三层校验
+- [SQLModel 陷阱](zh-CN_sqlmodel_pitfalls.md) — 常见问题与解决方案
+- [数据库存储说明](zh-CN_database_storage_explanation.md) — 存储架构与设计决策
+- [课程存储实现](zh-CN_course_storage_implementation.md) — 课程数据持久化
 - [CI/CD 实践指南](zh-CN_ci_cd_description.md) — GitHub Actions 工作流设计、测试覆盖率分析、自动化部署策略、常见问题和最佳实践
