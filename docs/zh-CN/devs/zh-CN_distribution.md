@@ -144,6 +144,123 @@ server {
 }
 ```
 
+## Docker 单容器镜像
+
+根目录 `Dockerfile` 构建一个同时包含前端和后端的镜像：
+
+1. Node 阶段在 `packages/gui` 中执行 `pnpm build`，生成 Vue 静态文件。
+2. Python/uv 阶段安装 `packages/cli` 和本地 `packages/core`。
+3. 容器运行 `agent-cli serve --static-dir /app/packages/gui/dist`，由后端同源托管前端。
+
+容器内路由结构：
+
+| 路径 | 用途 |
+|------|------|
+| `/` | Vue 前端与 history fallback |
+| `/api/*` | 后端业务 API |
+| `/files/*` | PDF 与文件访问 |
+| `/api/health` | 容器健康检查 |
+
+### 本地构建和运行
+
+```bash
+docker build -t sustech-campus-assistant:local .
+mkdir -p output/docker-data
+docker run --rm \
+  -p 8000:8000 \
+  -v "$(pwd)/output/docker-data:/data" \
+  sustech-campus-assistant:local
+```
+
+启动后访问：
+
+- 前端：`http://localhost:8000`
+- 健康检查：`http://localhost:8000/api/health`
+
+镜像默认环境变量：
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `APP_HOST` | `0.0.0.0` | 容器内监听地址 |
+| `APP_PORT` | `8000` | 容器内监听端口 |
+| `DATA_PATH` | `/data` | 运行时数据根目录 |
+| `DB_PATH` | `/data` | 数据库目录 |
+
+部署时应把 `/data` 挂载到宿主机或持久化卷，否则数据库、日志、LLM 设置和上传文件会随容器删除而丢失。
+镜像启动时会自动修正 `DATA_PATH`/`DB_PATH` 目录所有权，再降权运行后端服务，因此普通 bind mount 目录可直接使用。
+
+### 手动 CI：构建 Docker 镜像产物
+
+`.github/workflows/docker-build.yml` 只通过 `workflow_dispatch` 手动触发，不会在 push/PR 时自动运行。
+
+在 GitHub Actions 页面选择 **Docker Build Artifact**，填写：
+
+| 输入 | 默认值 | 说明 |
+|------|--------|------|
+| `image_name` | `sustech-campus-assistant` | 写入 artifact 的本地镜像名 |
+| `image_tag` | `manual` | `manual` 会自动变成 `manual-<run>-<sha>` |
+| `platform` | `linux/amd64` | 导出 tar 包的单一平台 |
+
+构建成功后会上传名为 `sustech-campus-assistant-docker-image` 的 artifact，里面包含：
+
+- `docker-image.tar.gz`：可离线加载的 Docker 镜像归档
+- `image-metadata.env`：镜像名、tag、commit 和 run id
+
+本地加载示例：
+
+```bash
+gh run download <run-id> \
+  -n sustech-campus-assistant-docker-image \
+  -D docker-image
+gunzip -c docker-image/docker-image.tar.gz | docker load
+```
+
+### 手动 CI：推送 DockerHub
+
+`.github/workflows/docker-publish.yml` 也只通过 `workflow_dispatch` 手动触发，用于把镜像推送到 Docker Hub。
+
+先在 Docker Hub 创建 Personal Access Token。Docker 官方文档建议 CI/CD 使用 access token，不要把 Docker Hub 账号明文密码写入仓库或 workflow。token 至少需要可向目标仓库 push 的写权限；如果使用组织命名空间，也可以按组织策略使用 organization access token。
+
+然后在 GitHub 仓库中设置 Actions secrets：
+
+| Secret | 值 |
+|--------|----|
+| `DOCKERHUB_USERNAME` | Docker Hub 登录用户名 |
+| `DOCKERHUB_TOKEN` | Docker Hub Personal Access Token |
+
+设置入口：
+
+1. 打开 GitHub 仓库 `Settings`。
+2. 进入 `Secrets and variables` → `Actions`。
+3. 在 `Secrets` 页签点击 `New repository secret`。
+4. 分别新增上表两个 secret。
+
+推送 workflow 输入：
+
+| 输入 | 说明 |
+|------|------|
+| `dockerhub_namespace` | Docker Hub namespace，通常是用户名或组织名 |
+| `image_name` | Docker Hub 仓库名，默认 `sustech-campus-assistant` |
+| `image_tag` | Docker Hub tag；`manual` 会自动变成 `manual-<run>-<sha>` |
+| `push_latest` | 是否额外推送 `latest` |
+| `artifact_run_id` | 可选；填写 Docker Build Artifact 的 run id 时，会下载该 run 的镜像 artifact 后推送 |
+| `platform` | 未填写 `artifact_run_id` 时重建使用的平台 |
+
+两种使用方式：
+
+- 推送已有产物：先运行 **Docker Build Artifact**，复制该 run 的 run id，再运行 **Docker Publish to Docker Hub** 并填写 `artifact_run_id`。
+- 直接重建并推送：运行 **Docker Publish to Docker Hub** 时留空 `artifact_run_id`。
+
+推送成功后可运行：
+
+```bash
+docker pull <dockerhub_namespace>/sustech-campus-assistant:<tag>
+docker run --rm \
+  -p 8000:8000 \
+  -v "$(pwd)/output/docker-data:/data" \
+  <dockerhub_namespace>/sustech-campus-assistant:<tag>
+```
+
 ## 桌面应用与本地 Web 打包
 
 当前桌面分发采用：

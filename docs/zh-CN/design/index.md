@@ -35,3 +35,4 @@ ReAct Agent 核心功能的架构和设计决策。
 - [Deadline 管理设计](zh-CN_deadline_management.md) — 三层架构参考实现：Controller–Service–Store 分层、SQLModel ORM、类型安全校验
 - [CRUD 开发指南](zh-CN_crud_development_guide.md) — SQLModel 异步 ORM 标准模式、三层校验分工、常见陷阱和检查清单
 - [Email 功能实现详解](zh-CN_email_implementation.md) — IMAP/SMTP 邮件功能全栈实现：数据模型、EmailStore 保留策略、EmailClient 线程模型、懒加载正文、附件两阶段下载、`\Seen` 同步可靠性修复、Vue3 前端
+- [CI/CD 实践指南](zh-CN_ci_cd_description.md) — GitHub Actions 工作流设计、测试覆盖率分析、自动化部署策略、常见问题和最佳实践

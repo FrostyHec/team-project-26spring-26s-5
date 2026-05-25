@@ -1,0 +1,133 @@
+name: Docker Publish to Docker Hub
+
+on:
+  workflow_dispatch:
+    inputs:
+      dockerhub_namespace:
+        description: "Docker Hub namespace, usually your username or organization"
+        required: true
+      image_name:
+        description: "Docker Hub repository name"
+        required: true
+        default: "sustech-campus-assistant"
+      image_tag:
+        description: "Docker Hub tag; use manual to auto-generate manual-<run>-<sha>"
+        required: true
+        default: "manual"
+      push_latest:
+        description: "Also push the latest tag"
+        required: true
+        type: boolean
+        default: false
+      artifact_run_id:
+        description: "Optional run ID from Docker Build Artifact; leave empty to rebuild and push"
+        required: false
+        default: ""
+      platform:
+        description: "Target platform when rebuilding; ignored when loading an artifact"
+        required: true
+        default: "linux/amd64"
+
+concurrency:
+  group: docker-publish-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  publish:
+    name: Publish Docker Image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Resolve target image metadata
+        shell: bash
+        env:
+          DOCKERHUB_NAMESPACE: ${{ inputs.dockerhub_namespace }}
+          IMAGE_NAME: ${{ inputs.image_name }}
+          INPUT_IMAGE_TAG: ${{ inputs.image_tag }}
+          PUSH_LATEST: ${{ inputs.push_latest }}
+        run: |
+          set -euo pipefail
+          image_tag="$INPUT_IMAGE_TAG"
+          if [ "$image_tag" = "manual" ]; then
+            image_tag="manual-${GITHUB_RUN_NUMBER}-${GITHUB_SHA::7}"
+          fi
+          image_repository="docker.io/${DOCKERHUB_NAMESPACE}/${IMAGE_NAME}"
+
+          {
+            echo "TARGET_REPOSITORY=$image_repository"
+            echo "TARGET_TAG=$image_tag"
+            echo "TARGET_IMAGE_REF=${image_repository}:${image_tag}"
+            echo "DOCKER_TAGS<<EOF"
+            echo "${image_repository}:${image_tag}"
+            if [ "$PUSH_LATEST" = "true" ]; then
+              echo "${image_repository}:latest"
+            fi
+            echo "EOF"
+          } >> "$GITHUB_ENV"
+
+      - name: Set up Docker Buildx
+        if: inputs.artifact_run_id == ''
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Rebuild and push image
+        if: inputs.artifact_run_id == ''
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: ${{ inputs.platform }}
+          push: true
+          tags: ${{ env.DOCKER_TAGS }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Download image artifact
+        if: inputs.artifact_run_id != ''
+        uses: actions/download-artifact@v8
+        with:
+          name: sustech-campus-assistant-docker-image
+          path: docker-image
+          run-id: ${{ inputs.artifact_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Load artifact and push image
+        if: inputs.artifact_run_id != ''
+        shell: bash
+        env:
+          PUSH_LATEST: ${{ inputs.push_latest }}
+        run: |
+          set -euo pipefail
+          . docker-image/image-metadata.env
+          gunzip -c docker-image/docker-image.tar.gz | docker load
+          docker tag "$IMAGE_REF" "$TARGET_IMAGE_REF"
+          docker push "$TARGET_IMAGE_REF"
+          if [ "$PUSH_LATEST" = "true" ]; then
+            docker tag "$IMAGE_REF" "${TARGET_REPOSITORY}:latest"
+            docker push "${TARGET_REPOSITORY}:latest"
+          fi
+
+      - name: Write summary
+        shell: bash
+        run: |
+          {
+            echo "### Docker Hub publish"
+            echo ""
+            echo "- Repository: \`$TARGET_REPOSITORY\`"
+            echo "- Primary tag: \`$TARGET_TAG\`"
+            if [ "${{ inputs.artifact_run_id }}" != "" ]; then
+              echo "- Source artifact run ID: \`${{ inputs.artifact_run_id }}\`"
+            else
+              echo "- Source: rebuilt from repository checkout"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
