@@ -261,9 +261,119 @@ def _parse_requested_ids(course_ids_json: str) -> list[str]:
     return [str(item).strip() for item in raw_ids if str(item).strip()]
 
 
+_COMPLETION_KEYWORDS: tuple[str, ...] = (
+    "completed",
+    "taken",
+    "finished",
+    "passed",
+    "已修",  # nosemgrep
+    "已完成",  # nosemgrep
+    "修过",  # nosemgrep
+    "上过",  # nosemgrep
+    "学过",  # nosemgrep
+)
+_RECOMMEND_KEYWORDS: tuple[str, ...] = (
+    "recommend",
+    "want",
+    "plan",
+    "target",
+    "path",
+    "interest",
+    "推荐",  # nosemgrep
+    "想学",  # nosemgrep
+    "目标",  # nosemgrep
+    "计划",  # nosemgrep
+    "路径",  # nosemgrep
+    "意向",  # nosemgrep
+    "感兴趣",  # nosemgrep
+)
+_COMPLETION_PROXIMITY_WINDOW = 80
+_COURSE_CODE_PATTERN = re.compile(r"\b[A-Z]{2,5}\d{2,4}\b")
+
+
 def _completed_codes(completed_courses: str, memory_text: str = "") -> set[str]:
-    text = f"{completed_courses} {memory_text}"
-    return {item.upper() for item in re.findall(r"\b[A-Z]{2,5}\d{2,4}\b", text)}
+    """Return course codes the student has already finished.
+
+    The explicit ``completed_courses`` parameter is authoritative: every code
+    appearing there is treated as completed. For ``memory_text`` we only mark a
+    code as completed when the nearest keyword within
+    ``_COMPLETION_PROXIMITY_WINDOW`` characters is a completion phrase rather
+    than a recommendation phrase. This prevents memory entries listing target
+    or recommended courses from being mis-read as already taken.
+    """
+    explicit = {m.upper() for m in _COURSE_CODE_PATTERN.findall(completed_courses)}
+    return explicit | _completed_codes_from_memory(memory_text)
+
+
+def _completed_codes_from_memory(text: str) -> set[str]:
+    if not text:
+        return set()
+    completed: set[str] = set()
+    section_is_completed: bool | None = None
+    for raw_line in text.splitlines():
+        line_lower = raw_line.lower()
+        stripped = raw_line.lstrip()
+        if stripped.startswith("#"):
+            heading = stripped.lstrip("#").strip().lower()
+            has_completion = any(kw in heading for kw in _COMPLETION_KEYWORDS)
+            has_recommend = any(kw in heading for kw in _RECOMMEND_KEYWORDS)
+            if has_completion and not has_recommend:
+                section_is_completed = True
+            elif has_recommend and not has_completion:
+                section_is_completed = False
+            else:
+                section_is_completed = None
+            continue
+        line_has_completion = any(kw in line_lower for kw in _COMPLETION_KEYWORDS)
+        line_has_recommend = any(kw in line_lower for kw in _RECOMMEND_KEYWORDS)
+        if line_has_completion and line_has_recommend:
+            completed.update(_codes_by_proximity(raw_line))
+            continue
+        if line_has_completion:
+            line_classification: bool | None = True
+        elif line_has_recommend:
+            line_classification = False
+        else:
+            line_classification = section_is_completed
+        if line_classification is True:
+            completed.update(
+                m.group(0).upper() for m in _COURSE_CODE_PATTERN.finditer(raw_line)
+            )
+    return completed
+
+
+def _codes_by_proximity(line: str) -> set[str]:
+    """For a line that mentions both completion and recommendation phrases,
+    classify each code by which keyword is closer."""
+    lower = line.lower()
+    completion_hits = [
+        m.start()
+        for kw in _COMPLETION_KEYWORDS
+        for m in re.finditer(re.escape(kw), lower)
+    ]
+    recommend_hits = [
+        m.start()
+        for kw in _RECOMMEND_KEYWORDS
+        for m in re.finditer(re.escape(kw), lower)
+    ]
+    completed: set[str] = set()
+    for code_match in _COURSE_CODE_PATTERN.finditer(line):
+        pos = code_match.start()
+        best_distance = _COMPLETION_PROXIMITY_WINDOW + 1
+        nearest_is_completion = False
+        for kw_pos in completion_hits:
+            distance = abs(kw_pos - pos)
+            if distance <= _COMPLETION_PROXIMITY_WINDOW and distance < best_distance:
+                best_distance = distance
+                nearest_is_completion = True
+        for kw_pos in recommend_hits:
+            distance = abs(kw_pos - pos)
+            if distance <= _COMPLETION_PROXIMITY_WINDOW and distance < best_distance:
+                best_distance = distance
+                nearest_is_completion = False
+        if nearest_is_completion:
+            completed.add(code_match.group(0).upper())
+    return completed
 
 
 def _infer_department(value: str) -> str:
@@ -274,12 +384,53 @@ def _infer_department(value: str) -> str:
     return ""
 
 
+_LANGUAGE_PREFERENCE_KEYWORDS: tuple[str, ...] = (
+    "prefer",
+    "preferred",
+    "preference",
+    "comfortable",
+    "accept",
+    "want",
+    "open to",
+    "偏好",  # nosemgrep
+    "喜欢",  # nosemgrep
+    "倾向",  # nosemgrep
+    "接受",  # nosemgrep
+    "习惯",  # nosemgrep
+    "希望",  # nosemgrep
+)
+_LANGUAGE_PREFERENCE_WINDOW = 40
+
+
 def _infer_language(value: str) -> str:
-    lowered = _normalize(value)
+    """Infer a language preference from free text.
+
+    Returns the language whose alias appears closest to an explicit preference
+    phrase. If no preference phrase is present, returns an empty string —
+    descriptive mentions of a language must not be treated as a user
+    preference.
+    """
+    lower = _normalize(value)
+    if not lower:
+        return ""
+    pref_hits = [
+        m.start()
+        for kw in _LANGUAGE_PREFERENCE_KEYWORDS
+        for m in re.finditer(re.escape(kw), lower)
+    ]
+    if not pref_hits:
+        return ""
+    best_distance = _LANGUAGE_PREFERENCE_WINDOW + 1
+    best_language = ""
     for language, aliases in _LANGUAGE_ALIASES.items():
-        if any(alias in lowered for alias in aliases):
-            return language
-    return ""
+        for alias in aliases:
+            for alias_match in re.finditer(re.escape(alias), lower):
+                alias_pos = alias_match.start()
+                distance = min(abs(p - alias_pos) for p in pref_hits)
+                if distance <= _LANGUAGE_PREFERENCE_WINDOW and distance < best_distance:
+                    best_distance = distance
+                    best_language = language
+    return best_language
 
 
 def _schedule_penalties(value: str) -> list[str]:
@@ -354,7 +505,7 @@ def _score_course(
     reasons: list[str] = []
     search_text = _course_search_text(course)
 
-    for term in _expand_terms(f"{interests} {memory_text}"):
+    for term in _expand_terms(interests):
         if term in search_text:
             score += 3
             reasons.append(f"matches interest '{term}'")
@@ -543,10 +694,40 @@ def compare_courses(course_ids_json: str) -> str:
 _TOOL_DESCRIPTIONS: list[tuple[Any, str, ToolSensitivity]] = [
     (
         get_course_catalog,
-        "Search the packaged course catalog. Optional filters: keyword, "
-        "department, instructor, course_type, course_language, min_credits, "
-        "max_credits, and limit. Returns class id, course code, name, credits, "
-        "instructor, schedule, quota, type, and language fields.",
+        "Search the packaged course catalog by substring match against the "
+        "catalog's Chinese text fields.\n\n"
+        "PARAMETERS — only pass a filter if you are confident its value matches "
+        "the catalog's exact wording. When in doubt, pass ONLY 'keyword' (and "
+        "optionally 'limit'); extra filters that do not match the catalog will "
+        "silently return [].\n\n"
+        "- keyword: free text matched against class name, course code, "
+        "department, instructor, schedule, type, and language. Catalog "
+        "content is Chinese, so prefer Chinese keywords "
+        "(e.g. '深度学习', '人工智能'); common English aliases like "  # nosemgrep
+        "'machine learning' are mapped via synonyms, but rare English "
+        "terms may miss.\n"
+        "- department: must be the FULL Chinese department name as it appears "
+        "in the catalog, e.g. '计算机科学与工程系', '电子与电气工程系', "  # nosemgrep
+        "'数学系', '统计与数据科学系'. Do NOT pass shortened forms like "  # nosemgrep
+        "'计算机系', 'CS', or English names.\n"  # nosemgrep
+        "- course_type: one of '专业核心课', '专业基础课', "  # nosemgrep
+        "'专业必修课', '专业选修课', '专业导论类', "  # nosemgrep
+        "'通识必修课', '通识选修课', '人文类', '社科类', "  # nosemgrep
+        "'美育类', '外语类', '实践', '培养环节'. "  # nosemgrep
+        "Do NOT pass values like '研究生课程', '本科', "  # nosemgrep
+        "'graduate', 'undergraduate' — they are not "
+        "course types and will return [].\n"
+        "- level: alias for course_type. Same constraints apply. To filter for "
+        "undergraduate vs graduate courses, do NOT use this — look at the "
+        "ug_quota / pg_quota fields in the returned results instead.\n"
+        "- course_language: one of '中文', '英文', '双语'. "  # nosemgrep
+        "Other values return [].\n"
+        "- instructor: instructor name (Chinese).\n"
+        "- min_credits / max_credits: numeric credit range.\n"
+        "- limit: max results (default 5).\n\n"
+        "Returns class id, course code, name, credits, instructor, schedule, "
+        "ug_quota, pg_quota, type, and language. ug_quota=0 means the course "
+        "is graduate-only; pg_quota=0 means undergraduate-only.",
         ToolSensitivity.SAFE,
     ),
     (
