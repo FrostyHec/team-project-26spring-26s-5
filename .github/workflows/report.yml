@@ -39,7 +39,7 @@ jobs:
       # repo for path resolution, but does not need the actual PR code.
       # SECURITY: Never checkout fork code in a privileged workflow_run context.
       - name: Checkout base repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: main
           fetch-depth: 1

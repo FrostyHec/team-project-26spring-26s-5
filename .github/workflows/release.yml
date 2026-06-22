@@ -33,7 +33,7 @@ jobs:
       HAS_EMBEDDING_API_KEY: ${{ secrets.EMBEDDING_API_KEY != '' }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Resolve release version
         shell: bash
@@ -129,7 +129,7 @@ jobs:
     needs: build
     if: startsWith(github.ref, 'refs/tags/')
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Download desktop artifacts
         uses: actions/download-artifact@v8
